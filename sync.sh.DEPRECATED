@@ -1,0 +1,46 @@
+#!/bin/bash
+# ==================================================================================
+# DEPRECATED - DO NOT USE
+# ==================================================================================
+#
+# This script has been DEPRECATED in favor of Databricks Asset Bundle (DAB).
+#
+# This sync script was uploading files to:
+#   /Workspace/Users/${USER_EMAIL}/account_monitor
+#
+# But it created confusion because DAB manages deployments differently and
+# the two methods were not aligned, causing files to appear in different locations.
+#
+# ==================================================================================
+# USE DATABRICKS ASSET BUNDLE INSTEAD
+# ==================================================================================
+#
+# To deploy your account monitor, use:
+#
+#   databricks bundle deploy --target dev
+#
+# This will:
+# - Deploy to: /Workspace/Users/${USER}/account_monitor
+# - Sync all files from notebooks/, docs/, sql/ directories
+# - Deploy all jobs defined in resources/jobs.yml
+# - Keep everything in sync automatically
+#
+# To validate deployment:
+#   databricks bundle validate
+#
+# To deploy and run:
+#   databricks bundle deploy --target dev
+#   databricks bundle run account_monitor_setup --target dev
+#
+# For more information, see:
+#   docs/DAB_README.md
+#
+# ==================================================================================
+
+echo "ERROR: This script is DEPRECATED"
+echo ""
+echo "Please use Databricks Asset Bundle instead:"
+echo "  databricks bundle deploy --target dev"
+echo ""
+echo "See docs/DAB_README.md for more information"
+exit 1

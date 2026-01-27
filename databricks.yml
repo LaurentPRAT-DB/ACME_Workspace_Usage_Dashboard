@@ -33,7 +33,7 @@ targets:
     mode: development
     default: true
     workspace:
-      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor
     variables:
       catalog: main
       schema: account_monitoring_dev
@@ -42,7 +42,7 @@ targets:
   prod:
     mode: production
     workspace:
-      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor
     variables:
       catalog: main
       schema: account_monitoring
@@ -61,11 +61,11 @@ permissions:
 sync:
   # Include these paths for syncing
   include:
-    - "*.py"
-    - "*.sql"
-    - "*.md"
-    - "*.yml"
+    - "notebooks/**"
+    - "docs/**"
+    - "sql/**"
     - "*.json"
+    - "*.yml"
 
   # Exclude these patterns
   exclude:
@@ -78,3 +78,6 @@ sync:
     - "*.log"
     - .databricks
     - "*.bak"
+    - sync.sh
+    - sync_to_workspace.py
+    - resources/**
