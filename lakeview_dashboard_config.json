@@ -1,0 +1,167 @@
+{
+  "dashboard_name": "Account Monitor - Cost & Usage Tracking",
+  "description": "Comprehensive cost and usage tracking using Databricks system tables",
+  "datasets": [
+    {
+      "name": "dashboard_data",
+      "query": "SELECT * FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)"
+    },
+    {
+      "name": "account_overview",
+      "query": "SELECT COUNT(DISTINCT sku_name) as top_sku_count, COUNT(DISTINCT workspace_id) as top_workspace_count, MAX(usage_date) as latest_date FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)"
+    },
+    {
+      "name": "data_freshness",
+      "query": "SELECT 'Consumption' as source, MAX(usage_date) as latest_date, CASE WHEN DATEDIFF(CURRENT_DATE(), MAX(usage_date)) <= 2 THEN 'True' ELSE 'False' END as verified FROM system.billing.usage UNION ALL SELECT 'Metrics' as source, MAX(usage_date) as latest_date, CASE WHEN DATEDIFF(CURRENT_DATE(), MAX(usage_date)) <= 2 THEN 'True' ELSE 'False' END as verified FROM system.billing.usage"
+    },
+    {
+      "name": "total_spend",
+      "query": "SELECT customer_name, cloud_provider as cloud, MIN(usage_date) as start_date, MAX(usage_date) as end_date, ROUND(SUM(usage_quantity), 3) as dbu, ROUND(SUM(actual_cost), 2) as total_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY customer_name, cloud_provider"
+    },
+    {
+      "name": "contracts",
+      "query": "SELECT cloud_provider as platform, contract_id, start_date, end_date, commitment as total_value, total_consumed as consumed, consumed_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY consumed_pct DESC"
+    },
+    {
+      "name": "contract_burndown",
+      "query": "SELECT contract_id, CONCAT(contract_id, ' ($', FORMAT_NUMBER(commitment, 0), ')') as contract_label, usage_date, cumulative_cost as actual_consumption, projected_linear_burn as ideal_consumption, commitment as contract_value, remaining_budget, budget_pct_consumed FROM main.account_monitoring_dev.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180) ORDER BY contract_id, usage_date"
+    },
+    {
+      "name": "contract_summary",
+      "query": "SELECT * FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 ELSE 3 END, consumed_pct DESC"
+    },
+    {
+      "name": "monthly_trend",
+      "query": "SELECT DATE_TRUNC('MONTH', usage_date) as month, cloud_provider, ROUND(SUM(usage_quantity), 2) as monthly_dbu, ROUND(SUM(COALESCE(usage_metadata.total_price, 0)), 2) as monthly_cost, COUNT(DISTINCT workspace_id) as active_workspaces FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date), cloud_provider"
+    },
+    {
+      "name": "top_workspaces",
+      "query": "SELECT workspace_id, cloud_provider, COUNT(DISTINCT sku_name) as sku_count, ROUND(SUM(usage_quantity), 2) as total_dbu, ROUND(SUM(COALESCE(usage_metadata.total_price, 0)), 2) as total_cost FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90) GROUP BY workspace_id, cloud_provider ORDER BY total_cost DESC LIMIT 10"
+    },
+    {
+      "name": "top_skus",
+      "query": "SELECT sku_name, cloud_provider, usage_unit, ROUND(SUM(usage_quantity), 2) as total_usage, ROUND(SUM(COALESCE(usage_metadata.total_price, 0)), 2) as total_cost, COUNT(DISTINCT workspace_id) as workspace_count FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90) GROUP BY sku_name, cloud_provider, usage_unit ORDER BY total_cost DESC LIMIT 10"
+    },
+    {
+      "name": "product_category",
+      "query": "SELECT DATE_TRUNC('MONTH', usage_date) as month, CASE WHEN sku_name LIKE '%ALL_PURPOSE%' THEN 'All Purpose Compute' WHEN sku_name LIKE '%JOBS%' THEN 'Jobs Compute' WHEN sku_name LIKE '%DLT%' OR sku_name LIKE '%DELTA_LIVE_TABLES%' THEN 'Delta Live Tables' WHEN sku_name LIKE '%SQL%' THEN 'SQL Warehouse' WHEN sku_name LIKE '%INFERENCE%' OR sku_name LIKE '%MODEL_SERVING%' THEN 'Model Serving' WHEN sku_name LIKE '%VECTOR_SEARCH%' THEN 'Vector Search' WHEN sku_name LIKE '%SERVERLESS%' THEN 'Serverless' ELSE 'Other' END as category, cloud_provider, ROUND(SUM(COALESCE(usage_metadata.total_price, 0)), 2) as total_cost FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date), category, cloud_provider"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Account Overview",
+      "layout": [
+        {
+          "component": "counter",
+          "title": "Top SKU Count",
+          "dataset": "account_overview",
+          "field": "top_sku_count",
+          "position": {"x": 0, "y": 0, "w": 3, "h": 2}
+        },
+        {
+          "component": "counter",
+          "title": "Top Workspace Count",
+          "dataset": "account_overview",
+          "field": "top_workspace_count",
+          "position": {"x": 3, "y": 0, "w": 3, "h": 2}
+        },
+        {
+          "component": "table",
+          "title": "Latest Data Dates",
+          "dataset": "data_freshness",
+          "position": {"x": 6, "y": 0, "w": 6, "h": 4}
+        },
+        {
+          "component": "table",
+          "title": "Total Spend in Timeframe",
+          "dataset": "total_spend",
+          "position": {"x": 0, "y": 4, "w": 12, "h": 6}
+        },
+        {
+          "component": "table",
+          "title": "Contract Summary",
+          "dataset": "contract_summary",
+          "position": {"x": 0, "y": 10, "w": 12, "h": 4}
+        },
+        {
+          "component": "line_chart",
+          "title": "Contract Burndown - Actual vs Ideal",
+          "dataset": "contract_burndown",
+          "x_axis": "usage_date",
+          "y_axis": ["actual_consumption", "ideal_consumption", "contract_value"],
+          "series": "contract_label",
+          "legend": true,
+          "description": "Shows cumulative spend (blue), ideal linear burn (green), and total contract value (horizontal line)",
+          "position": {"x": 0, "y": 14, "w": 12, "h": 8}
+        }
+      ]
+    },
+    {
+      "name": "Usage Analytics",
+      "layout": [
+        {
+          "component": "bar_chart",
+          "title": "Monthly Cost Trend",
+          "dataset": "monthly_trend",
+          "x_axis": "month",
+          "y_axis": "monthly_cost",
+          "series": "cloud_provider",
+          "position": {"x": 0, "y": 0, "w": 12, "h": 6}
+        },
+        {
+          "component": "table",
+          "title": "Top Consuming Workspaces",
+          "dataset": "top_workspaces",
+          "position": {"x": 0, "y": 6, "w": 6, "h": 6}
+        },
+        {
+          "component": "table",
+          "title": "Top Consuming SKUs",
+          "dataset": "top_skus",
+          "position": {"x": 6, "y": 6, "w": 6, "h": 6}
+        },
+        {
+          "component": "stacked_area_chart",
+          "title": "Cost by Product Category",
+          "dataset": "product_category",
+          "x_axis": "month",
+          "y_axis": "total_cost",
+          "series": "category",
+          "position": {"x": 0, "y": 12, "w": 12, "h": 6}
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "name": "date_range",
+      "type": "date_range",
+      "default": "Last 12 months",
+      "applies_to": ["dashboard_data", "monthly_trend", "product_category"]
+    },
+    {
+      "name": "cloud_provider",
+      "type": "multi_select",
+      "field": "cloud_provider",
+      "dataset": "dashboard_data",
+      "applies_to": ["all"]
+    },
+    {
+      "name": "workspace_id",
+      "type": "multi_select",
+      "field": "workspace_id",
+      "dataset": "dashboard_data",
+      "applies_to": ["all"]
+    }
+  ],
+  "refresh_schedule": {
+    "frequency": "daily",
+    "time": "02:00",
+    "timezone": "UTC"
+  },
+  "permissions": {
+    "can_view": ["all_users"],
+    "can_edit": ["account_admins"],
+    "can_manage": ["account_admins"]
+  }
+}

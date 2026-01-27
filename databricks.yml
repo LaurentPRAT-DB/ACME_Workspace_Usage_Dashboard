@@ -1,0 +1,80 @@
+# Databricks Asset Bundle Configuration
+# Account Monitor - Cost and Usage Tracking
+
+bundle:
+  name: account_monitor
+
+# Use the LPT_FREE_EDITION CLI profile
+workspace:
+  profile: LPT_FREE_EDITION
+
+# Variables that can be overridden per environment
+variables:
+  catalog:
+    description: Unity Catalog name for tables
+    default: main
+
+  schema:
+    description: Schema name for account monitoring tables
+    default: account_monitoring
+
+  warehouse_id:
+    description: SQL Warehouse ID (serverless or provisioned)
+    default: "58d41113cb262dce"  # Serverless Starter Warehouse
+
+# Include configuration files
+include:
+  - resources/*.yml
+
+# Deployment targets
+targets:
+  # Development environment
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: main
+      schema: account_monitoring_dev
+
+  # Production environment
+  prod:
+    mode: production
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: main
+      schema: account_monitoring
+
+    # Production validation
+    run_as:
+      # Run jobs as service principal in production
+      service_principal_name: account_monitor_sp
+
+# Permissions
+permissions:
+  - level: CAN_MANAGE
+    user_name: ${workspace.current_user.userName}
+
+# Sync configuration for development
+sync:
+  # Include these paths for syncing
+  include:
+    - "*.py"
+    - "*.sql"
+    - "*.md"
+    - "*.yml"
+    - "*.json"
+
+  # Exclude these patterns
+  exclude:
+    - .git
+    - .venv
+    - __pycache__
+    - "*.pyc"
+    - .env
+    - .DS_Store
+    - "*.log"
+    - .databricks
+    - "*.bak"

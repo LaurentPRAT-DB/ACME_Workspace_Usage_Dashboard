@@ -1,0 +1,189 @@
+# Job definitions for Account Monitor
+# Uses SQL Warehouse (can be serverless or provisioned)
+
+resources:
+  jobs:
+    # Setup job - Creates Unity Catalog tables
+    account_monitor_setup:
+      name: "[${bundle.target}] Account Monitor - Setup"
+      description: "Creates Unity Catalog schema and tables for account monitoring"
+
+      tasks:
+        - task_key: create_schema
+          description: "Create Unity Catalog schema and tables"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/setup_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: insert_sample_data
+          description: "Insert sample account metadata and contracts"
+          depends_on:
+            - task_key: create_schema
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/insert_sample_data.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+
+    # Daily refresh job
+    account_monitor_daily_refresh:
+      name: "[${bundle.target}] Account Monitor - Daily Refresh"
+      description: "Daily refresh of dashboard data from system tables"
+
+      tasks:
+        - task_key: refresh_dashboard_data
+          description: "Refresh dashboard data table"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/refresh_dashboard_data.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          timeout_seconds: 3600
+
+        - task_key: refresh_contract_burndown
+          description: "Refresh contract burndown data"
+          depends_on:
+            - task_key: refresh_dashboard_data
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/refresh_contract_burndown.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: optimize_tables
+          description: "Optimize dashboard tables"
+          depends_on:
+            - task_key: refresh_contract_burndown
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/optimize_tables.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: check_data_freshness
+          description: "Validate data freshness"
+          depends_on:
+            - task_key: optimize_tables
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/check_data_freshness.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM
+        timezone_id: "UTC"
+        pause_status: UNPAUSED
+
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        schedule: daily
+
+    # Weekly contract review job
+    account_monitor_weekly_review:
+      name: "[${bundle.target}] Account Monitor - Weekly Review"
+      description: "Weekly contract consumption and cost analysis"
+
+      tasks:
+        - task_key: contract_analysis
+          description: "Analyze contract consumption"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/contract_analysis.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: cost_anomalies
+          description: "Check for cost anomalies"
+          depends_on:
+            - task_key: contract_analysis
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/cost_anomalies.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: top_consumers
+          description: "Identify top consuming resources"
+          depends_on:
+            - task_key: cost_anomalies
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/top_consumers.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      schedule:
+        quartz_cron_expression: "0 0 8 ? * MON"  # Every Monday at 8 AM
+        timezone_id: "UTC"
+        pause_status: UNPAUSED
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        schedule: weekly
+
+    # Monthly summary job
+    account_monitor_monthly_summary:
+      name: "[${bundle.target}] Account Monitor - Monthly Summary"
+      description: "Monthly cost and usage summary report"
+
+      tasks:
+        - task_key: monthly_summary
+          description: "Generate monthly summary"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/monthly_summary.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: archive_old_data
+          description: "Archive data older than 2 years"
+          depends_on:
+            - task_key: monthly_summary
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/archive_old_data.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      schedule:
+        quartz_cron_expression: "0 0 6 1 * ?"  # First day of month at 6 AM
+        timezone_id: "UTC"
+        pause_status: UNPAUSED
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        schedule: monthly
