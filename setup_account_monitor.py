@@ -6,6 +6,8 @@ Automates the creation of custom tables and initial data population
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import *
 import sys
+import yaml
+import os
 from datetime import datetime, timedelta
 
 def create_database(w: WorkspaceClient, catalog: str = "hive_metastore"):
@@ -155,6 +157,123 @@ def create_dashboard_data_table(w: WorkspaceClient):
         return False
 
     return True
+
+
+def create_config_table(w: WorkspaceClient):
+    """Create the configuration table"""
+    print("Creating table: account_monitoring.config")
+
+    try:
+        w.api_client.do('POST', '/api/2.0/sql/statements', {
+            'warehouse_id': get_default_warehouse(w),
+            'statement': """
+                CREATE TABLE IF NOT EXISTS account_monitoring.config (
+                  config_key STRING COMMENT 'Configuration parameter key',
+                  config_value STRING COMMENT 'Configuration parameter value',
+                  config_type STRING COMMENT 'Data type: string, date, number, boolean',
+                  description STRING COMMENT 'Configuration parameter description',
+                  updated_at TIMESTAMP COMMENT 'Last update timestamp'
+                )
+                USING DELTA
+                COMMENT 'Runtime configuration parameters'
+                TBLPROPERTIES (
+                  'delta.enableChangeDataFeed' = 'true',
+                  'delta.autoOptimize.optimizeWrite' = 'true'
+                )
+            """
+        })
+        print("✓ Config table created successfully")
+    except Exception as e:
+        print(f"⚠ Error creating config table: {e}")
+        return False
+
+    return True
+
+
+def load_config_from_yaml():
+    """Load configuration from config.yml"""
+    config_path = os.path.join(os.path.dirname(__file__), 'config.yml')
+
+    if not os.path.exists(config_path):
+        print(f"⚠ Config file not found: {config_path}")
+        return {}
+
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        print(f"⚠ Error loading config file: {e}")
+        return {}
+
+
+def populate_config_table(w: WorkspaceClient):
+    """Populate configuration table from config.yml"""
+    print("Populating configuration table...")
+
+    config = load_config_from_yaml()
+    if not config:
+        print("⚠ No configuration loaded, using defaults")
+        # Default configuration
+        configs = [
+            ('max_projected_end_date', '2032-12-31', 'date',
+             'Maximum projected end date for contract burndown calculations')
+        ]
+    else:
+        # Extract configuration from YAML
+        configs = [
+            ('max_projected_end_date',
+             config.get('contract_burndown', {}).get('max_projected_end_date', '2032-12-31'),
+             'date',
+             'Maximum projected end date for contract burndown calculations'),
+            ('pace_threshold_over',
+             str(config.get('contract_burndown', {}).get('pace_thresholds', {}).get('over_pace', 1.2)),
+             'number',
+             'Over pace threshold (20% over pace)'),
+            ('pace_threshold_above',
+             str(config.get('contract_burndown', {}).get('pace_thresholds', {}).get('above_pace', 1.1)),
+             'number',
+             'Above pace threshold (10% above pace)'),
+            ('pace_threshold_under',
+             str(config.get('contract_burndown', {}).get('pace_thresholds', {}).get('under_pace', 0.8)),
+             'number',
+             'Under pace threshold (20% under pace)'),
+            ('lookback_days',
+             str(config.get('refresh', {}).get('lookback_days', 365)),
+             'number',
+             'Lookback period in days for dashboard data'),
+            ('freshness_threshold_days',
+             str(config.get('refresh', {}).get('freshness_threshold_days', 2)),
+             'number',
+             'Data freshness threshold in days'),
+            ('default_currency',
+             config.get('account', {}).get('default_currency', 'USD'),
+             'string',
+             'Default currency for display')
+        ]
+
+    try:
+        # Clear existing config
+        w.api_client.do('POST', '/api/2.0/sql/statements', {
+            'warehouse_id': get_default_warehouse(w),
+            'statement': "DELETE FROM account_monitoring.config"
+        })
+
+        # Insert configuration values
+        for key, value, data_type, desc in configs:
+            w.api_client.do('POST', '/api/2.0/sql/statements', {
+                'warehouse_id': get_default_warehouse(w),
+                'statement': f"""
+                    INSERT INTO account_monitoring.config VALUES
+                      ('{key}', '{value}', '{data_type}', '{desc}', CURRENT_TIMESTAMP())
+                """
+            })
+
+        print(f"✓ Configuration table populated with {len(configs)} parameters")
+        return True
+    except Exception as e:
+        print(f"⚠ Error populating config table: {e}")
+        return False
 
 
 def get_default_warehouse(w: WorkspaceClient):
@@ -328,11 +447,17 @@ def main():
     success = success and create_contracts_table(w)
     success = success and create_account_metadata_table(w)
     success = success and create_dashboard_data_table(w)
+    success = success and create_config_table(w)
 
     if not success:
         print("\n⚠ Some tables failed to create")
         print("Please check the errors above and try again")
         sys.exit(1)
+
+    # Populate configuration table
+    print()
+    if not populate_config_table(w):
+        print("⚠ Configuration table population failed, but continuing...")
 
     # Insert sample data
     response = input("\nInsert sample data for testing? (y/n): ")

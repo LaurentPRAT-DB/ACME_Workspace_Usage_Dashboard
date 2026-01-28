@@ -1,0 +1,7 @@
+# Account Monitor Dependencies
+
+# Databricks SDK
+databricks-sdk>=0.20.0
+
+# YAML parsing for configuration
+pyyaml>=6.0

@@ -22,6 +22,10 @@ variables:
     description: SQL Warehouse ID (serverless or provisioned)
     default: "58d41113cb262dce"  # Serverless Starter Warehouse
 
+  max_projected_end_date:
+    description: Maximum projected end date for contract burndown calculations
+    default: "2032-12-31"
+
 # Include configuration files
 include:
   - resources/*.yml

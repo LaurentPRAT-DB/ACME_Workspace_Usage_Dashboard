@@ -1,0 +1,26 @@
+# Account Monitor Configuration
+# Configuration parameters for contract burndown and monitoring
+
+contract_burndown:
+  # Maximum projected end date for contract burndown calculations
+  # Prevents unrealistic projections for contracts with very low burn rates
+  max_projected_end_date: '2032-12-31'
+
+  # Pace thresholds for contract consumption alerts
+  pace_thresholds:
+    over_pace: 1.2  # 20% over pace
+    above_pace: 1.1  # 10% above pace
+    under_pace: 0.8  # 20% under pace
+
+# Dashboard refresh settings
+refresh:
+  # Lookback period in days for dashboard data
+  lookback_days: 365
+
+  # Data freshness threshold in days
+  freshness_threshold_days: 2
+
+# Account metadata
+account:
+  # Default currency for display
+  default_currency: 'USD'
