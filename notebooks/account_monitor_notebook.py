@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.3.0 (Build: 2026-01-29-008)
+# MAGIC **Version:** 1.4.0 (Build: 2026-01-29-009)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.3.0"
-BUILD = "2026-01-29-008"
+VERSION = "1.4.0"
+BUILD = "2026-01-29-009"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -138,13 +138,15 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC
 # MAGIC SELECT
 # MAGIC   *,
-# MAGIC   ROUND(total_cost * 4, 2) as recommended_contract_value,
-# MAGIC   '25% burndown at current spend rate' as note
+# MAGIC   ROUND((3000.00 / total_cost - 1) * 100, 1) as remaining_budget_pct,
+# MAGIC   CONCAT('Current spend: $', ROUND(total_cost, 2), ' of $3,000 contract (', ROUND(total_cost / 3000.00 * 100, 1), '% burned)') as note
 # MAGIC FROM usage_summary;
 # MAGIC
-# MAGIC -- Insert sample contract data based on actual usage
-# MAGIC -- Contract starts 365 days ago and ends 365 days from now (2 year total)
-# MAGIC -- Contract value is set to 4x actual spend for ~25% burndown
+# MAGIC -- Delete all contracts to start fresh (only keep contract 1694992)
+# MAGIC DELETE FROM account_monitoring.contracts WHERE contract_id != '1694992';
+# MAGIC
+# MAGIC -- Insert/Update single sample contract (1694992) with fixed $3,000 value
+# MAGIC -- Contract spans 2 years: starts 1 year ago, ends 1 year from now
 # MAGIC MERGE INTO account_monitoring.contracts AS target
 # MAGIC USING (
 # MAGIC   SELECT
@@ -153,11 +155,11 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC     us.cloud as cloud_provider,
 # MAGIC     DATE_SUB(CURRENT_DATE(), 365) as start_date,
 # MAGIC     DATE_ADD(CURRENT_DATE(), 365) as end_date,
-# MAGIC     GREATEST(ROUND(us.total_cost * 4, 2), 10000.00) as total_value,
+# MAGIC     3000.00 as total_value,
 # MAGIC     'USD' as currency,
 # MAGIC     'SPEND' as commitment_type,
 # MAGIC     'ACTIVE' as status,
-# MAGIC     CONCAT('Sample contract: 2-year period, value set to 4x actual spend ($', ROUND(us.total_cost, 2), ' * 4) for 25% burndown') as notes,
+# MAGIC     CONCAT('Sample contract: 2-year period (', DATE_SUB(CURRENT_DATE(), 365), ' to ', DATE_ADD(CURRENT_DATE(), 365), '), $3,000 total commitment. Current spend: $', ROUND(us.total_cost, 2)) as notes,
 # MAGIC     CURRENT_TIMESTAMP() as created_at,
 # MAGIC     CURRENT_TIMESTAMP() as updated_at
 # MAGIC   FROM usage_summary us
@@ -422,12 +424,18 @@ if not daily_spend.empty:
             x=[start_date, end_date],
             y=[0, commitment],
             mode='lines',
-            name=f'Contract {contract_id} - Commitment',
-            line=dict(dash='dash', width=2, color='gray')
+            name=f'Contract {contract_id} - Commitment ($3,000)',
+            line=dict(dash='dash', width=3, color='red'),
+            opacity=0.7
         ))
 
+    # Calculate burndown percentage
+    max_cumulative = daily_spend['cumulative_cost'].max()
+    contract_value = daily_spend['commitment'].iloc[0]
+    burndown_pct = (max_cumulative / contract_value * 100) if contract_value > 0 else 0
+
     fig.update_layout(
-        title='Contract Burndown - Cumulative Spend vs. Linear Commitment',
+        title=f'Contract Burndown - ${max_cumulative:.2f} of ${contract_value:.2f} spent ({burndown_pct:.1f}% burned)',
         xaxis_title='Date',
         yaxis_title='Cumulative Cost ($)',
         hovermode='x unified',
@@ -437,14 +445,16 @@ if not daily_spend.empty:
             tickangle=45
         ),
         yaxis=dict(
-            tickformat='$,.0f'
+            tickformat='$,.0f',
+            range=[0, contract_value * 1.1]  # Set y-axis to show full contract value + 10%
         ),
         showlegend=True,
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
-            x=0.01
+            x=0.01,
+            bgcolor='rgba(255,255,255,0.8)'
         )
     )
 
