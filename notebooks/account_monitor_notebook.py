@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.5.2 (Build: 2026-01-29-012)
+# MAGIC **Version:** 1.5.3 (Build: 2026-01-29-013)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.5.2"
-BUILD = "2026-01-29-012"
+VERSION = "1.5.3"
+BUILD = "2026-01-29-013"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -407,7 +407,7 @@ if not daily_spend.empty:
 
         start_date = contract_data['start_date'].iloc[0]
         end_date = contract_data['end_date'].iloc[0]
-        commitment = contract_data['commitment'].iloc[0]
+        commitment = float(contract_data['commitment'].iloc[0])
 
         # Add consumption line
         fig.add_trace(go.Scatter(
@@ -433,7 +433,7 @@ if not daily_spend.empty:
     # Calculate burndown percentage and projection
     max_cumulative = daily_spend['cumulative_cost'].max()
     contract_value = daily_spend['commitment'].iloc[0]
-    burndown_pct = (max_cumulative / contract_value * 100) if contract_value > 0 else 0
+    burndown_pct = (float(max_cumulative) / float(contract_value) * 100) if contract_value > 0 else 0
 
     # Calculate projected burndown date
     first_date = daily_spend['usage_date'].min()
@@ -481,7 +481,7 @@ if not daily_spend.empty:
         ),
         yaxis=dict(
             tickformat='$,.0f',
-            range=[0, contract_value * 1.1]  # Set y-axis to show full contract value + 10%
+            range=[0, float(contract_value) * 1.1]  # Set y-axis to show full contract value + 10%
         ),
         showlegend=True,
         legend=dict(
