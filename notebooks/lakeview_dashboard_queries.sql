@@ -5,7 +5,7 @@
 -- MAGIC All 15 queries for the Account Monitor dashboard with Contract Burndown.
 -- MAGIC These queries match the datasets defined in `lakeview_dashboard_config.json`.
 -- MAGIC
--- MAGIC **Version:** 1.5.5 (Build: 2026-01-29-002)
+-- MAGIC **Version:** 1.5.6 (Build: 2026-01-29-003)
 -- MAGIC
 -- MAGIC **Data Sources:**
 -- MAGIC - `system.billing.usage` - Usage data and costs
@@ -25,7 +25,7 @@
 -- MAGIC 2. Account Overview (5 visualizations)
 -- MAGIC 3. Usage Analytics (3 visualizations)
 -- MAGIC
--- MAGIC **Last Updated:** 2026-01-29 - Fixed field names, added version tracking
+-- MAGIC **Last Updated:** 2026-01-29 - Fixed SQL syntax: replaced single quotes with backticks for column aliases (Queries 2, 6, 7)
 
 -- COMMAND ----------
 
@@ -69,17 +69,17 @@ ORDER BY contract_id, usage_date;
 -- COMMAND ----------
 
 SELECT
-  contract_id as 'Contract ID',
-  cloud_provider as 'Cloud',
-  start_date as 'Start Date',
-  end_date as 'End Date',
-  CONCAT('USD ', FORMAT_NUMBER(commitment, 0)) as 'Total Value',
-  CONCAT('USD ', FORMAT_NUMBER(total_consumed, 2)) as 'Consumed',
-  CONCAT('USD ', FORMAT_NUMBER(budget_remaining, 2)) as 'Remaining',
-  CONCAT(ROUND(consumed_pct, 1), '%') as '% Consumed',
-  pace_status as 'Pace Status',
-  days_remaining as 'Days Left',
-  projected_end_date as 'Projected End'
+  contract_id as `Contract ID`,
+  cloud_provider as `Cloud`,
+  start_date as `Start Date`,
+  end_date as `End Date`,
+  CONCAT('USD ', FORMAT_NUMBER(commitment, 0)) as `Total Value`,
+  CONCAT('USD ', FORMAT_NUMBER(total_consumed, 2)) as `Consumed`,
+  CONCAT('USD ', FORMAT_NUMBER(budget_remaining, 2)) as `Remaining`,
+  CONCAT(ROUND(consumed_pct, 1), '%') as `% Consumed`,
+  pace_status as `Pace Status`,
+  days_remaining as `Days Left`,
+  projected_end_date as `Projected End`
 FROM main.account_monitoring_dev.contract_burndown_summary
 ORDER BY consumed_pct DESC;
 
@@ -158,12 +158,12 @@ ORDER BY month, contract_id;
 -- COMMAND ----------
 
 SELECT
-  workspace_id as 'Workspace ID',
-  cloud_provider as 'Cloud',
-  CONCAT('USD ', FORMAT_NUMBER(SUM(actual_cost), 2)) as 'Total Cost',
-  ROUND(SUM(usage_quantity), 2) as 'Total DBU',
-  COUNT(DISTINCT sku_name) as 'Unique SKUs',
-  COUNT(DISTINCT usage_date) as 'Active Days'
+  workspace_id as `Workspace ID`,
+  cloud_provider as `Cloud`,
+  CONCAT('USD ', FORMAT_NUMBER(SUM(actual_cost), 2)) as `Total Cost`,
+  ROUND(SUM(usage_quantity), 2) as `Total DBU`,
+  COUNT(DISTINCT sku_name) as `Unique SKUs`,
+  COUNT(DISTINCT usage_date) as `Active Days`
 FROM main.account_monitoring_dev.dashboard_data
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
 GROUP BY workspace_id, cloud_provider
@@ -181,20 +181,20 @@ LIMIT 10;
 -- COMMAND ----------
 
 SELECT
-  contract_id as 'Contract',
-  CONCAT('USD ', FORMAT_NUMBER(commitment, 0)) as 'Value',
-  CONCAT('USD ', FORMAT_NUMBER(total_consumed, 2)) as 'Spent',
-  CONCAT(ROUND(consumed_pct, 1), '%') as '% Used',
-  pace_status as 'Status',
-  days_remaining as 'Days Left',
-  DATEDIFF(projected_end_date, end_date) as 'Days Variance',
+  contract_id as `Contract`,
+  CONCAT('USD ', FORMAT_NUMBER(commitment, 0)) as `Value`,
+  CONCAT('USD ', FORMAT_NUMBER(total_consumed, 2)) as `Spent`,
+  CONCAT(ROUND(consumed_pct, 1), '%') as `% Used`,
+  pace_status as `Status`,
+  days_remaining as `Days Left`,
+  DATEDIFF(projected_end_date, end_date) as `Days Variance`,
   CASE
     WHEN projected_end_date < end_date THEN '⚠️ Will deplete early'
     WHEN projected_end_date > end_date THEN '✅ Under budget'
     ELSE '✅ On track'
-  END as 'Budget Health',
-  projected_end_date as 'Est. Depletion Date',
-  end_date as 'Contract End Date'
+  END as `Budget Health`,
+  projected_end_date as `Est. Depletion Date`,
+  end_date as `Contract End Date`
 FROM main.account_monitoring_dev.contract_burndown_summary
 ORDER BY days_remaining;
 
