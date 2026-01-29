@@ -64,12 +64,7 @@ ORDER BY c.contract_id, d.usage_date;
 
 -- Create summary view for latest status
 CREATE OR REPLACE VIEW main.account_monitoring_dev.contract_burndown_summary AS
-WITH config AS (
-  SELECT config_value as max_projected_end_date
-  FROM main.account_monitoring_dev.config
-  WHERE config_key = 'max_projected_end_date'
-),
-latest_burndown AS (
+WITH latest_burndown AS (
   SELECT
     contract_id,
     cloud_provider,
@@ -104,7 +99,7 @@ SELECT
     WHEN pct_consumed < (days_into_contract * 100.0 / contract_duration) * 0.8 THEN '🔵 UNDER PACE (<80%)'
     ELSE '🟢 ON PACE'
   END as pace_status,
-  -- Projected completion date based on current burn rate (capped by config)
+  -- Projected completion date based on current burn rate (capped at 2032-12-31)
   LEAST(
     CASE
       WHEN total_consumed > 0 AND days_into_contract > 0 THEN
@@ -114,11 +109,10 @@ SELECT
         )
       ELSE end_date
     END,
-    CAST(config.max_projected_end_date AS DATE)
+    DATE'2032-12-31'
   ) as projected_end_date,
   last_usage_date
 FROM latest_burndown
-CROSS JOIN config
 ORDER BY
   CASE
     WHEN pct_consumed > (days_into_contract * 100.0 / contract_duration) * 1.2 THEN 1
