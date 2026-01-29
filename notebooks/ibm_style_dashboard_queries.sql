@@ -91,8 +91,8 @@ SELECT
   MIN(usage_date) as start_date,
   MAX(usage_date) as end_date,
   ROUND(SUM(usage_quantity), 0) as dbu,
-  ROUND(SUM(list_price), 2) as list_price,
-  ROUND(SUM(discounted_price), 2) as discounted_price,
+  ROUND(SUM(list_cost), 2) as list_price,
+  ROUND(SUM(discounted_cost), 2) as discounted_price,
   ROUND(SUM(actual_cost), 2) as revenue
 FROM main.account_monitoring_dev.dashboard_data
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
