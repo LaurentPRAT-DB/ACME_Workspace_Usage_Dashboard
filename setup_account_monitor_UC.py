@@ -73,6 +73,7 @@ def create_contracts_table(w: WorkspaceClient, catalog: str = DEFAULT_CATALOG):
                 USING DELTA
                 COMMENT 'Contract tracking for consumption monitoring'
                 TBLPROPERTIES (
+                  'delta.feature.allowColumnDefaults' = 'supported',
                   'delta.enableChangeDataFeed' = 'true',
                   'delta.autoOptimize.optimizeWrite' = 'true',
                   'delta.autoOptimize.autoCompact' = 'true'
@@ -115,6 +116,7 @@ def create_account_metadata_table(w: WorkspaceClient, catalog: str = DEFAULT_CAT
                 USING DELTA
                 COMMENT 'Account metadata and organizational information'
                 TBLPROPERTIES (
+                  'delta.feature.allowColumnDefaults' = 'supported',
                   'delta.enableChangeDataFeed' = 'true',
                   'delta.autoOptimize.optimizeWrite' = 'true',
                   'delta.autoOptimize.autoCompact' = 'true'
