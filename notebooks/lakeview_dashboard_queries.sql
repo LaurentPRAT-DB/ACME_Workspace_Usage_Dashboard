@@ -5,7 +5,7 @@
 -- MAGIC All 15 queries for the Account Monitor dashboard with Contract Burndown.
 -- MAGIC These queries match the datasets defined in `lakeview_dashboard_config.json`.
 -- MAGIC
--- MAGIC **Version:** 1.5.6 (Build: 2026-01-29-003)
+-- MAGIC **Version:** 1.6.0 (Build: 2026-01-29-015)
 -- MAGIC
 -- MAGIC **Data Sources:**
 -- MAGIC - `system.billing.usage` - Usage data and costs
@@ -25,7 +25,7 @@
 -- MAGIC 2. Account Overview (5 visualizations)
 -- MAGIC 3. Usage Analytics (3 visualizations)
 -- MAGIC
--- MAGIC **Last Updated:** 2026-01-29 - Fixed SQL syntax: replaced single quotes with backticks for column aliases (Queries 2, 6, 7)
+-- MAGIC **Last Updated:** 2026-01-29 - Added Query 16 (Account Info) and Query 17 (Combined Burndown) from IBM dashboard migration
 
 -- COMMAND ----------
 
@@ -375,6 +375,51 @@ LIMIT 100;
 -- COMMAND ----------
 
 -- MAGIC %md
+-- MAGIC ## ADDITIONAL QUERIES (from IBM dashboard migration)
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC ### Query 16: Account Information
+-- MAGIC **Dataset:** account_info
+-- MAGIC **Visualization:** Table
+-- MAGIC **Purpose:** Organizational hierarchy and team assignments
+
+-- COMMAND ----------
+
+SELECT
+  customer_name as `Customer`,
+  salesforce_id as `Salesforce ID`,
+  CONCAT_WS(' > ', business_unit_l0, business_unit_l1, business_unit_l2, business_unit_l3) as `Business Unit`,
+  account_executive as `AE`,
+  solutions_architect as `SA`,
+  delivery_solutions_architect as `DSA`
+FROM main.account_monitoring_dev.account_metadata
+LIMIT 1;
+
+-- COMMAND ----------
+
+-- MAGIC %md
+-- MAGIC ### Query 17: Combined Contract Burndown (All Contracts)
+-- MAGIC **Dataset:** combined_burndown
+-- MAGIC **Visualization:** Line Chart
+-- MAGIC **Purpose:** Aggregated view of all contracts together
+
+-- COMMAND ----------
+
+SELECT
+  usage_date as date,
+  SUM(commitment) as total_commitment,
+  SUM(cumulative_cost) as total_consumption,
+  ROUND(SUM(cumulative_cost) / SUM(commitment) * 100, 1) as overall_pct_consumed
+FROM main.account_monitoring_dev.contract_burndown
+WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+GROUP BY usage_date
+ORDER BY usage_date;
+
+-- COMMAND ----------
+
+-- MAGIC %md
 -- MAGIC ## Query Index
 -- MAGIC
 -- MAGIC | # | Query Name | Dataset | Visualization | Page |
@@ -394,6 +439,8 @@ LIMIT 100;
 -- MAGIC | 13 | Top SKUs | top_skus | Table | Usage Analytics |
 -- MAGIC | 14 | Product Category | product_category | Area Chart | Usage Analytics |
 -- MAGIC | 15 | Dashboard Data | dashboard_data | Base Data | All Pages |
+-- MAGIC | 16 | Account Information | account_info | Table | Account Overview |
+-- MAGIC | 17 | Combined Burndown | combined_burndown | Line Chart | Contract Burndown |
 -- MAGIC
 -- MAGIC ## Usage Instructions
 -- MAGIC

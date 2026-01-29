@@ -1,5 +1,28 @@
 # IBM-Style Dashboard Quick Start
 
+**⚠️ DEPRECATED - 2026-01-29**
+
+**This guide has been superseded by the Lakeview Dashboard.**
+
+All functionality from the IBM-style queries has been merged into `lakeview_dashboard_queries.sql` (Queries 1-17). The Lakeview dashboard provides more comprehensive features while maintaining all the IBM layout capabilities.
+
+**Please use:**
+- `/notebooks/lakeview_dashboard_queries.sql` - All queries (now includes 17 queries)
+- `/docs/CREATE_LAKEVIEW_DASHBOARD.md` - Updated guide
+
+**What Changed:**
+- IBM Query 3 (Account Info) → Lakeview Query 16
+- IBM Query 7 (Combined Burndown) → Lakeview Query 17
+- All other queries were duplicates or simplified versions of Lakeview queries
+
+**For full details:** See `/docs/IBM_QUERIES_REDUNDANCY_ANALYSIS.md`
+
+---
+
+# Original Content (Archived)
+
+# IBM-Style Dashboard Quick Start
+
 ## What You're Building
 
 A comprehensive single-page dashboard matching the IBM Account Monitor layout with:

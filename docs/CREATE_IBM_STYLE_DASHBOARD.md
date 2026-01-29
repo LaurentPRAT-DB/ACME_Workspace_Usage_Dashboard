@@ -1,5 +1,25 @@
 # Create IBM-Style Account Monitor Dashboard
 
+**⚠️ DEPRECATED - 2026-01-29**
+
+**This guide has been superseded by the Lakeview Dashboard.**
+
+The IBM-style queries have been merged into `lakeview_dashboard_queries.sql`. You can still create a single-page layout using Lakeview queries.
+
+**Please use:**
+- `/notebooks/lakeview_dashboard_queries.sql` - All 17 queries
+- `/docs/CREATE_LAKEVIEW_DASHBOARD.md` - Updated comprehensive guide
+
+**To create a single-page layout:** Use Lakeview Queries 1, 2, 8, 9, 10, 16, and 17
+
+**For full details:** See `/docs/IBM_QUERIES_REDUNDANCY_ANALYSIS.md`
+
+---
+
+# Original Content (Archived)
+
+# Create IBM-Style Account Monitor Dashboard
+
 ## Overview
 
 This guide shows you how to recreate the IBM Account Monitor dashboard layout in Databricks Lakeview, featuring:
