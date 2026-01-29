@@ -5,7 +5,7 @@
 -- MAGIC Complete set of queries to recreate the IBM Account Monitor dashboard layout.
 -- MAGIC This dashboard combines account overview, contract tracking, and burndown visualization.
 -- MAGIC
--- MAGIC **Version:** 1.5.5 (Build: 2026-01-29-002)
+-- MAGIC **Version:** 1.5.6 (Build: 2026-01-29-003)
 -- MAGIC
 -- MAGIC **Data Sources:**
 -- MAGIC - `system.billing.usage` - Usage data and costs
@@ -20,7 +20,7 @@
 -- MAGIC - `discounted_cost` - Total cost at discounted price (aggregated)
 -- MAGIC - `usage_quantity` - DBU/units consumed
 -- MAGIC
--- MAGIC **Last Updated:** 2026-01-29 - Fixed Query 4 field names (list_price→list_cost, discounted_price→discounted_cost)
+-- MAGIC **Last Updated:** 2026-01-29 - Fixed Query 4 & 8: discounted_cost→actual_cost, moved Query 8 to dashboard_data table
 
 -- COMMAND ----------
 
@@ -109,7 +109,7 @@ SELECT
   MAX(usage_date) as end_date,
   ROUND(SUM(usage_quantity), 0) as dbu,
   ROUND(SUM(list_cost), 2) as list_price,
-  ROUND(SUM(discounted_cost), 2) as discounted_price,
+  ROUND(SUM(actual_cost), 2) as discounted_price,
   ROUND(SUM(actual_cost), 2) as revenue
 FROM main.account_monitoring_dev.dashboard_data
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
@@ -194,7 +194,7 @@ ORDER BY usage_date;
 SELECT DISTINCT
   customer_name as account_name,
   salesforce_id
-FROM main.account_monitoring_dev.account_metadata
+FROM main.account_monitoring_dev.dashboard_data
 ORDER BY customer_name;
 
 -- COMMAND ----------
