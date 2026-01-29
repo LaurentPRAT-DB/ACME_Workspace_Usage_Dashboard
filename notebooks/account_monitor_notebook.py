@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.5.1 (Build: 2026-01-29-011)
+# MAGIC **Version:** 1.5.2 (Build: 2026-01-29-012)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.5.1"
-BUILD = "2026-01-29-011"
+VERSION = "1.5.2"
+BUILD = "2026-01-29-012"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -139,7 +139,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC SELECT
 # MAGIC   *,
 # MAGIC   ROUND((3000.00 / total_cost - 1) * 100, 1) as remaining_budget_pct,
-# MAGIC   CONCAT('Current spend: $', ROUND(total_cost, 2), ' of $3,000 contract (', ROUND(total_cost / 3000.00 * 100, 1), '% burned)') as note
+# MAGIC   CONCAT('Current spend: USD ', ROUND(total_cost, 2), ' of USD 3,000 contract (', ROUND(total_cost / 3000.00 * 100, 1), '% burned)') as note
 # MAGIC FROM usage_summary;
 # MAGIC
 # MAGIC -- Delete all contracts to start fresh (only keep contract 1694992)
@@ -159,7 +159,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC     'USD' as currency,
 # MAGIC     'SPEND' as commitment_type,
 # MAGIC     'ACTIVE' as status,
-# MAGIC     CONCAT('Sample contract: 2-year period (', DATE_SUB(CURRENT_DATE(), 365), ' to ', DATE_ADD(CURRENT_DATE(), 365), '), $3,000 total commitment. Current spend: $', ROUND(us.total_cost, 2)) as notes,
+# MAGIC     CONCAT('Sample contract: 2-year period (', DATE_SUB(CURRENT_DATE(), 365), ' to ', DATE_ADD(CURRENT_DATE(), 365), '), USD 3,000 total commitment. Current spend: USD ', ROUND(us.total_cost, 2)) as notes,
 # MAGIC     CURRENT_TIMESTAMP() as created_at,
 # MAGIC     CURRENT_TIMESTAMP() as updated_at
 # MAGIC   FROM usage_summary us
@@ -693,7 +693,7 @@ print("Dashboard data exported to: account_monitoring.dashboard_data")
 # MAGIC -- Summary across all dimensions
 # MAGIC SELECT
 # MAGIC   'Total Spend (Last 365 days)' as metric,
-# MAGIC   CONCAT('$', FORMAT_NUMBER(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2)) as value
+# MAGIC   CONCAT('USD ', FORMAT_NUMBER(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2)) as value
 # MAGIC FROM system.billing.usage u
 # MAGIC LEFT JOIN system.billing.list_prices lp
 # MAGIC   ON u.sku_name = lp.sku_name
@@ -730,7 +730,7 @@ print("Dashboard data exported to: account_monitoring.dashboard_data")
 # MAGIC
 # MAGIC SELECT
 # MAGIC   'Average Daily Spend' as metric,
-# MAGIC   CONCAT('$', FORMAT_NUMBER(AVG(daily_cost), 2)) as value
+# MAGIC   CONCAT('USD ', FORMAT_NUMBER(AVG(daily_cost), 2)) as value
 # MAGIC FROM (
 # MAGIC   SELECT
 # MAGIC     u.usage_date,
