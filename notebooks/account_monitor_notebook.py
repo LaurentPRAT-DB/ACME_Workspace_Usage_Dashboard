@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.0.2 (Build: 2026-01-29-002)
+# MAGIC **Version:** 1.0.3 (Build: 2026-01-29-003)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.0.2"
-BUILD = "2026-01-29-002"
+VERSION = "1.0.3"
+BUILD = "2026-01-29-003"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -210,8 +210,8 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   DATE_FORMAT(MIN(u.usage_date), 'yyyyMMddHHmm') as start_date,
 # MAGIC   DATE_FORMAT(MAX(u.usage_date), 'yyyyMMddHHmm') as end_date,
 # MAGIC   ROUND(SUM(u.usage_quantity), 3) as dbu,
-# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default_price_per_unit, 0)), 2) as list_price,
-# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default_price_per_unit, 0) * 0.85), 2) as discounted_price,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as list_price,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0) * 0.85), 2) as discounted_price,
 # MAGIC   ROUND(SUM(COALESCE(u.usage_metadata.total_price, 0)), 2) as revenue
 # MAGIC FROM system.billing.usage u
 # MAGIC LEFT JOIN system.billing.list_prices lp
@@ -472,9 +472,9 @@ SELECT
   u.usage_quantity,
   COALESCE(u.usage_metadata.total_price, 0) as actual_cost,
   u.list_price_per_unit,
-  lp.pricing.default_price_per_unit as discounted_price_per_unit,
+  lp.pricing.default as discounted_price_per_unit,
   u.usage_quantity * u.list_price_per_unit as list_cost,
-  u.usage_quantity * COALESCE(lp.pricing.default_price_per_unit, 0) as discounted_cost,
+  u.usage_quantity * COALESCE(lp.pricing.default, 0) as discounted_cost,
   CASE
     WHEN u.sku_name LIKE '%ALL_PURPOSE%' THEN 'All Purpose Compute'
     WHEN u.sku_name LIKE '%JOBS%' THEN 'Jobs Compute'
