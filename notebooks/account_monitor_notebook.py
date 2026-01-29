@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.1.1 (Build: 2026-01-29-006)
+# MAGIC **Version:** 1.2.0 (Build: 2026-01-29-007)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.1.1"
-BUILD = "2026-01-29-006"
+VERSION = "1.2.0"
+BUILD = "2026-01-29-007"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -107,20 +107,81 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC %md
 # MAGIC ## 3. Insert Sample Contract Data
 # MAGIC
-# MAGIC Replace this with your actual contract data.
+# MAGIC This cell automatically detects your actual account_id and usage date range,
+# MAGIC then creates a sample contract that aligns with your real usage data.
+# MAGIC This ensures the burndown chart will display data.
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Sample contract data (replace with actual data)
-# MAGIC INSERT INTO account_monitoring.contracts VALUES
-# MAGIC   ('1694992', 'account-001', 'aws', '2024-11-10', '2026-01-29', 300000.00, 'USD', 'SPEND', 'ACTIVE', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-# MAGIC   ('2209701', 'account-001', 'aws', '2026-01-30', '2029-01-29', 1000000.00, 'USD', 'SPEND', 'ACTIVE', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
+# MAGIC -- Get actual account_id and date range from usage data
+# MAGIC CREATE OR REPLACE TEMP VIEW usage_summary AS
+# MAGIC SELECT
+# MAGIC   account_id,
+# MAGIC   cloud,
+# MAGIC   MIN(usage_date) as first_usage_date,
+# MAGIC   MAX(usage_date) as last_usage_date,
+# MAGIC   DATEDIFF(MAX(usage_date), MIN(usage_date)) as days_of_data,
+# MAGIC   COUNT(DISTINCT usage_date) as usage_days,
+# MAGIC   SUM(usage_quantity) as total_usage
+# MAGIC FROM system.billing.usage
+# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+# MAGIC GROUP BY account_id, cloud
+# MAGIC ORDER BY total_usage DESC
+# MAGIC LIMIT 1;
 # MAGIC
-# MAGIC -- Sample account metadata (replace with actual data)
-# MAGIC INSERT INTO account_monitoring.account_metadata VALUES
-# MAGIC   ('account-001', 'Mercuria Energy Group Holding SA', '0014N00001HEcQAG', 'EMEA', 'Central', 'Switzerland', 'Switzerland Enterprise',
-# MAGIC    'Claudio Crivelli', 'Laurent Prat', 'Unassigned_CSE_EMEA_Central', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
+# MAGIC SELECT * FROM usage_summary;
+# MAGIC
+# MAGIC -- Insert sample contract data based on actual usage
+# MAGIC MERGE INTO account_monitoring.contracts AS target
+# MAGIC USING (
+# MAGIC   SELECT
+# MAGIC     '1694992' as contract_id,
+# MAGIC     us.account_id,
+# MAGIC     us.cloud as cloud_provider,
+# MAGIC     us.first_usage_date as start_date,
+# MAGIC     DATE_ADD(us.last_usage_date, 365) as end_date,
+# MAGIC     500000.00 as total_value,
+# MAGIC     'USD' as currency,
+# MAGIC     'SPEND' as commitment_type,
+# MAGIC     'ACTIVE' as status,
+# MAGIC     'Sample contract aligned with actual usage data' as notes,
+# MAGIC     CURRENT_TIMESTAMP() as created_at,
+# MAGIC     CURRENT_TIMESTAMP() as updated_at
+# MAGIC   FROM usage_summary us
+# MAGIC ) AS source
+# MAGIC ON target.contract_id = source.contract_id
+# MAGIC WHEN MATCHED THEN UPDATE SET *
+# MAGIC WHEN NOT MATCHED THEN INSERT *;
+# MAGIC
+# MAGIC -- Insert sample account metadata based on actual usage
+# MAGIC MERGE INTO account_monitoring.account_metadata AS target
+# MAGIC USING (
+# MAGIC   SELECT
+# MAGIC     us.account_id,
+# MAGIC     'Sample Customer Inc.' as customer_name,
+# MAGIC     '0014N00001HEcQAG' as salesforce_id,
+# MAGIC     'AMER' as business_unit_l0,
+# MAGIC     'West' as business_unit_l1,
+# MAGIC     'California' as business_unit_l2,
+# MAGIC     'Enterprise' as business_unit_l3,
+# MAGIC     'John Doe' as account_executive,
+# MAGIC     'Jane Smith' as solutions_architect,
+# MAGIC     'Bob Johnson' as delivery_solutions_architect,
+# MAGIC     CURRENT_TIMESTAMP() as created_at,
+# MAGIC     CURRENT_TIMESTAMP() as updated_at
+# MAGIC   FROM usage_summary us
+# MAGIC ) AS source
+# MAGIC ON target.account_id = source.account_id
+# MAGIC WHEN MATCHED THEN UPDATE SET *
+# MAGIC WHEN NOT MATCHED THEN INSERT *;
+# MAGIC
+# MAGIC -- Show created contract
+# MAGIC SELECT
+# MAGIC   c.*,
+# MAGIC   DATEDIFF(c.end_date, c.start_date) as contract_days,
+# MAGIC   DATEDIFF(CURRENT_DATE(), c.start_date) as days_elapsed
+# MAGIC FROM account_monitoring.contracts c;
 
 # COMMAND ----------
 
