@@ -2,6 +2,8 @@
 # MAGIC %md
 # MAGIC # 🚀 Account Monitor - Post Deployment Validation
 # MAGIC
+# MAGIC **Version:** 1.1.0 (Updated: 2026-01-29)
+# MAGIC
 # MAGIC This notebook validates that your Account Monitor deployment is working correctly.
 # MAGIC It checks all the critical steps from START_HERE.md.
 # MAGIC
@@ -380,11 +382,10 @@ except Exception as e:
 print(f"{BLUE}Test 11: Checking deployed jobs{RESET}\n")
 
 try:
-    # Get jobs using Databricks API
-    import requests
-    from databricks.sdk.runtime import *
+    from databricks.sdk import WorkspaceClient
 
-    # This will only work if running in a notebook with proper auth
+    w = WorkspaceClient()
+
     jobs_found = []
     expected_jobs = [
         f"[{TARGET}] Account Monitor - Setup",
@@ -393,27 +394,42 @@ try:
         f"[{TARGET}] Account Monitor - Monthly Summary"
     ]
 
-    # Try to list jobs (may not work in all environments)
+    # List all jobs and filter by target
     try:
-        jobs = dbutils.jobs.list()
-        for job in jobs:
-            if TARGET in job.get('name', ''):
-                jobs_found.append(job['name'])
-    except:
-        # Fallback - assume jobs exist if tables are created
-        print("  ⚠️  Cannot list jobs from notebook - assuming they exist if tables are present")
-        if len(table_names) == len(required_tables):
-            jobs_found = expected_jobs
+        all_jobs = list(w.jobs.list())
+        for job in all_jobs:
+            if job.settings and job.settings.name:
+                job_name = job.settings.name
+                # Check if this is one of our account monitor jobs
+                if f"[{TARGET}]" in job_name and "Account Monitor" in job_name:
+                    jobs_found.append(job_name)
 
-    if len(jobs_found) > 0:
-        print("  Jobs found:")
-        for job in jobs_found:
-            print(f"    - {job}")
-        test_result("Jobs Deployed", True, f"Found {len(jobs_found)} job(s)")
-    else:
-        test_result("Jobs Deployed", False, "Could not verify jobs - check in Workflows UI")
+        if len(jobs_found) > 0:
+            print("  Jobs found:")
+            for job in jobs_found:
+                print(f"    - {job}")
+            test_result("Jobs Deployed", True, f"Found {len(jobs_found)} job(s)")
+        elif len(jobs_found) == 0:
+            print(f"  Expected jobs:")
+            for expected in expected_jobs:
+                print(f"    - {expected}")
+            test_result("Jobs Deployed", False, f"No jobs found with [{TARGET}] prefix. Run: databricks bundle deploy")
+    except Exception as api_error:
+        # If we can't list jobs, check if tables exist as fallback
+        print(f"  ⚠️  Cannot list jobs via API: {str(api_error)}")
+        print("  Checking if tables exist as fallback validation...")
+
+        tables = spark.sql(f"SHOW TABLES IN {CATALOG}.{SCHEMA}").collect()
+        table_names = [t['tableName'] for t in tables]
+
+        if len(table_names) >= len(required_tables):
+            print("  ✓ All required tables exist - jobs likely deployed successfully")
+            test_result("Jobs Deployed", True, "Tables exist - jobs assumed deployed (API check failed)")
+        else:
+            test_result("Jobs Deployed", False, f"Cannot verify jobs and only {len(table_names)} of {len(required_tables)} tables exist")
+
 except Exception as e:
-    test_result("Jobs Deployed", False, f"Cannot verify from notebook: {str(e)}")
+    test_result("Jobs Deployed", False, f"Error during job verification: {str(e)}")
 
 # COMMAND ----------
 
