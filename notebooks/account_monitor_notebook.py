@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.4.0 (Build: 2026-01-29-009)
+# MAGIC **Version:** 1.5.0 (Build: 2026-01-29-010)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.4.0"
-BUILD = "2026-01-29-009"
+VERSION = "1.5.0"
+BUILD = "2026-01-29-010"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -419,23 +419,58 @@ if not daily_spend.empty:
             marker=dict(size=4)
         ))
 
-        # Add commitment line (linear burndown from start to end)
+        # Add commitment line (horizontal line at contract value)
+        # This shows when cumulative spending will cross the contract limit (burndown date)
         fig.add_trace(go.Scatter(
             x=[start_date, end_date],
-            y=[0, commitment],
+            y=[commitment, commitment],
             mode='lines',
-            name=f'Contract {contract_id} - Commitment ($3,000)',
+            name=f'Contract {contract_id} - Limit (${commitment:,.0f})',
             line=dict(dash='dash', width=3, color='red'),
-            opacity=0.7
+            opacity=0.8
         ))
 
-    # Calculate burndown percentage
+    # Calculate burndown percentage and projection
     max_cumulative = daily_spend['cumulative_cost'].max()
     contract_value = daily_spend['commitment'].iloc[0]
     burndown_pct = (max_cumulative / contract_value * 100) if contract_value > 0 else 0
 
+    # Calculate projected burndown date
+    first_date = daily_spend['usage_date'].min()
+    last_date = daily_spend['usage_date'].max()
+    days_elapsed = (last_date - first_date).days
+
+    if days_elapsed > 0 and max_cumulative > 0:
+        daily_avg_spend = max_cumulative / days_elapsed
+        remaining_budget = contract_value - max_cumulative
+        days_to_burndown = remaining_budget / daily_avg_spend if daily_avg_spend > 0 else 0
+        projected_burndown_date = last_date + pd.Timedelta(days=days_to_burndown)
+
+        print(f"\nProjection Analysis:")
+        print(f"  Average daily spend: ${daily_avg_spend:.2f}")
+        print(f"  Remaining budget: ${remaining_budget:.2f}")
+        print(f"  Days to exhaustion: {days_to_burndown:.0f} days")
+        print(f"  Projected burndown date: {projected_burndown_date.strftime('%Y-%m-%d')}")
+
+        if projected_burndown_date <= daily_spend['end_date'].iloc[0]:
+            title_text = f'Contract Burndown - ${max_cumulative:.2f} of ${contract_value:.2f} spent ({burndown_pct:.1f}%) - Projected exhaustion: {projected_burndown_date.strftime("%Y-%m-%d")}'
+
+            # Add vertical line at projected burndown date
+            fig.add_vline(
+                x=projected_burndown_date,
+                line_dash="dot",
+                line_color="orange",
+                line_width=2,
+                annotation_text=f"Projected<br>Burndown<br>{projected_burndown_date.strftime('%Y-%m-%d')}",
+                annotation_position="top"
+            )
+        else:
+            title_text = f'Contract Burndown - ${max_cumulative:.2f} of ${contract_value:.2f} spent ({burndown_pct:.1f}%) - On track, will not exhaust'
+    else:
+        title_text = f'Contract Burndown - ${max_cumulative:.2f} of ${contract_value:.2f} spent ({burndown_pct:.1f}%)'
+
     fig.update_layout(
-        title=f'Contract Burndown - ${max_cumulative:.2f} of ${contract_value:.2f} spent ({burndown_pct:.1f}% burned)',
+        title=title_text,
         xaxis_title='Date',
         yaxis_title='Cumulative Cost ($)',
         hovermode='x unified',
