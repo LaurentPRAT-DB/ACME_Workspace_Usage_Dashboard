@@ -62,7 +62,8 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   CONSTRAINT pk_contracts PRIMARY KEY (contract_id)
-# MAGIC );
+# MAGIC )
+# MAGIC TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported');
 # MAGIC
 # MAGIC -- Create account metadata table
 # MAGIC CREATE TABLE IF NOT EXISTS account_monitoring.account_metadata (
@@ -79,7 +80,8 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   CONSTRAINT pk_account_metadata PRIMARY KEY (account_id)
-# MAGIC );
+# MAGIC )
+# MAGIC TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported');
 
 # COMMAND ----------
 
