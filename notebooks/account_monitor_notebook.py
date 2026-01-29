@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.2.0 (Build: 2026-01-29-007)
+# MAGIC **Version:** 1.3.0 (Build: 2026-01-29-008)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.2.0"
-BUILD = "2026-01-29-007"
+VERSION = "1.3.0"
+BUILD = "2026-01-29-008"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -114,38 +114,50 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Get actual account_id and date range from usage data
+# MAGIC -- Get actual account_id, date range, and total cost from usage data
 # MAGIC CREATE OR REPLACE TEMP VIEW usage_summary AS
 # MAGIC SELECT
-# MAGIC   account_id,
-# MAGIC   cloud,
-# MAGIC   MIN(usage_date) as first_usage_date,
-# MAGIC   MAX(usage_date) as last_usage_date,
-# MAGIC   DATEDIFF(MAX(usage_date), MIN(usage_date)) as days_of_data,
-# MAGIC   COUNT(DISTINCT usage_date) as usage_days,
-# MAGIC   SUM(usage_quantity) as total_usage
-# MAGIC FROM system.billing.usage
-# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-# MAGIC GROUP BY account_id, cloud
-# MAGIC ORDER BY total_usage DESC
+# MAGIC   u.account_id,
+# MAGIC   u.cloud,
+# MAGIC   MIN(u.usage_date) as first_usage_date,
+# MAGIC   MAX(u.usage_date) as last_usage_date,
+# MAGIC   DATEDIFF(MAX(u.usage_date), MIN(u.usage_date)) as days_of_data,
+# MAGIC   COUNT(DISTINCT u.usage_date) as usage_days,
+# MAGIC   SUM(u.usage_quantity) as total_usage,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as total_cost
+# MAGIC FROM system.billing.usage u
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+# MAGIC GROUP BY u.account_id, u.cloud
+# MAGIC ORDER BY total_cost DESC
 # MAGIC LIMIT 1;
 # MAGIC
-# MAGIC SELECT * FROM usage_summary;
+# MAGIC SELECT
+# MAGIC   *,
+# MAGIC   ROUND(total_cost * 4, 2) as recommended_contract_value,
+# MAGIC   '25% burndown at current spend rate' as note
+# MAGIC FROM usage_summary;
 # MAGIC
 # MAGIC -- Insert sample contract data based on actual usage
+# MAGIC -- Contract starts 365 days ago and ends 365 days from now (2 year total)
+# MAGIC -- Contract value is set to 4x actual spend for ~25% burndown
 # MAGIC MERGE INTO account_monitoring.contracts AS target
 # MAGIC USING (
 # MAGIC   SELECT
 # MAGIC     '1694992' as contract_id,
 # MAGIC     us.account_id,
 # MAGIC     us.cloud as cloud_provider,
-# MAGIC     us.first_usage_date as start_date,
-# MAGIC     DATE_ADD(us.last_usage_date, 365) as end_date,
-# MAGIC     500000.00 as total_value,
+# MAGIC     DATE_SUB(CURRENT_DATE(), 365) as start_date,
+# MAGIC     DATE_ADD(CURRENT_DATE(), 365) as end_date,
+# MAGIC     GREATEST(ROUND(us.total_cost * 4, 2), 10000.00) as total_value,
 # MAGIC     'USD' as currency,
 # MAGIC     'SPEND' as commitment_type,
 # MAGIC     'ACTIVE' as status,
-# MAGIC     'Sample contract aligned with actual usage data' as notes,
+# MAGIC     CONCAT('Sample contract: 2-year period, value set to 4x actual spend ($', ROUND(us.total_cost, 2), ' * 4) for 25% burndown') as notes,
 # MAGIC     CURRENT_TIMESTAMP() as created_at,
 # MAGIC     CURRENT_TIMESTAMP() as updated_at
 # MAGIC   FROM usage_summary us
@@ -349,7 +361,7 @@ SELECT
     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
   ) as cumulative_cost
 FROM account_monitoring.contracts c
-LEFT JOIN system.billing.usage u
+INNER JOIN system.billing.usage u
   ON c.account_id = u.account_id
   AND c.cloud_provider = u.cloud
   AND u.usage_date BETWEEN c.start_date AND c.end_date
@@ -369,44 +381,80 @@ GROUP BY
 ORDER BY u.usage_date
 """).toPandas()
 
+# Debug output
+print(f"Daily spend data shape: {daily_spend.shape}")
+if not daily_spend.empty:
+    print(f"Date range in data: {daily_spend['usage_date'].min()} to {daily_spend['usage_date'].max()}")
+    print(f"Contracts: {daily_spend['contract_id'].unique()}")
+    print(f"Total cumulative cost: ${daily_spend['cumulative_cost'].max():.2f}")
+else:
+    print("WARNING: No data returned from query!")
+
 # Create burndown visualization
 if not daily_spend.empty:
+    # Convert date columns to datetime for proper plotting
+    daily_spend['usage_date'] = pd.to_datetime(daily_spend['usage_date'])
+    daily_spend['start_date'] = pd.to_datetime(daily_spend['start_date'])
+    daily_spend['end_date'] = pd.to_datetime(daily_spend['end_date'])
+
     fig = go.Figure()
 
     # Group by contract
     for contract_id in daily_spend['contract_id'].unique():
         contract_data = daily_spend[daily_spend['contract_id'] == contract_id]
 
+        start_date = contract_data['start_date'].iloc[0]
+        end_date = contract_data['end_date'].iloc[0]
+        commitment = contract_data['commitment'].iloc[0]
+
         # Add consumption line
         fig.add_trace(go.Scatter(
             x=contract_data['usage_date'],
             y=contract_data['cumulative_cost'],
-            mode='lines',
+            mode='lines+markers',
             name=f'Contract {contract_id} - Consumption',
-            line=dict(width=2)
+            line=dict(width=3),
+            marker=dict(size=4)
         ))
 
-        # Add commitment line
-        commitment = contract_data['commitment'].iloc[0]
+        # Add commitment line (linear burndown from start to end)
         fig.add_trace(go.Scatter(
-            x=[contract_data['start_date'].iloc[0], contract_data['end_date'].iloc[0]],
+            x=[start_date, end_date],
             y=[0, commitment],
             mode='lines',
             name=f'Contract {contract_id} - Commitment',
-            line=dict(dash='dash', width=2)
+            line=dict(dash='dash', width=2, color='gray')
         ))
 
     fig.update_layout(
-        title='Contract Burndown',
+        title='Contract Burndown - Cumulative Spend vs. Linear Commitment',
         xaxis_title='Date',
-        yaxis_title='DBU',
+        yaxis_title='Cumulative Cost ($)',
         hovermode='x unified',
-        height=500
+        height=600,
+        xaxis=dict(
+            tickformat='%Y-%m-%d',
+            tickangle=45
+        ),
+        yaxis=dict(
+            tickformat='$,.0f'
+        ),
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
     )
 
     fig.show()
 else:
-    print("No contract data available for burndown chart")
+    print("❌ No contract data available for burndown chart")
+    print("\nTroubleshooting:")
+    print("1. Run Cell 3 to create/update contract data")
+    print("2. Verify you have usage data: SELECT COUNT(*) FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)")
+    print("3. Check contract dates match usage dates")
 
 # COMMAND ----------
 
