@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.5.0 (Build: 2026-01-29-010)
+# MAGIC **Version:** 1.5.1 (Build: 2026-01-29-011)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.5.0"
-BUILD = "2026-01-29-010"
+VERSION = "1.5.1"
+BUILD = "2026-01-29-011"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -441,10 +441,10 @@ if not daily_spend.empty:
     days_elapsed = (last_date - first_date).days
 
     if days_elapsed > 0 and max_cumulative > 0:
-        daily_avg_spend = max_cumulative / days_elapsed
-        remaining_budget = contract_value - max_cumulative
+        daily_avg_spend = float(max_cumulative) / days_elapsed
+        remaining_budget = float(contract_value) - float(max_cumulative)
         days_to_burndown = remaining_budget / daily_avg_spend if daily_avg_spend > 0 else 0
-        projected_burndown_date = last_date + pd.Timedelta(days=days_to_burndown)
+        projected_burndown_date = last_date + pd.Timedelta(days=float(days_to_burndown))
 
         print(f"\nProjection Analysis:")
         print(f"  Average daily spend: ${daily_avg_spend:.2f}")
