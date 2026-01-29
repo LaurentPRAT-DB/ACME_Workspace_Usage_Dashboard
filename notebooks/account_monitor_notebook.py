@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.0.4 (Build: 2026-01-29-004)
+# MAGIC **Version:** 1.1.0 (Build: 2026-01-29-005)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.0.4"
-BUILD = "2026-01-29-004"
+VERSION = "1.1.0"
+BUILD = "2026-01-29-005"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -242,13 +242,18 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   c.start_date,
 # MAGIC   c.end_date,
 # MAGIC   c.total_value,
-# MAGIC   COALESCE(SUM((u.usage_quantity * u.list_price_per_unit)), 0) as consumed,
-# MAGIC   ROUND(COALESCE(SUM((u.usage_quantity * u.list_price_per_unit)), 0) / c.total_value * 100, 1) as consumed_pct
+# MAGIC   COALESCE(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 0) as consumed,
+# MAGIC   ROUND(COALESCE(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 0) / c.total_value * 100, 1) as consumed_pct
 # MAGIC FROM account_monitoring.contracts c
 # MAGIC LEFT JOIN system.billing.usage u
 # MAGIC   ON c.account_id = u.account_id
 # MAGIC   AND c.cloud_provider = u.cloud
 # MAGIC   AND u.usage_date BETWEEN c.start_date AND c.end_date
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
 # MAGIC WHERE c.status = 'ACTIVE'
 # MAGIC GROUP BY
 # MAGIC   c.cloud_provider,
@@ -276,8 +281,8 @@ SELECT
   c.total_value as commitment,
   u.usage_date,
   u.cloud,
-  SUM(COALESCE((u.usage_quantity * u.list_price_per_unit), 0)) as daily_cost,
-  SUM(SUM(COALESCE((u.usage_quantity * u.list_price_per_unit), 0))) OVER (
+  SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)) as daily_cost,
+  SUM(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0))) OVER (
     PARTITION BY c.contract_id
     ORDER BY u.usage_date
     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
@@ -287,6 +292,11 @@ LEFT JOIN system.billing.usage u
   ON c.account_id = u.account_id
   AND c.cloud_provider = u.cloud
   AND u.usage_date BETWEEN c.start_date AND c.end_date
+LEFT JOIN system.billing.list_prices lp
+  ON u.sku_name = lp.sku_name
+  AND u.cloud = lp.cloud
+  AND u.usage_date >= lp.price_start_time
+  AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
 WHERE c.status = 'ACTIVE'
 GROUP BY
   c.contract_id,
@@ -346,16 +356,21 @@ else:
 
 # MAGIC %sql
 # MAGIC SELECT
-# MAGIC   workspace_id,
-# MAGIC   cloud,
-# MAGIC   COUNT(DISTINCT sku_name) as sku_count,
-# MAGIC   ROUND(SUM(usage_quantity), 2) as total_dbu,
-# MAGIC   ROUND(SUM(COALESCE((usage_quantity * list_price_per_unit), 0)), 2) as total_cost,
-# MAGIC   COUNT(DISTINCT usage_date) as active_days,
-# MAGIC   ROUND(AVG(COALESCE((usage_quantity * list_price_per_unit), 0)), 2) as avg_daily_cost
-# MAGIC FROM system.billing.usage
-# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90)
-# MAGIC GROUP BY workspace_id, cloud
+# MAGIC   u.workspace_id,
+# MAGIC   u.cloud,
+# MAGIC   COUNT(DISTINCT u.sku_name) as sku_count,
+# MAGIC   ROUND(SUM(u.usage_quantity), 2) as total_dbu,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as total_cost,
+# MAGIC   COUNT(DISTINCT u.usage_date) as active_days,
+# MAGIC   ROUND(AVG(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as avg_daily_cost
+# MAGIC FROM system.billing.usage u
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 90)
+# MAGIC GROUP BY u.workspace_id, u.cloud
 # MAGIC ORDER BY total_cost DESC
 # MAGIC LIMIT 10;
 
@@ -368,16 +383,21 @@ else:
 
 # MAGIC %sql
 # MAGIC SELECT
-# MAGIC   sku_name,
-# MAGIC   cloud,
-# MAGIC   usage_unit,
-# MAGIC   ROUND(SUM(usage_quantity), 2) as total_usage,
-# MAGIC   ROUND(SUM(COALESCE((usage_quantity * list_price_per_unit), 0)), 2) as total_cost,
-# MAGIC   COUNT(DISTINCT workspace_id) as workspace_count,
-# MAGIC   COUNT(DISTINCT usage_date) as active_days
-# MAGIC FROM system.billing.usage
-# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90)
-# MAGIC GROUP BY sku_name, cloud, usage_unit
+# MAGIC   u.sku_name,
+# MAGIC   u.cloud,
+# MAGIC   u.usage_unit,
+# MAGIC   ROUND(SUM(u.usage_quantity), 2) as total_usage,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as total_cost,
+# MAGIC   COUNT(DISTINCT u.workspace_id) as workspace_count,
+# MAGIC   COUNT(DISTINCT u.usage_date) as active_days
+# MAGIC FROM system.billing.usage u
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 90)
+# MAGIC GROUP BY u.sku_name, u.cloud, u.usage_unit
 # MAGIC ORDER BY total_cost DESC
 # MAGIC LIMIT 10;
 
@@ -390,16 +410,21 @@ else:
 
 monthly_df = spark.sql("""
 SELECT
-  DATE_TRUNC('MONTH', usage_date) as month,
-  cloud,
-  ROUND(SUM(usage_quantity), 2) as monthly_dbu,
-  ROUND(SUM(COALESCE((usage_quantity * list_price_per_unit), 0)), 2) as monthly_cost,
-  COUNT(DISTINCT workspace_id) as active_workspaces,
-  COUNT(DISTINCT sku_name) as unique_skus
-FROM system.billing.usage
-WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-GROUP BY DATE_TRUNC('MONTH', usage_date), cloud
-ORDER BY month DESC, cloud
+  DATE_TRUNC('MONTH', u.usage_date) as month,
+  u.cloud,
+  ROUND(SUM(u.usage_quantity), 2) as monthly_dbu,
+  ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as monthly_cost,
+  COUNT(DISTINCT u.workspace_id) as active_workspaces,
+  COUNT(DISTINCT u.sku_name) as unique_skus
+FROM system.billing.usage u
+LEFT JOIN system.billing.list_prices lp
+  ON u.sku_name = lp.sku_name
+  AND u.cloud = lp.cloud
+  AND u.usage_date >= lp.price_start_time
+  AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+GROUP BY DATE_TRUNC('MONTH', u.usage_date), u.cloud
+ORDER BY month DESC, u.cloud
 """).toPandas()
 
 # Create monthly trend chart
@@ -425,23 +450,28 @@ if not monthly_df.empty:
 
 # MAGIC %sql
 # MAGIC SELECT
-# MAGIC   DATE_TRUNC('MONTH', usage_date) as month,
+# MAGIC   DATE_TRUNC('MONTH', u.usage_date) as month,
 # MAGIC   CASE
-# MAGIC     WHEN sku_name LIKE '%ALL_PURPOSE%' THEN 'All Purpose Compute'
-# MAGIC     WHEN sku_name LIKE '%JOBS%' THEN 'Jobs Compute'
-# MAGIC     WHEN sku_name LIKE '%DLT%' OR sku_name LIKE '%DELTA_LIVE_TABLES%' THEN 'Delta Live Tables'
-# MAGIC     WHEN sku_name LIKE '%SQL%' THEN 'SQL Warehouse'
-# MAGIC     WHEN sku_name LIKE '%INFERENCE%' OR sku_name LIKE '%MODEL_SERVING%' THEN 'Model Serving'
-# MAGIC     WHEN sku_name LIKE '%VECTOR_SEARCH%' THEN 'Vector Search'
-# MAGIC     WHEN sku_name LIKE '%SERVERLESS%' THEN 'Serverless'
+# MAGIC     WHEN u.sku_name LIKE '%ALL_PURPOSE%' THEN 'All Purpose Compute'
+# MAGIC     WHEN u.sku_name LIKE '%JOBS%' THEN 'Jobs Compute'
+# MAGIC     WHEN u.sku_name LIKE '%DLT%' OR u.sku_name LIKE '%DELTA_LIVE_TABLES%' THEN 'Delta Live Tables'
+# MAGIC     WHEN u.sku_name LIKE '%SQL%' THEN 'SQL Warehouse'
+# MAGIC     WHEN u.sku_name LIKE '%INFERENCE%' OR u.sku_name LIKE '%MODEL_SERVING%' THEN 'Model Serving'
+# MAGIC     WHEN u.sku_name LIKE '%VECTOR_SEARCH%' THEN 'Vector Search'
+# MAGIC     WHEN u.sku_name LIKE '%SERVERLESS%' THEN 'Serverless'
 # MAGIC     ELSE 'Other'
 # MAGIC   END as category,
-# MAGIC   cloud,
-# MAGIC   ROUND(SUM(usage_quantity), 2) as total_dbu,
-# MAGIC   ROUND(SUM(COALESCE((usage_quantity * list_price_per_unit), 0)), 2) as total_cost
-# MAGIC FROM system.billing.usage
-# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-# MAGIC GROUP BY DATE_TRUNC('MONTH', usage_date), category, cloud
+# MAGIC   u.cloud,
+# MAGIC   ROUND(SUM(u.usage_quantity), 2) as total_dbu,
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as total_cost
+# MAGIC FROM system.billing.usage u
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+# MAGIC GROUP BY DATE_TRUNC('MONTH', u.usage_date), category, u.cloud
 # MAGIC ORDER BY month DESC, total_cost DESC;
 
 # COMMAND ----------
@@ -470,10 +500,10 @@ SELECT
   u.sku_name,
   u.usage_unit,
   u.usage_quantity,
-  COALESCE((u.usage_quantity * u.list_price_per_unit), 0) as actual_cost,
-  u.list_price_per_unit,
+  u.usage_quantity * COALESCE(lp.pricing.default, 0) as actual_cost,
+  lp.pricing.default as list_price_per_unit,
   lp.pricing.default as discounted_price_per_unit,
-  u.usage_quantity * u.list_price_per_unit as list_cost,
+  u.usage_quantity * COALESCE(lp.pricing.default, 0) as list_cost,
   u.usage_quantity * COALESCE(lp.pricing.default, 0) as discounted_cost,
   CASE
     WHEN u.sku_name LIKE '%ALL_PURPOSE%' THEN 'All Purpose Compute'
@@ -509,9 +539,14 @@ print("Dashboard data exported to: account_monitoring.dashboard_data")
 # MAGIC -- Summary across all dimensions
 # MAGIC SELECT
 # MAGIC   'Total Spend (Last 365 days)' as metric,
-# MAGIC   CONCAT('$', FORMAT_NUMBER(SUM(COALESCE((usage_quantity * list_price_per_unit), 0)), 2)) as value
-# MAGIC FROM system.billing.usage
-# MAGIC WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+# MAGIC   CONCAT('$', FORMAT_NUMBER(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2)) as value
+# MAGIC FROM system.billing.usage u
+# MAGIC LEFT JOIN system.billing.list_prices lp
+# MAGIC   ON u.sku_name = lp.sku_name
+# MAGIC   AND u.cloud = lp.cloud
+# MAGIC   AND u.usage_date >= lp.price_start_time
+# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
 # MAGIC
 # MAGIC UNION ALL
 # MAGIC
@@ -544,9 +579,14 @@ print("Dashboard data exported to: account_monitoring.dashboard_data")
 # MAGIC   CONCAT('$', FORMAT_NUMBER(AVG(daily_cost), 2)) as value
 # MAGIC FROM (
 # MAGIC   SELECT
-# MAGIC     usage_date,
-# MAGIC     SUM(COALESCE((usage_quantity * list_price_per_unit), 0)) as daily_cost
-# MAGIC   FROM system.billing.usage
-# MAGIC   WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90)
-# MAGIC   GROUP BY usage_date
+# MAGIC     u.usage_date,
+# MAGIC     SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)) as daily_cost
+# MAGIC   FROM system.billing.usage u
+# MAGIC   LEFT JOIN system.billing.list_prices lp
+# MAGIC     ON u.sku_name = lp.sku_name
+# MAGIC     AND u.cloud = lp.cloud
+# MAGIC     AND u.usage_date >= lp.price_start_time
+# MAGIC     AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
+# MAGIC   WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 90)
+# MAGIC   GROUP BY u.usage_date
 # MAGIC );
