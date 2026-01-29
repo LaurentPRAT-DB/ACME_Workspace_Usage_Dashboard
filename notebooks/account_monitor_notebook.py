@@ -9,6 +9,8 @@
 # MAGIC - `system.billing.usage` - Usage data and costs
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
+# MAGIC
+# MAGIC **Version:** 1.0.1 (Build: 2026-01-29-001)
 
 # COMMAND ----------
 
@@ -25,6 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
+VERSION = "1.0.1"
+BUILD = "2026-01-29-001"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -33,6 +37,7 @@ SCHEMA = "billing"
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 100)
 
+print(f"Account Monitor Dashboard v{VERSION} (Build: {BUILD})")
 print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 
 # COMMAND ----------
@@ -63,7 +68,14 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   CONSTRAINT pk_contracts PRIMARY KEY (contract_id)
 # MAGIC )
-# MAGIC TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported');
+# MAGIC USING DELTA
+# MAGIC COMMENT 'Contract tracking for consumption monitoring'
+# MAGIC TBLPROPERTIES (
+# MAGIC   'delta.feature.allowColumnDefaults' = 'supported',
+# MAGIC   'delta.enableChangeDataFeed' = 'true',
+# MAGIC   'delta.autoOptimize.optimizeWrite' = 'true',
+# MAGIC   'delta.autoOptimize.autoCompact' = 'true'
+# MAGIC );
 # MAGIC
 # MAGIC -- Create account metadata table
 # MAGIC CREATE TABLE IF NOT EXISTS account_monitoring.account_metadata (
@@ -81,7 +93,14 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   CONSTRAINT pk_account_metadata PRIMARY KEY (account_id)
 # MAGIC )
-# MAGIC TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported');
+# MAGIC USING DELTA
+# MAGIC COMMENT 'Account metadata and organizational information'
+# MAGIC TBLPROPERTIES (
+# MAGIC   'delta.feature.allowColumnDefaults' = 'supported',
+# MAGIC   'delta.enableChangeDataFeed' = 'true',
+# MAGIC   'delta.autoOptimize.optimizeWrite' = 'true',
+# MAGIC   'delta.autoOptimize.autoCompact' = 'true'
+# MAGIC );
 
 # COMMAND ----------
 
