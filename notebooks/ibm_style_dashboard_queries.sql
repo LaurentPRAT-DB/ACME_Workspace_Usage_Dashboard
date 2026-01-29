@@ -103,7 +103,7 @@ LIMIT 1;
 -- Dataset: total_spend_timeframe
 -- Shows: Spending breakdown by cloud provider with DBU, prices, and revenue
 SELECT
-  customer_name,
+  account_name,
   cloud_provider as cloud,
   MIN(usage_date) as start_date,
   MAX(usage_date) as end_date,
@@ -113,7 +113,7 @@ SELECT
   ROUND(SUM(actual_cost), 2) as revenue
 FROM main.account_monitoring_dev.dashboard_data
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-GROUP BY customer_name, cloud_provider
+GROUP BY account_name, cloud_provider
 ORDER BY cloud_provider;
 
 -- COMMAND ----------
@@ -192,10 +192,10 @@ ORDER BY usage_date;
 -- Dataset: account_list
 -- For account filter dropdown
 SELECT DISTINCT
-  customer_name as account_name,
+  account_name,
   salesforce_id
 FROM main.account_monitoring_dev.dashboard_data
-ORDER BY customer_name;
+ORDER BY account_name;
 
 -- COMMAND ----------
 
