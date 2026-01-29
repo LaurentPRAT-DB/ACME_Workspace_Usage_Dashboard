@@ -188,16 +188,22 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 
 ---
 
-### 6. Deploy to Databricks
+### 6. Deploy to Databricks ⚠️ CRITICAL STEP
+
+**⚠️ WARNING: This step is MANDATORY and must NOT be skipped!**
+
+Without deployment, changes exist only in GitHub and are NOT visible in the Databricks workspace.
 
 **Deploy using Databricks Asset Bundle:**
 
 ```bash
 # Deploy to development environment (default)
+databricks bundle deploy -t dev
+
+# Or just (dev is default)
 databricks bundle deploy
 
-# Or deploy to specific target
-databricks bundle deploy -t dev
+# For production
 databricks bundle deploy -t prod
 
 # Verify deployment
@@ -206,9 +212,10 @@ databricks bundle validate
 
 **What Happens During Deployment:**
 1. Files synced to workspace: `/Workspace/Users/{user}/account_monitor/files/`
-2. Jobs updated with new definitions
-3. Deployment state recorded
-4. All resources validated
+2. Notebooks uploaded to workspace (visible in UI)
+3. Jobs updated with new definitions
+4. Deployment state recorded
+5. All resources validated
 
 **Expected Output:**
 ```
@@ -217,6 +224,23 @@ Deploying resources...
 Updating deployment state...
 Deployment complete!
 ```
+
+**Verify Notebooks Are Deployed:**
+```bash
+# List deployed notebooks
+databricks workspace list /Workspace/Users/$(databricks current-user me --output json | jq -r .userName)/account_monitor/files/notebooks/
+
+# You should see:
+# - account_monitor_notebook
+# - lakeview_dashboard_queries
+# - ibm_style_dashboard_queries
+# - post_deployment_validation
+# - verify_contract_burndown
+```
+
+**Common Mistake:**
+❌ Running `git push` and stopping - notebooks NOT updated in workspace
+✅ Running `git push` AND `databricks bundle deploy` - notebooks updated everywhere
 
 ---
 
@@ -332,11 +356,14 @@ Use this checklist for every notebook fix:
 - [ ] Changes staged with `git add`
 - [ ] Descriptive commit message written
 - [ ] Commit includes version bump note
-- [ ] Changes pushed to remote
-- [ ] Bundle deployed to Databricks
-- [ ] Deployment confirmed successful
+- [ ] Changes pushed to remote (`git push`)
+- [ ] **⚠️ Bundle deployed to Databricks (`databricks bundle deploy -t dev`) - MANDATORY**
+- [ ] **⚠️ Deployment confirmed successful (check output)**
+- [ ] **⚠️ Notebooks verified in workspace (list notebooks or open in UI)**
 - [ ] User notified of fix and new version
 - [ ] Issue documented (if recurring)
+
+**STOP: Do not mark this workflow complete without deploying to Databricks!**
 
 ---
 
