@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.5.3 (Build: 2026-01-29-013)
+# MAGIC **Version:** 1.5.4 (Build: 2026-01-29-014)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.5.3"
-BUILD = "2026-01-29-013"
+VERSION = "1.5.4"
+BUILD = "2026-01-29-014"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -145,7 +145,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC -- Delete all contracts to start fresh (only keep contract 1694992)
 # MAGIC DELETE FROM account_monitoring.contracts WHERE contract_id != '1694992';
 # MAGIC
-# MAGIC -- Insert/Update single sample contract (1694992) with fixed $3,000 value
+# MAGIC -- Insert/Update single sample contract (1694992) with fixed USD 3,000 value
 # MAGIC -- Contract spans 2 years: starts 1 year ago, ends 1 year from now
 # MAGIC MERGE INTO account_monitoring.contracts AS target
 # MAGIC USING (
