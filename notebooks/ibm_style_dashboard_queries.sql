@@ -4,6 +4,23 @@
 -- MAGIC
 -- MAGIC Complete set of queries to recreate the IBM Account Monitor dashboard layout.
 -- MAGIC This dashboard combines account overview, contract tracking, and burndown visualization.
+-- MAGIC
+-- MAGIC **Version:** 1.5.5 (Build: 2026-01-29-002)
+-- MAGIC
+-- MAGIC **Data Sources:**
+-- MAGIC - `system.billing.usage` - Usage data and costs
+-- MAGIC - `main.account_monitoring_dev.dashboard_data` - Pre-aggregated dashboard data
+-- MAGIC - `main.account_monitoring_dev.contract_burndown` - Contract consumption tracking
+-- MAGIC - `main.account_monitoring_dev.contract_burndown_summary` - Latest contract status
+-- MAGIC - `main.account_monitoring_dev.account_metadata` - Customer information
+-- MAGIC
+-- MAGIC **Schema Fields Used:**
+-- MAGIC - `actual_cost` - Cost at list price
+-- MAGIC - `list_cost` - Total cost at list price (aggregated)
+-- MAGIC - `discounted_cost` - Total cost at discounted price (aggregated)
+-- MAGIC - `usage_quantity` - DBU/units consumed
+-- MAGIC
+-- MAGIC **Last Updated:** 2026-01-29 - Fixed Query 4 field names (list_price→list_cost, discounted_price→discounted_cost)
 
 -- COMMAND ----------
 

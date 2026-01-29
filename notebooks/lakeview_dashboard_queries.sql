@@ -5,10 +5,27 @@
 -- MAGIC All 15 queries for the Account Monitor dashboard with Contract Burndown.
 -- MAGIC These queries match the datasets defined in `lakeview_dashboard_config.json`.
 -- MAGIC
+-- MAGIC **Version:** 1.5.5 (Build: 2026-01-29-002)
+-- MAGIC
+-- MAGIC **Data Sources:**
+-- MAGIC - `system.billing.usage` - Usage data and costs
+-- MAGIC - `main.account_monitoring_dev.dashboard_data` - Pre-aggregated dashboard data
+-- MAGIC - `main.account_monitoring_dev.contract_burndown` - Contract consumption tracking
+-- MAGIC - `main.account_monitoring_dev.contract_burndown_summary` - Latest contract status
+-- MAGIC
+-- MAGIC **Schema Fields Used:**
+-- MAGIC - `actual_cost` - Cost at list price
+-- MAGIC - `list_cost` - Total cost at list price (aggregated)
+-- MAGIC - `discounted_cost` - Total cost at discounted price (aggregated)
+-- MAGIC - `usage_quantity` - DBU/units consumed
+-- MAGIC - `product_category` - Derived product category
+-- MAGIC
 -- MAGIC **Dashboard Pages:**
 -- MAGIC 1. Contract Burndown (8 visualizations)
 -- MAGIC 2. Account Overview (5 visualizations)
 -- MAGIC 3. Usage Analytics (3 visualizations)
+-- MAGIC
+-- MAGIC **Last Updated:** 2026-01-29 - Fixed field names, added version tracking
 
 -- COMMAND ----------
 
