@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.1.0 (Build: 2026-01-29-005)
+# MAGIC **Version:** 1.1.1 (Build: 2026-01-29-006)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.1.0"
-BUILD = "2026-01-29-005"
+VERSION = "1.1.1"
+BUILD = "2026-01-29-006"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -212,7 +212,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   ROUND(SUM(u.usage_quantity), 3) as dbu,
 # MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as list_price,
 # MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0) * 0.85), 2) as discounted_price,
-# MAGIC   ROUND(SUM(COALESCE((u.usage_quantity * u.list_price_per_unit), 0)), 2) as revenue
+# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as revenue
 # MAGIC FROM system.billing.usage u
 # MAGIC LEFT JOIN system.billing.list_prices lp
 # MAGIC   ON u.sku_name = lp.sku_name
