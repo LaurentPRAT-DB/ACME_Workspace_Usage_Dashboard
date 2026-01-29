@@ -24,7 +24,7 @@ databricks bundle deploy -t dev
 # Open notebooks/account_monitor_notebook.py in your workspace
 ```
 
-**See:** [GETTING_STARTED.md](GETTING_STARTED.md) for detailed setup instructions.
+**See:** [GETTING_STARTED.md](docs/GETTING_STARTED.md) for detailed setup instructions.
 
 ---
 
@@ -63,7 +63,7 @@ databricks bundle deploy
 ```
 
 **Resources:**
-- **Quick Reference:** [NOTEBOOK_FIX_QUICKREF.md](NOTEBOOK_FIX_QUICKREF.md) - Common fixes and quick commands
+- **Quick Reference:** [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Common fixes and quick commands
 - **Full Workflow:** [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete development workflow
 - **Scripts:** [scripts/README.md](scripts/README.md) - Helper script documentation
 
@@ -75,8 +75,6 @@ databricks bundle deploy
 databricks_conso_reports/
 ├── databricks.yml                    # Asset bundle configuration
 ├── README.md                          # This file
-├── NOTEBOOK_FIX_QUICKREF.md          # Quick reference for notebook fixes
-├── GETTING_STARTED.md                 # Initial setup guide
 │
 ├── notebooks/                         # Databricks notebooks
 │   ├── account_monitor_notebook.py   # Main analytics notebook
@@ -96,7 +94,10 @@ databricks_conso_reports/
 │   └── jobs.yml                      # Job definitions
 │
 └── docs/                              # Documentation
+    ├── GETTING_STARTED.md             # Initial setup guide
+    ├── NOTEBOOK_FIX_QUICKREF.md       # Quick reference for notebook fixes
     ├── SKILL_NOTEBOOK_FIX_WORKFLOW.md # Complete fix workflow
+    ├── TEAM_DEPLOYMENT_GUIDE.md       # Complete deployment guide
     ├── SCHEMA_REFERENCE.md            # System tables reference
     ├── QUICK_REFERENCE.md             # Query examples
     └── OPERATIONS_GUIDE.md            # Daily operations
@@ -179,8 +180,9 @@ Four jobs are deployed:
 ## 📚 Documentation
 
 ### Quick Access
-- [NOTEBOOK_FIX_QUICKREF.md](NOTEBOOK_FIX_QUICKREF.md) - Quick reference for common fixes
-- [GETTING_STARTED.md](GETTING_STARTED.md) - Initial setup guide
+- [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Quick reference for common fixes
+- [GETTING_STARTED.md](docs/GETTING_STARTED.md) - Initial setup guide
+- [TEAM_DEPLOYMENT_GUIDE.md](docs/TEAM_DEPLOYMENT_GUIDE.md) - Complete deployment guide for teams
 
 ### Development
 - [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete fix workflow
@@ -216,7 +218,7 @@ databricks bundle validate
 databricks bundle deploy
 ```
 
-**See:** [NOTEBOOK_FIX_QUICKREF.md](NOTEBOOK_FIX_QUICKREF.md) for more fixes.
+**See:** [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) for more fixes.
 
 ---
 
@@ -285,8 +287,9 @@ After deployment:
 ---
 
 **Quick Links:**
-- [GETTING_STARTED.md](GETTING_STARTED.md) - Setup instructions
-- [NOTEBOOK_FIX_QUICKREF.md](NOTEBOOK_FIX_QUICKREF.md) - Development quick reference
+- [GETTING_STARTED.md](docs/GETTING_STARTED.md) - Setup instructions
+- [TEAM_DEPLOYMENT_GUIDE.md](docs/TEAM_DEPLOYMENT_GUIDE.md) - Complete deployment guide for teams
+- [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Development quick reference
 - [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete workflow
 - [GitHub Repository](https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard)
 
