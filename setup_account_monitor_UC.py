@@ -99,7 +99,6 @@ def create_account_metadata_table(w: WorkspaceClient, catalog: str = DEFAULT_CAT
                 CREATE TABLE IF NOT EXISTS {catalog}.{SCHEMA_NAME}.account_metadata (
                   account_id STRING NOT NULL COMMENT 'Databricks account ID',
                   customer_name STRING NOT NULL COMMENT 'Customer display name',
-                  salesforce_id STRING COMMENT 'Salesforce account ID',
                   business_unit_l0 STRING COMMENT 'Top-level business unit',
                   business_unit_l1 STRING COMMENT 'Second-level business unit',
                   business_unit_l2 STRING COMMENT 'Third-level business unit',
@@ -143,7 +142,6 @@ def create_dashboard_data_table(w: WorkspaceClient, catalog: str = DEFAULT_CATAL
                   usage_date DATE NOT NULL,
                   account_id STRING NOT NULL,
                   customer_name STRING,
-                  salesforce_id STRING,
                   business_unit_l0 STRING,
                   business_unit_l1 STRING,
                   business_unit_l2 STRING,
@@ -248,7 +246,6 @@ def insert_sample_data(w: WorkspaceClient, catalog: str = DEFAULT_CATALOG):
                 USING (
                   SELECT 'your-account-id' as account_id,
                          'Sample Customer Inc' as customer_name,
-                         '0014N00001HEcQAG' as salesforce_id,
                          'AMER' as business_unit_l0,
                          'West' as business_unit_l1,
                          'California' as business_unit_l2,

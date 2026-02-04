@@ -10,7 +10,7 @@
 # MAGIC - `system.billing.list_prices` - Pricing information
 # MAGIC - Custom tables for contracts and organizational data
 # MAGIC
-# MAGIC **Version:** 1.5.4 (Build: 2026-01-29-014)
+# MAGIC **Version:** 1.6.1 (Build: 2026-02-04-007)
 
 # COMMAND ----------
 
@@ -27,8 +27,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Configuration
-VERSION = "1.5.4"
-BUILD = "2026-01-29-014"
+VERSION = "1.6.1"
+BUILD = "2026-02-04-007"
 LOOKBACK_DAYS = 365  # Last 12 months
 CATALOG = "system"
 SCHEMA = "billing"
@@ -64,6 +64,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   currency STRING DEFAULT 'USD',
 # MAGIC   commitment_type STRING,  -- 'DBU' or 'SPEND'
 # MAGIC   status STRING,  -- 'ACTIVE', 'EXPIRED', 'PENDING'
+# MAGIC   notes STRING,  -- Additional contract notes
 # MAGIC   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
 # MAGIC   CONSTRAINT pk_contracts PRIMARY KEY (contract_id)
@@ -164,8 +165,25 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   FROM usage_summary us
 # MAGIC ) AS source
 # MAGIC ON target.contract_id = source.contract_id
-# MAGIC WHEN MATCHED THEN UPDATE SET *
-# MAGIC WHEN NOT MATCHED THEN INSERT *;
+# MAGIC WHEN MATCHED THEN UPDATE SET
+# MAGIC   account_id = source.account_id,
+# MAGIC   cloud_provider = source.cloud_provider,
+# MAGIC   start_date = source.start_date,
+# MAGIC   end_date = source.end_date,
+# MAGIC   total_value = source.total_value,
+# MAGIC   currency = source.currency,
+# MAGIC   commitment_type = source.commitment_type,
+# MAGIC   status = source.status,
+# MAGIC   notes = source.notes,
+# MAGIC   updated_at = source.updated_at
+# MAGIC WHEN NOT MATCHED THEN INSERT (
+# MAGIC   contract_id, account_id, cloud_provider, start_date, end_date,
+# MAGIC   total_value, currency, commitment_type, status, notes, created_at, updated_at
+# MAGIC ) VALUES (
+# MAGIC   source.contract_id, source.account_id, source.cloud_provider, source.start_date,
+# MAGIC   source.end_date, source.total_value, source.currency, source.commitment_type,
+# MAGIC   source.status, source.notes, source.created_at, source.updated_at
+# MAGIC );
 # MAGIC
 # MAGIC -- Insert sample account metadata based on actual usage
 # MAGIC MERGE INTO account_monitoring.account_metadata AS target
@@ -185,8 +203,25 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   FROM usage_summary us
 # MAGIC ) AS source
 # MAGIC ON target.account_id = source.account_id
-# MAGIC WHEN MATCHED THEN UPDATE SET *
-# MAGIC WHEN NOT MATCHED THEN INSERT *;
+# MAGIC WHEN MATCHED THEN UPDATE SET
+# MAGIC   customer_name = source.customer_name,
+# MAGIC   business_unit_l0 = source.business_unit_l0,
+# MAGIC   business_unit_l1 = source.business_unit_l1,
+# MAGIC   business_unit_l2 = source.business_unit_l2,
+# MAGIC   business_unit_l3 = source.business_unit_l3,
+# MAGIC   account_executive = source.account_executive,
+# MAGIC   solutions_architect = source.solutions_architect,
+# MAGIC   delivery_solutions_architect = source.delivery_solutions_architect,
+# MAGIC   updated_at = source.updated_at
+# MAGIC WHEN NOT MATCHED THEN INSERT (
+# MAGIC   account_id, customer_name, business_unit_l0, business_unit_l1,
+# MAGIC   business_unit_l2, business_unit_l3, account_executive, solutions_architect,
+# MAGIC   delivery_solutions_architect, created_at, updated_at
+# MAGIC ) VALUES (
+# MAGIC   source.account_id, source.customer_name, source.business_unit_l0, source.business_unit_l1,
+# MAGIC   source.business_unit_l2, source.business_unit_l3, source.account_executive, source.solutions_architect,
+# MAGIC   source.delivery_solutions_architect, source.created_at, source.updated_at
+# MAGIC );
 # MAGIC
 # MAGIC -- Show created contract
 # MAGIC SELECT

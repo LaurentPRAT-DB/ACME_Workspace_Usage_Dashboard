@@ -483,7 +483,6 @@ print_summary()
 # MAGIC    UPDATE main.account_monitoring_dev.account_metadata
 # MAGIC    SET
 # MAGIC        customer_name = 'Your Organization',
-# MAGIC        salesforce_id = 'YOUR-SF-ID',
 # MAGIC        business_unit_l0 = 'YOUR-REGION',
 # MAGIC        account_executive = 'AE Name',
 # MAGIC        solutions_architect = 'SA Name'

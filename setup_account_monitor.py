@@ -80,7 +80,6 @@ def create_account_metadata_table(w: WorkspaceClient):
                 CREATE TABLE IF NOT EXISTS account_monitoring.account_metadata (
                   account_id STRING COMMENT 'Databricks account ID',
                   customer_name STRING COMMENT 'Customer display name',
-                  salesforce_id STRING COMMENT 'Salesforce account ID',
                   business_unit_l0 STRING COMMENT 'Top-level business unit',
                   business_unit_l1 STRING COMMENT 'Second-level business unit',
                   business_unit_l2 STRING COMMENT 'Third-level business unit',
@@ -121,7 +120,6 @@ def create_dashboard_data_table(w: WorkspaceClient):
                   usage_date DATE,
                   account_id STRING,
                   customer_name STRING,
-                  salesforce_id STRING,
                   business_unit_l0 STRING,
                   business_unit_l1 STRING,
                   business_unit_l2 STRING,
