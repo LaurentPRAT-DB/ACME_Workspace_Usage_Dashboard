@@ -33,7 +33,6 @@ TBLPROPERTIES (
 CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.account_metadata (
   account_id STRING NOT NULL COMMENT 'Databricks account ID',
   customer_name STRING NOT NULL COMMENT 'Customer display name',
-  salesforce_id STRING COMMENT 'Salesforce account ID',
   business_unit_l0 STRING COMMENT 'Top-level business unit',
   business_unit_l1 STRING COMMENT 'Second-level business unit',
   business_unit_l2 STRING COMMENT 'Third-level business unit',
@@ -59,7 +58,6 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.dashboard_data (
   usage_date DATE NOT NULL,
   account_id STRING NOT NULL,
   customer_name STRING,
-  salesforce_id STRING,
   business_unit_l0 STRING,
   business_unit_l1 STRING,
   business_unit_l2 STRING,

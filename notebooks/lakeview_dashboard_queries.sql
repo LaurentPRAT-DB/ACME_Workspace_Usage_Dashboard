@@ -389,7 +389,6 @@ LIMIT 100;
 
 SELECT
   customer_name as `Customer`,
-  salesforce_id as `Salesforce ID`,
   CONCAT_WS(' > ', business_unit_l0, business_unit_l1, business_unit_l2, business_unit_l3) as `Business Unit`,
   account_executive as `AE`,
   solutions_architect as `SA`,

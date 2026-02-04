@@ -594,7 +594,6 @@ ORDER BY month"""
         "Account Information",
         f"""SELECT
   customer_name,
-  salesforce_id,
   CONCAT_WS(' > ', business_unit_l0, business_unit_l1, business_unit_l2, business_unit_l3) as business_unit,
   account_executive,
   solutions_architect,

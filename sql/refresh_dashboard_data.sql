@@ -7,7 +7,6 @@ SELECT
   u.usage_date,
   u.account_id,
   am.customer_name,
-  am.salesforce_id,
   am.business_unit_l0,
   am.business_unit_l1,
   am.business_unit_l2,

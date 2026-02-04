@@ -81,7 +81,6 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC CREATE TABLE IF NOT EXISTS account_monitoring.account_metadata (
 # MAGIC   account_id STRING,
 # MAGIC   customer_name STRING,
-# MAGIC   salesforce_id STRING,
 # MAGIC   business_unit_l0 STRING,
 # MAGIC   business_unit_l1 STRING,
 # MAGIC   business_unit_l2 STRING,
@@ -174,7 +173,6 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   SELECT
 # MAGIC     us.account_id,
 # MAGIC     'Sample Customer Inc.' as customer_name,
-# MAGIC     '0014N00001HEcQAG' as salesforce_id,
 # MAGIC     'AMER' as business_unit_l0,
 # MAGIC     'West' as business_unit_l1,
 # MAGIC     'California' as business_unit_l2,
@@ -254,7 +252,6 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC %sql
 # MAGIC SELECT
 # MAGIC   am.customer_name,
-# MAGIC   am.salesforce_id,
 # MAGIC   am.business_unit_l0,
 # MAGIC   am.business_unit_l1,
 # MAGIC   am.business_unit_l2,
@@ -642,7 +639,6 @@ SELECT
   u.usage_date,
   u.account_id,
   am.customer_name,
-  am.salesforce_id,
   am.business_unit_l0,
   am.business_unit_l1,
   am.business_unit_l2,

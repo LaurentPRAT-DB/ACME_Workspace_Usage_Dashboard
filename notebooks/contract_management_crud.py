@@ -398,7 +398,6 @@ delete_contracts("status = 'PENDING'", preview_only=True)
 # MAGIC SELECT
 # MAGIC   account_id,
 # MAGIC   customer_name,
-# MAGIC   salesforce_id,
 # MAGIC   business_unit_l0,
 # MAGIC   business_unit_l1,
 # MAGIC   business_unit_l2,
@@ -441,7 +440,6 @@ delete_contracts("status = 'PENDING'", preview_only=True)
 # MAGIC INSERT INTO main.account_monitoring_dev.account_metadata (
 # MAGIC   account_id,
 # MAGIC   customer_name,
-# MAGIC   salesforce_id,
 # MAGIC   business_unit_l0,
 # MAGIC   business_unit_l1,
 # MAGIC   business_unit_l2,
@@ -455,7 +453,6 @@ delete_contracts("status = 'PENDING'", preview_only=True)
 # MAGIC SELECT
 # MAGIC   account_id,
 # MAGIC   'My Company Inc.' as customer_name,           -- ⚠️ Change
-# MAGIC   'SF_ID_12345' as salesforce_id,               -- ⚠️ Change
 # MAGIC   'AMER' as business_unit_l0,                   -- ⚠️ Change
 # MAGIC   'East' as business_unit_l1,                   -- ⚠️ Change
 # MAGIC   'New York' as business_unit_l2,               -- ⚠️ Change
@@ -487,7 +484,6 @@ delete_contracts("status = 'PENDING'", preview_only=True)
 # MAGIC INSERT INTO main.account_monitoring_dev.account_metadata (
 # MAGIC   account_id,
 # MAGIC   customer_name,
-# MAGIC   salesforce_id,
 # MAGIC   business_unit_l0,
 # MAGIC   business_unit_l1,
 # MAGIC   business_unit_l2,
@@ -501,7 +497,6 @@ delete_contracts("status = 'PENDING'", preview_only=True)
 # MAGIC VALUES (
 # MAGIC   'account-12345',                     -- ⚠️ Change: Account ID
 # MAGIC   'Acme Corporation',                  -- ⚠️ Change: Customer name
-# MAGIC   '0014N00001ABCDEFG',                 -- ⚠️ Change: Salesforce ID
 # MAGIC   'EMEA',                              -- ⚠️ Change: Region
 # MAGIC   'UK',                                -- ⚠️ Change: Country/Area
 # MAGIC   'London',                            -- ⚠️ Change: City/Office
@@ -525,7 +520,6 @@ accounts_data = [
     {
         "account_id": "account-001",
         "customer_name": "TechCorp Industries",
-        "salesforce_id": "0014N00001XYZ123",
         "business_unit_l0": "AMER",
         "business_unit_l1": "West",
         "business_unit_l2": "San Francisco",
@@ -537,7 +531,6 @@ accounts_data = [
     {
         "account_id": "account-002",
         "customer_name": "Global Finance Ltd",
-        "salesforce_id": "0014N00001ABC789",
         "business_unit_l0": "EMEA",
         "business_unit_l1": "Germany",
         "business_unit_l2": "Frankfurt",
@@ -599,21 +592,6 @@ df.show(truncate=False)
 # MAGIC   business_unit_l3 = 'Manufacturing',  -- ⚠️ Change
 # MAGIC   updated_at = CURRENT_TIMESTAMP()
 # MAGIC WHERE account_id = 'your-account-id';  -- ⚠️ Change
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Update Salesforce ID
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- Update Salesforce ID
-# MAGIC UPDATE main.account_monitoring_dev.account_metadata
-# MAGIC SET
-# MAGIC   salesforce_id = '0014N00001NEWSFID',  -- ⚠️ Change
-# MAGIC   updated_at = CURRENT_TIMESTAMP()
-# MAGIC WHERE customer_name = 'Sample Customer Inc.';  -- ⚠️ Change
 
 # COMMAND ----------
 
@@ -713,7 +691,6 @@ print("⚠️ Uncomment the update statements above to execute")
 # MAGIC   c.contract_id,
 # MAGIC   c.account_id,
 # MAGIC   am.customer_name,
-# MAGIC   am.salesforce_id,
 # MAGIC   c.cloud_provider,
 # MAGIC   c.start_date,
 # MAGIC   c.end_date,
