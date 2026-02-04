@@ -37,3 +37,6 @@ credentials.json
 # Build artifacts
 build/
 dist/
+# Lakeview dashboard generated files
+api_payload.json
+dashboard_payload.json
