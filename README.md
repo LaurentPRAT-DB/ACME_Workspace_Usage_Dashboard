@@ -3,296 +3,272 @@
 **Track consumption, costs, and contract burndown across your Databricks workspaces**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
----
-
-## 🚀 Quick Start
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard.git
-cd ACME_Workspace_Usage_Dashboard
-
-# 2. Deploy to Databricks
-databricks bundle deploy -t dev
-
-# 3. Run validation
-# Open notebooks/post_deployment_validation.py in your workspace
-
-# 4. View your data
-# Open notebooks/account_monitor_notebook.py in your workspace
-```
-
-**See:** [GETTING_STARTED.md](docs/GETTING_STARTED.md) for detailed setup instructions.
-
----
-
-## 📊 Features
-
-- **📈 Contract Burndown Tracking** - Monitor spending against contract commitments
-- **💰 Cost Analysis** - Break down costs by workspace, SKU, and product category
-- **🏢 Multi-Account Support** - Track multiple accounts and business units
-- **📅 Automated Refresh** - Scheduled jobs for daily/weekly/monthly updates
-- **🎨 Lakeview Dashboards** - Pre-built queries for visualization
-- **✅ Validation Suite** - Automated tests to verify deployment
-
----
-
-## 🛠️ Development Workflow
-
-### Fixing Notebooks
-
-**Quick Fix (Recommended):**
-```bash
-# Automated version bump, commit, and deploy
-./scripts/notebook_fix.sh notebooks/account_monitor_notebook.py "Fix SQL parameter issue"
-```
-
-**Manual Fix:**
-```bash
-# 1. Edit the notebook
-# 2. Update version numbers (VERSION and BUILD)
-# 3. Commit and push
-git add notebooks/account_monitor_notebook.py
-git commit -m "Fix [issue]"
-git push
-
-# 4. Deploy
-databricks bundle deploy
-```
-
-**Resources:**
-- **Quick Reference:** [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Common fixes and quick commands
-- **Full Workflow:** [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete development workflow
-- **Scripts:** [scripts/README.md](scripts/README.md) - Helper script documentation
-
----
-
-## 📁 Project Structure
-
-```
-databricks_conso_reports/
-├── databricks.yml                    # Asset bundle configuration
-├── README.md                          # This file
-│
-├── notebooks/                         # Databricks notebooks
-│   ├── account_monitor_notebook.py   # Main analytics notebook
-│   ├── post_deployment_validation.py # Deployment validation tests
-│   └── lakeview_dashboard_queries.sql # Dashboard queries
-│
-├── sql/                               # SQL scripts for jobs
-│   ├── setup_schema.sql              # Schema and table creation
-│   ├── refresh_dashboard_data.sql    # Daily data refresh
-│   └── refresh_contract_burndown.sql # Contract burndown calculation
-│
-├── scripts/                           # Helper scripts
-│   ├── notebook_fix.sh               # Automated notebook fix workflow
-│   └── README.md                      # Scripts documentation
-│
-├── resources/                         # Bundle resources
-│   └── jobs.yml                      # Job definitions
-│
-└── docs/                              # Documentation
-    ├── GETTING_STARTED.md             # Initial setup guide
-    ├── NOTEBOOK_FIX_QUICKREF.md       # Quick reference for notebook fixes
-    ├── SKILL_NOTEBOOK_FIX_WORKFLOW.md # Complete fix workflow
-    ├── TEAM_DEPLOYMENT_GUIDE.md       # Complete deployment guide
-    ├── SCHEMA_REFERENCE.md            # System tables reference
-    ├── QUICK_REFERENCE.md             # Query examples
-    └── OPERATIONS_GUIDE.md            # Daily operations
-```
-
----
-
-## 🔧 Configuration
-
-### Unity Catalog Tables
-
-The project creates these tables in your catalog:
-
-| Table | Purpose |
-|-------|---------|
-| `contracts` | Contract tracking (value, dates, status) |
-| `account_metadata` | Customer information (AE, SA, business units) |
-| `dashboard_data` | Pre-aggregated usage and cost data |
-| `daily_summary` | Daily rollup for fast queries |
-| `contract_burndown` | Contract consumption tracking |
-
-### Scheduled Jobs
-
-Four jobs are deployed:
-
-| Job | Schedule | Purpose |
-|-----|----------|---------|
-| Setup | Manual | Create schema and tables |
-| Daily Refresh | 2 AM UTC | Update dashboard data |
-| Weekly Review | Mon 8 AM | Contract analysis and anomalies |
-| Monthly Summary | 1st @ 6 AM | Monthly report and archival |
-
----
-
-## 📊 Usage
-
-### Running the Main Notebook
-
-```python
-# In Databricks workspace:
-# 1. Open: /Users/{your-email}/account_monitor/files/notebooks/account_monitor_notebook.py
-# 2. Attach to a cluster or warehouse
-# 3. Run All
-
-# The notebook includes:
-# - Contract burndown chart
-# - Cost analysis by workspace/SKU
-# - Daily/weekly/monthly trends
-# - Top consumers
-```
-
-### Creating Lakeview Dashboards
-
-```sql
--- Use queries from: notebooks/lakeview_dashboard_queries.sql
--- In Lakeview:
--- 1. Create New Dashboard
--- 2. Add Visualization
--- 3. Copy query from lakeview_dashboard_queries.sql
--- 4. Configure chart type and axes
-```
-
-### Running Validation
-
-```python
-# In Databricks workspace:
-# Open: /Users/{your-email}/account_monitor/files/notebooks/post_deployment_validation.py
-# Run All
-
-# Tests verify:
-# - System tables access
-# - Unity Catalog tables
-# - Cost calculations
-# - Jobs deployment
-# - Data freshness
-```
+[![Version](https://img.shields.io/badge/Version-1.6.1-green)](CHANGELOG.md)
 
 ---
 
 ## 📚 Documentation
 
-### Quick Access
-- [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Quick reference for common fixes
-- [GETTING_STARTED.md](docs/GETTING_STARTED.md) - Initial setup guide
-- [TEAM_DEPLOYMENT_GUIDE.md](docs/TEAM_DEPLOYMENT_GUIDE.md) - Complete deployment guide for teams
+**👉 [Complete User Guide](docs/user-guide/USER_GUIDE.md)** - Start here for comprehensive instructions
 
-### Development
-- [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete fix workflow
-- [scripts/README.md](scripts/README.md) - Helper scripts documentation
+### Quick Links
 
-### Operations
-- [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) - Daily operations
-- [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) - Query examples
-- [docs/SCHEMA_REFERENCE.md](docs/SCHEMA_REFERENCE.md) - System tables reference
+- **[Installation & Setup](docs/user-guide/USER_GUIDE.md#installation--setup)** - Deploy with Databricks Asset Bundles
+- **[Understanding Tables](docs/user-guide/USER_GUIDE.md#understanding-the-data-model)** - Data model and schemas
+- **[Managing Contracts](docs/user-guide/USER_GUIDE.md#managing-contracts-crud-operations)** - CRUD operations guide
+- **[Data Refresh Jobs](docs/user-guide/USER_GUIDE.md#data-refresh-jobs)** - Automated job schedules
+- **[Dashboard Guide](docs/user-guide/USER_GUIDE.md#dashboard--burndown-charts)** - Visualizations and burndown charts
+- **[Troubleshooting](docs/user-guide/USER_GUIDE.md#troubleshooting)** - Common issues and solutions
 
 ---
 
-## 🐛 Troubleshooting
+## 🚀 Quick Start (5 Minutes)
+
+### Prerequisites
+- Databricks workspace with Unity Catalog
+- Databricks CLI installed
+- Access to system.billing tables
+
+### Installation
+
+```bash
+# 1. Authenticate
+databricks auth login https://your-workspace.cloud.databricks.com --profile YOUR_PROFILE
+
+# 2. Configure
+# Edit databricks.yml and set your profile and warehouse_id
+
+# 3. Deploy
+databricks bundle deploy --profile YOUR_PROFILE
+
+# 4. Run Setup
+databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+```
+
+**Done!** Your tables are created and sample data is loaded.
+
+### Next Steps
+
+1. **Update Your Data** - Open the Contract Management CRUD notebook and add your actual contracts
+2. **View Dashboard** - Open the Account Monitor notebook to see your cost analysis
+3. **Schedule Jobs** - Jobs are already deployed and scheduled (daily, weekly, monthly)
+
+---
+
+## 🎯 What This Solution Does
+
+### Cost Tracking
+- Monitor Databricks spending across all workspaces
+- Track costs by product category (compute, SQL, DLT, etc.)
+- Identify top consumers and cost anomalies
+
+### Contract Management
+- Store and track contract details (value, dates, cloud provider)
+- Calculate contract burndown and consumption rates
+- Project contract exhaustion dates
+- Get alerts for overspending
+
+### Organizational Reporting
+- Organize accounts by business units (4 levels)
+- Track team assignments (AE, SA, DSA)
+- Generate summaries by region, team, or account
+
+### Automation
+- **Daily** - Refresh dashboard data from system tables
+- **Weekly** - Analyze contracts and identify anomalies
+- **Monthly** - Generate summaries and archive old data
+
+---
+
+## 📊 Key Features
+
+### Interactive Notebooks
+
+**Account Monitor Dashboard** - Main analytics notebook
+- Cost trends over time
+- Contract burndown visualization
+- Top consumers analysis
+- Product category breakdown
+
+**Contract Management CRUD** - Manage your data
+- Add/update/delete contracts
+- Manage account metadata
+- Data validation tools
+- Bulk operations
+
+**Post Deployment Validation** - Verify your setup
+- Check table creation
+- Validate data integrity
+- Test job configurations
+
+### Automated Jobs
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| Setup | On-demand | Initialize schema and tables |
+| Daily Refresh | 2 AM UTC | Update dashboard data |
+| Weekly Review | Mon 8 AM | Contract analysis |
+| Monthly Summary | 1st @ 6 AM | Generate reports |
+
+### Data Tables
+
+**Contracts** - Track your Databricks contracts
+- Contract value, dates, status
+- Cloud provider and commitment type
+- Notes and metadata
+
+**Account Metadata** - Organizational structure
+- Business unit hierarchy (4 levels)
+- Team assignments (AE, SA, DSA)
+- Regional and industry tags
+
+**Dashboard Data** - Pre-aggregated analytics
+- Usage and cost by day/workspace/SKU
+- Product category breakdowns
+- Optimized for fast queries
+
+---
+
+## 🏗️ Architecture
+
+```
+System Tables (Databricks)
+    ↓
+Daily Refresh Job
+    ↓
+Dashboard Data Tables (Unity Catalog)
+    ↓
+Notebooks & Lakeview Dashboards
+    ↓
+Business Insights
+```
+
+**Data Flow:**
+1. System tables (`system.billing.usage`, `system.billing.list_prices`) contain raw data
+2. Daily job aggregates and enriches data
+3. Tables store processed data with business context
+4. Notebooks and dashboards provide visualization
+
+---
+
+## 📁 Repository Structure
+
+```
+databricks_conso_reports/
+├── README.md                          # This file
+├── databricks.yml                     # DAB configuration
+├── docs/
+│   ├── user-guide/
+│   │   └── USER_GUIDE.md             # 📚 Main documentation
+│   └── archive/                       # Old summaries
+├── notebooks/
+│   ├── account_monitor_notebook.py   # Main dashboard
+│   ├── contract_management_crud.py   # Data management
+│   └── post_deployment_validation.py # Setup validation
+├── sql/
+│   ├── setup_schema.sql              # Table creation
+│   ├── insert_sample_data.sql        # Sample data
+│   ├── refresh_dashboard_data.sql    # Daily refresh
+│   └── refresh_contract_burndown.sql # Burndown calc
+└── resources/
+    └── jobs.yml                       # Job definitions
+```
+
+---
+
+## 🔧 Common Tasks
+
+### Add a New Contract
+
+```sql
+INSERT INTO main.account_monitoring_dev.contracts
+VALUES (
+  'CONTRACT_2026_001',
+  'your-account-id',
+  'AWS',
+  '2026-01-01',
+  '2027-01-01',
+  10000.00,
+  'USD',
+  'SPEND',
+  'ACTIVE',
+  'Annual contract',
+  CURRENT_TIMESTAMP(),
+  CURRENT_TIMESTAMP()
+);
+```
+
+### View Current Spending
+
+```sql
+SELECT
+  contract_id,
+  total_value,
+  SUM(actual_cost) as spent,
+  (SUM(actual_cost) / total_value * 100) as percent_used
+FROM main.account_monitoring_dev.contracts c
+JOIN main.account_monitoring_dev.dashboard_data d
+  ON c.account_id = d.account_id
+WHERE c.status = 'ACTIVE'
+GROUP BY contract_id, total_value;
+```
+
+### Refresh Dashboard Data
+
+```bash
+databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
+```
+
+---
+
+## 🆘 Support & Troubleshooting
 
 ### Common Issues
 
-**SQL Parameter Error:** `SQL query contains $ parameter`
-```bash
-# Fix: Replace $ with USD in CONCAT statements
-./scripts/notebook_fix.sh notebooks/account_monitor_notebook.py "Fix SQL parameter markers"
-```
+**"Table not found"**
+→ Run setup job: `databricks bundle run account_monitor_setup`
 
-**Decimal Type Error:** `TypeError: unsupported operand type(s) for *: 'decimal.Decimal'`
-```python
-# Fix: Convert Decimal to float
-range=[0, float(contract_value) * 1.1]
-```
+**"No data in dashboard"**
+→ Check system tables have data, then run daily refresh job
 
-**Jobs Not Found:** Test 11 in validation fails
-```bash
-# Verify jobs deployed
-databricks bundle validate
-databricks bundle deploy
-```
+**"Warehouse not found"**
+→ Update `warehouse_id` in `databricks.yml`
 
-**See:** [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) for more fixes.
+**Detailed troubleshooting:** See [User Guide - Troubleshooting](docs/user-guide/USER_GUIDE.md#troubleshooting)
 
 ---
 
-## 🔄 Version History
+## 📝 Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.5.4 | 2026-01-29 | Fixed SQL parameter markers in comments |
-| 1.5.3 | 2026-01-29 | Fixed Decimal type conversions in Cell 9 |
-| 1.5.2 | 2026-01-29 | Fixed SQL parameter syntax throughout |
-| 1.5.1 | 2026-01-29 | Fixed Decimal to float conversion |
-| 1.5.0 | 2026-01-29 | Horizontal commitment line in burndown chart |
+- **1.6.1** (2026-02-04)
+  - Removed salesforce_id field (breaking change)
+  - Added notes column to contracts table
+  - Fixed MERGE statement wildcard issues
+  - Clean schema for fresh deployments
 
-**See:** [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) for complete history.
+- **1.5.x** - Initial stable release
 
 ---
 
 ## 🤝 Contributing
 
-### Making Changes
-
-1. Create a feature branch
-2. Make your changes
-3. Use the helper script for notebooks:
-   ```bash
-   ./scripts/notebook_fix.sh notebooks/your_notebook.py "Description"
-   ```
-4. Deploy and test:
-   ```bash
-   databricks bundle deploy -t dev
-   ```
-5. Submit a pull request
-
-### Versioning
-
-- **Patch (x.x.+1):** Bug fixes, minor corrections
-- **Minor (x.+1.0):** New features, significant changes
-- **Major (+1.0.0):** Breaking changes, major refactors
+This solution is designed for use by power users and administrators. For technical questions or feature requests, consult with your Databricks team.
 
 ---
 
-## 📝 License
+## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙋 Support
-
-- **Issues:** [GitHub Issues](https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/issues)
-- **Documentation:** See `docs/` folder
-- **Quick Help:** [NOTEBOOK_FIX_QUICKREF.md](NOTEBOOK_FIX_QUICKREF.md)
+MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
-## 🎯 Next Steps
+## 🎓 Learning Resources
 
-After deployment:
-
-1. ✅ **Run Validation:** `notebooks/post_deployment_validation.py`
-2. 📝 **Update Metadata:** Add your account info to `account_metadata` table
-3. 📊 **Add Contracts:** Insert your contracts into `contracts` table
-4. 🔄 **Run Refresh Job:** Execute daily refresh to populate data
-5. 📈 **Create Dashboard:** Use queries from `lakeview_dashboard_queries.sql`
+- [Databricks System Tables](https://docs.databricks.com/en/admin/system-tables/index.html)
+- [Databricks Asset Bundles](https://docs.databricks.com/en/dev-tools/bundles/index.html)
+- [Unity Catalog](https://docs.databricks.com/en/data-governance/unity-catalog/index.html)
+- [Lakeview Dashboards](https://docs.databricks.com/en/dashboards/index.html)
 
 ---
 
-**Quick Links:**
-- [GETTING_STARTED.md](docs/GETTING_STARTED.md) - Setup instructions
-- [TEAM_DEPLOYMENT_GUIDE.md](docs/TEAM_DEPLOYMENT_GUIDE.md) - Complete deployment guide for teams
-- [NOTEBOOK_FIX_QUICKREF.md](docs/NOTEBOOK_FIX_QUICKREF.md) - Development quick reference
-- [docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md](docs/SKILL_NOTEBOOK_FIX_WORKFLOW.md) - Complete workflow
-- [GitHub Repository](https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard)
-
----
-
-**Built with ❤️ for Databricks Field Engineering**
+**Questions?** Check the [Complete User Guide](docs/user-guide/USER_GUIDE.md) for detailed instructions on all features.
