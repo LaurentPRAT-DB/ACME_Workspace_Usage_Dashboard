@@ -239,6 +239,21 @@ df.show()
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ###Update Total Value
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Update contract status
+# MAGIC UPDATE main.account_monitoring_dev.contracts
+# MAGIC SET
+# MAGIC   total_value = '900',  -- ⚠️ Change: New value
+# MAGIC   updated_at = CURRENT_TIMESTAMP()
+# MAGIC WHERE contract_id = '1694992';  -- ⚠️ Change: Your contract ID
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ### Update Contract Value
 
 # COMMAND ----------
