@@ -543,185 +543,129 @@ else:
 # MAGIC %md
 # MAGIC ## 9b. Contract Burndown with ML Forecast
 # MAGIC
-# MAGIC This chart overlays Prophet-based forecasts on the burndown visualization,
-# MAGIC showing predicted consumption with confidence bands.
+# MAGIC This chart shows historical consumption (yellow) and ML-predicted future consumption (red).
+# MAGIC The dashed line represents the contract commitment - watch where the red forecast line crosses it!
 
 # COMMAND ----------
 
-# Try to load forecast data and create enhanced burndown chart
+# Load forecast data and create burndown chart with forecast overlay
 try:
-    # Check if forecast table exists
-    forecast_exists = spark.sql("""
-        SELECT COUNT(*) as cnt
-        FROM main.account_monitoring_dev.contract_forecast
-    """).collect()[0]['cnt'] > 0
+    # Check if forecast table has data
+    forecast_count = spark.sql("""
+        SELECT COUNT(*) as cnt FROM main.account_monitoring_dev.contract_forecast
+    """).collect()[0]['cnt']
+    forecast_exists = forecast_count > 0
 except Exception:
     forecast_exists = False
+    forecast_count = 0
+
+print(f"Forecast data available: {forecast_exists} ({forecast_count} records)")
 
 if forecast_exists and not daily_spend.empty:
-  try:
     # Load forecast data
     forecast_df = spark.sql("""
         SELECT
-          f.contract_id,
-          f.forecast_date,
-          f.predicted_cumulative,
-          f.lower_bound,
-          f.upper_bound,
-          f.exhaustion_date_p10,
-          f.exhaustion_date_p50,
-          f.exhaustion_date_p90,
-          f.days_to_exhaustion,
-          f.model_version
-        FROM main.account_monitoring_dev.contract_forecast f
-        ORDER BY f.contract_id, f.forecast_date
+          contract_id,
+          forecast_date,
+          predicted_cumulative,
+          exhaustion_date_p50,
+          model_version
+        FROM main.account_monitoring_dev.contract_forecast
+        ORDER BY contract_id, forecast_date
     """).toPandas()
 
-    if not forecast_df.empty:
-        forecast_df['forecast_date'] = pd.to_datetime(forecast_df['forecast_date'])
+    # Convert types for plotting
+    forecast_df['forecast_date'] = pd.to_datetime(forecast_df['forecast_date'])
+    forecast_df['predicted_cumulative'] = forecast_df['predicted_cumulative'].astype(float)
 
-        # Create enhanced burndown chart with forecast
-        fig_forecast = go.Figure()
+    # Get contract info
+    contract_id = daily_spend['contract_id'].iloc[0]
+    start_date = daily_spend['start_date'].iloc[0]
+    end_date = daily_spend['end_date'].iloc[0]
+    commitment = float(daily_spend['commitment'].iloc[0])
 
-        for contract_id in daily_spend['contract_id'].unique():
-            contract_data = daily_spend[daily_spend['contract_id'] == contract_id]
-            contract_forecast = forecast_df[forecast_df['contract_id'] == contract_id]
+    # Get exhaustion date from forecast
+    exhaustion_date = forecast_df['exhaustion_date_p50'].iloc[0] if not forecast_df.empty else None
+    model_type = forecast_df['model_version'].iloc[0] if not forecast_df.empty else "unknown"
 
-            start_date = contract_data['start_date'].iloc[0]
-            end_date = contract_data['end_date'].iloc[0]
-            commitment = float(contract_data['commitment'].iloc[0])
-            max_cumulative = float(contract_data['cumulative_cost'].max())
+    # Create the figure
+    fig_burndown = go.Figure()
 
-            # Historical consumption line
-            fig_forecast.add_trace(go.Scatter(
-                x=contract_data['usage_date'],
-                y=contract_data['cumulative_cost'],
-                mode='lines',
-                name='Historical Spend',
-                line=dict(width=3, color='blue')
-            ))
+    # 1. Historical consumption (YELLOW)
+    fig_burndown.add_trace(go.Scatter(
+        x=daily_spend['usage_date'],
+        y=daily_spend['cumulative_cost'].astype(float),
+        mode='lines+markers',
+        name='Historical Consumption',
+        line=dict(width=3, color='gold'),
+        marker=dict(size=4, color='orange')
+    ))
 
-            # Forecast line with confidence band
-            if not contract_forecast.empty:
-                # Calculate cumulative from last actual
-                last_actual = contract_data['usage_date'].max()
-                future_forecast = contract_forecast[contract_forecast['forecast_date'] > last_actual].copy()
+    # 2. Forecast consumption (RED) - only future dates
+    last_actual_date = daily_spend['usage_date'].max()
+    future_forecast = forecast_df[forecast_df['forecast_date'] > last_actual_date]
 
-                if not future_forecast.empty:
-                    # Convert Decimal columns to float for plotting
-                    future_forecast['predicted_cumulative'] = future_forecast['predicted_cumulative'].astype(float)
+    if not future_forecast.empty:
+        fig_burndown.add_trace(go.Scatter(
+            x=future_forecast['forecast_date'],
+            y=future_forecast['predicted_cumulative'],
+            mode='lines',
+            name='ML Forecast (Prophet)',
+            line=dict(width=3, color='red')
+        ))
 
-                    # Forecast median line
-                    fig_forecast.add_trace(go.Scatter(
-                        x=future_forecast['forecast_date'],
-                        y=future_forecast['predicted_cumulative'],
-                        mode='lines',
-                        name='Forecast (Median)',
-                        line=dict(width=2, color='green', dash='dash')
-                    ))
+    # 3. Contract Commitment Line (DASHED)
+    # Use string dates to avoid timestamp arithmetic issues
+    fig_burndown.add_trace(go.Scatter(
+        x=[start_date, end_date],
+        y=[commitment, commitment],
+        mode='lines',
+        name=f'Contract Commitment (${commitment:,.0f})',
+        line=dict(dash='dash', width=3, color='darkblue'),
+        opacity=0.8
+    ))
 
-                    # Calculate cumulative bounds (convert Decimal to float)
-                    future_forecast['lower_bound'] = future_forecast['lower_bound'].astype(float)
-                    future_forecast['upper_bound'] = future_forecast['upper_bound'].astype(float)
-                    cumulative_lower = max_cumulative + future_forecast['lower_bound'].cumsum()
-                    cumulative_upper = max_cumulative + future_forecast['upper_bound'].cumsum()
-
-                    # Confidence band (use list concat to avoid pandas issues)
-                    x_band = list(future_forecast['forecast_date']) + list(future_forecast['forecast_date'][::-1])
-                    y_band = list(cumulative_upper) + list(cumulative_lower[::-1])
-                    fig_forecast.add_trace(go.Scatter(
-                        x=x_band,
-                        y=y_band,
-                        fill='toself',
-                        fillcolor='rgba(0,255,0,0.15)',
-                        line=dict(color='rgba(0,255,0,0)'),
-                        name='80% Confidence Band'
-                    ))
-
-                    # Get exhaustion dates (convert to pandas Timestamp for plotly)
-                    p50_date = future_forecast['exhaustion_date_p50'].iloc[0]
-                    p10_date = future_forecast['exhaustion_date_p10'].iloc[0]
-                    p90_date = future_forecast['exhaustion_date_p90'].iloc[0]
-
-                    # Add exhaustion date markers
-                    if pd.notna(p50_date):
-                        # Convert date to timestamp for plotly compatibility
-                        p50_ts = pd.Timestamp(p50_date)
-                        fig_forecast.add_vline(
-                            x=p50_ts,
-                            line_dash="dot",
-                            line_color="orange",
-                            line_width=2,
-                            annotation_text=f"Exhaustion<br>(p50): {p50_date}",
-                            annotation_position="top"
-                        )
-
-            # Contract limit line
-            fig_forecast.add_trace(go.Scatter(
-                x=[start_date, end_date],
-                y=[commitment, commitment],
-                mode='lines',
-                name=f'Contract Limit (${commitment:,.0f})',
-                line=dict(dash='dash', width=3, color='red'),
-                opacity=0.8
-            ))
-
-        # Get forecast summary for title
-        if not forecast_df.empty:
-            p50 = forecast_df['exhaustion_date_p50'].iloc[0]
-            p10 = forecast_df['exhaustion_date_p10'].iloc[0]
-            p90 = forecast_df['exhaustion_date_p90'].iloc[0]
-            model_type = forecast_df['model_version'].iloc[0]
-
-            title_text = f'ML-Enhanced Burndown (Model: {model_type})'
-            if pd.notna(p50):
-                title_text += f' - Predicted exhaustion: {p50} (range: {p10} to {p90})'
-        else:
-            title_text = 'Contract Burndown with Forecast'
-
-        fig_forecast.update_layout(
-            title=title_text,
-            xaxis_title='Date',
-            yaxis_title='Cumulative Cost ($)',
-            hovermode='x unified',
-            height=600,
-            xaxis=dict(tickformat='%Y-%m-%d', tickangle=45),
-            yaxis=dict(
-                tickformat='$,.0f',
-                range=[0, float(contract_value) * 1.2]
-            ),
-            showlegend=True,
-            legend=dict(
-                yanchor="top", y=0.99,
-                xanchor="left", x=0.01,
-                bgcolor='rgba(255,255,255,0.8)'
-            )
-        )
-
-        fig_forecast.show()
-
-        # Display forecast summary table
-        print("\nForecast Summary:")
-        display(spark.sql("""
-            SELECT
-              contract_id,
-              MAX(exhaustion_date_p10) as exhaustion_optimistic,
-              MAX(exhaustion_date_p50) as exhaustion_median,
-              MAX(exhaustion_date_p90) as exhaustion_conservative,
-              MAX(days_to_exhaustion) as days_to_exhaustion,
-              MAX(model_version) as model_type
-            FROM main.account_monitoring_dev.contract_forecast
-            GROUP BY contract_id
-        """))
+    # Build title with exhaustion info
+    if pd.notna(exhaustion_date):
+        title = f'Contract Burndown - Forecast Exhaustion: {exhaustion_date} (Model: {model_type})'
     else:
-        print("Forecast table exists but is empty. Run the weekly training job to generate forecasts.")
-  except Exception as e:
-    print(f"Warning: Could not render ML forecast visualization: {e}")
-    print("The forecast data exists but visualization encountered an error.")
-    print("Check forecast_debug_log table for model status.")
+        title = f'Contract Burndown with ML Forecast (Model: {model_type})'
+
+    fig_burndown.update_layout(
+        title=title,
+        xaxis_title='Date',
+        yaxis_title='Cumulative Cost ($)',
+        hovermode='x unified',
+        height=600,
+        xaxis=dict(tickformat='%Y-%m-%d', tickangle=45),
+        yaxis=dict(tickformat='$,.0f', range=[0, commitment * 1.2]),
+        showlegend=True,
+        legend=dict(
+            yanchor="top", y=0.99,
+            xanchor="left", x=0.01,
+            bgcolor='rgba(255,255,255,0.8)'
+        )
+    )
+
+    fig_burndown.show()
+
+    # Print summary
+    print(f"\n{'='*60}")
+    print("FORECAST SUMMARY")
+    print(f"{'='*60}")
+    print(f"Contract ID: {contract_id}")
+    print(f"Contract Value: ${commitment:,.2f}")
+    print(f"Current Spend: ${float(daily_spend['cumulative_cost'].max()):,.2f}")
+    print(f"Model: {model_type}")
+    if pd.notna(exhaustion_date):
+        print(f"Predicted Exhaustion Date: {exhaustion_date}")
+    else:
+        print("Predicted Exhaustion Date: Contract will not be exhausted")
+    print(f"{'='*60}")
+
 else:
-    print("No forecast data available. Run the weekly training job to generate ML forecasts.")
-    print("Command: databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE")
+    print("No forecast data available or no consumption data.")
+    print("Run: databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE")
 
 # COMMAND ----------
 
