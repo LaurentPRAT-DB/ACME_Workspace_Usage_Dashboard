@@ -30,48 +30,137 @@ The Account Monitor is a complete solution for tracking Databricks consumption a
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    subgraph sources["🗂️ Data Sources"]
+        usage[("system.billing.usage")]
+        prices[("system.billing.list_prices")]
+    end
+
+    subgraph daily["⚙️ Daily Refresh Job"]
+        direction LR
+        join["Join & Enrich Data"]
+    end
+
+    subgraph catalog["📦 Unity Catalog Tables"]
+        contracts[("contracts")]
+        burndown[("contract_burndown")]
+        dashboard_data[("dashboard_data")]
+    end
+
+    subgraph weekly["🤖 Weekly Training Job"]
+        prophet["Prophet ML Model"]
+    end
+
+    subgraph forecast_table["📊 Forecast Output"]
+        forecast[("contract_forecast")]
+    end
+
+    subgraph output["📈 Dashboard"]
+        notebook["Account Monitor Notebook"]
+    end
+
+    usage --> daily
+    prices --> daily
+    daily --> burndown
+    daily --> dashboard_data
+
+    burndown --> weekly
+    contracts --> weekly
+    weekly --> forecast_table
+
+    contracts --> notebook
+    burndown --> notebook
+    forecast --> notebook
+    dashboard_data --> notebook
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     DATABRICKS SYSTEM TABLES                     │
-│  ┌─────────────────────┐    ┌─────────────────────┐             │
-│  │ system.billing.usage│    │system.billing.      │             │
-│  │                     │    │    list_prices      │             │
-│  └──────────┬──────────┘    └──────────┬──────────┘             │
-└─────────────┼──────────────────────────┼────────────────────────┘
-              │                          │
-              ▼                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DAILY REFRESH JOB                           │
-│         Joins usage with prices, enriches with metadata          │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    UNITY CATALOG TABLES                          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
-│  │  contracts  │ │dashboard_data│ │contract_    │ │ forecast_  │ │
-│  │             │ │              │ │  burndown   │ │  models    │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └────────────┘ │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    WEEKLY TRAINING JOB                           │
-│              Train Prophet models per contract                   │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   CONTRACT_FORECAST TABLE                        │
-│          Daily predictions + exhaustion dates (p10/p50/p90)      │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    DASHBOARD NOTEBOOK                            │
-│         Burndown charts, forecasts, cost analysis                │
-└─────────────────────────────────────────────────────────────────┘
+
+---
+
+## Data Model
+
+```mermaid
+erDiagram
+    CONTRACTS ||--o{ CONTRACT_BURNDOWN : "tracks daily"
+    CONTRACTS ||--o{ CONTRACT_FORECAST : "predicts"
+    CONTRACTS ||--o{ DASHBOARD_DATA : "enriches"
+
+    CONTRACTS {
+        string contract_id PK
+        string account_id
+        string cloud_provider
+        date start_date
+        date end_date
+        decimal total_value
+        string currency
+        string commitment_type
+        string status
+        string notes
+    }
+
+    CONTRACT_BURNDOWN {
+        string contract_id FK
+        date usage_date
+        decimal daily_cost
+        decimal cumulative_cost
+        decimal remaining_budget
+        decimal burn_rate_7d
+    }
+
+    CONTRACT_FORECAST {
+        string contract_id FK
+        date forecast_date
+        decimal predicted_cumulative
+        date exhaustion_date_p10
+        date exhaustion_date_p50
+        date exhaustion_date_p90
+        string model_version
+    }
+
+    DASHBOARD_DATA {
+        date usage_date
+        string account_id FK
+        string workspace_id
+        string sku_name
+        decimal usage_quantity
+        decimal actual_cost
+    }
 ```
+
+### System Tables (Read-Only)
+
+| Table | Description |
+|-------|-------------|
+| `system.billing.usage` | Raw usage records (DBUs, dates, workspaces, SKUs) |
+| `system.billing.list_prices` | Pricing information per SKU and cloud |
+
+---
+
+## Job Schedule
+
+```mermaid
+gantt
+    title Automated Job Schedule
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Daily
+    Daily Refresh (2 AM)     :daily, 02:00, 60min
+
+    section Weekly
+    Training - Sun 3 AM      :train, 03:00, 120min
+    Review - Mon 8 AM        :review, 08:00, 60min
+
+    section Monthly
+    Summary - 1st 6 AM       :monthly, 06:00, 60min
+```
+
+| Job | Schedule | Purpose | Manual Command |
+|-----|----------|---------|----------------|
+| **Daily Refresh** | 2:00 AM UTC | Update consumption data | `databricks bundle run account_monitor_daily_refresh` |
+| **Weekly Training** | Sunday 3:00 AM | Retrain Prophet models | `databricks bundle run account_monitor_weekly_training` |
+| **Weekly Review** | Monday 8:00 AM | Contract analysis | `databricks bundle run account_monitor_weekly_review` |
+| **Monthly Summary** | 1st @ 6:00 AM | Archive & reports | `databricks bundle run account_monitor_monthly_summary` |
 
 ---
 
@@ -138,73 +227,66 @@ WHEN NOT MATCHED THEN INSERT *;
 
 ---
 
-## Data Model
+## Visualizations
 
-### System Tables (Read-Only, Managed by Databricks)
+### Contract Burndown Chart
 
-These are the source tables containing raw billing data:
+The burndown chart shows cumulative spending over time compared to the contract limit:
 
-| Table | Description |
-|-------|-------------|
-| `system.billing.usage` | Raw usage records (DBUs, dates, workspaces, SKUs) |
-| `system.billing.list_prices` | Pricing information per SKU and cloud |
+```mermaid
+xychart-beta
+    title "Contract Burndown - Historical vs Forecast"
+    x-axis ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
+    y-axis "Cost ($)" 0 --> 60000
+    line "Historical Spend" [5000, 10000, 15000, 20000, 25000, 30000]
+    line "ML Forecast" [null, null, null, null, null, 30000, 38000, 47000, 55000]
+    line "Contract Limit" [50000, 50000, 50000, 50000, 50000, 50000, 50000, 50000, 50000]
+```
 
-### Application Tables (Created by Setup Job)
+**How to read it:**
+- **Yellow/Gold line**: Actual cumulative spending to date
+- **Red line**: Prophet-predicted future spending
+- **Dashed line**: Contract commitment amount ($50,000)
+- **Intersection**: Where forecast crosses the limit = **predicted exhaustion date**
 
-#### `contracts` - Your Contract Information
+### Exhaustion Prediction
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `contract_id` | STRING | Unique identifier (PK) |
-| `account_id` | STRING | Databricks account ID |
-| `cloud_provider` | STRING | AWS, Azure, or GCP |
-| `start_date` | DATE | Contract start |
-| `end_date` | DATE | Contract end |
-| `total_value` | DECIMAL(18,2) | Contract commitment amount |
-| `currency` | STRING | USD, EUR, etc. |
-| `commitment_type` | STRING | SPEND or DBU |
-| `status` | STRING | ACTIVE, EXPIRED, PENDING |
-| `notes` | STRING | Additional notes |
+```mermaid
+flowchart LR
+    subgraph current["📊 Current State"]
+        spent["$30,000 Spent"]
+        rate["$166/day avg"]
+    end
 
-#### `contract_burndown` - Daily Consumption Tracking
+    subgraph prediction["🔮 ML Prediction"]
+        exhaust["Exhaustion: Jan 30, 2026"]
+        conf["Confidence: 80%"]
+    end
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `contract_id` | STRING | Link to contract |
-| `usage_date` | DATE | Day of consumption |
-| `daily_cost` | DECIMAL(18,2) | Cost for that day |
-| `cumulative_cost` | DECIMAL(18,2) | Running total from contract start |
-| `remaining_budget` | DECIMAL(18,2) | Contract value minus cumulative |
-| `burn_rate_7d` | DECIMAL(18,2) | 7-day average daily spend |
+    subgraph action["⚠️ Action Required"]
+        alert["120 days remaining"]
+    end
 
-#### `contract_forecast` - ML Predictions
+    current --> prediction --> action
+```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `contract_id` | STRING | Link to contract |
-| `forecast_date` | DATE | Predicted date |
-| `predicted_cumulative` | DECIMAL(18,2) | Predicted total spend by this date |
-| `exhaustion_date_p10` | DATE | Optimistic exhaustion (10th percentile) |
-| `exhaustion_date_p50` | DATE | Median exhaustion prediction |
-| `exhaustion_date_p90` | DATE | Conservative exhaustion (90th percentile) |
-| `model_version` | STRING | "prophet" or "linear_fallback" |
+**Forecast Summary Output:**
+```
+============================================================
+FORECAST SUMMARY
+============================================================
+Contract ID: CONTRACT-2026-001
+Contract Value: $50,000.00
+Current Spend: $30,000.00
+Model: prophet
+Predicted Exhaustion Date: 2026-01-30
+Days Remaining: 120
+============================================================
+```
 
 ---
 
-## Running the Solution
-
-### Scheduled Jobs
-
-| Job | Schedule | Purpose | Command to Run Manually |
-|-----|----------|---------|------------------------|
-| **Daily Refresh** | 2:00 AM UTC | Update consumption data from system tables | `databricks bundle run account_monitor_daily_refresh` |
-| **Weekly Training** | Sunday 3:00 AM | Retrain Prophet models with latest data | `databricks bundle run account_monitor_weekly_training` |
-| **Weekly Review** | Monday 8:00 AM | Contract analysis and anomaly detection | `databricks bundle run account_monitor_weekly_review` |
-| **Monthly Summary** | 1st of month 6:00 AM | Archive old data, generate reports | `databricks bundle run account_monitor_monthly_summary` |
-
-### Verifying Data Freshness
-
-Run this query to check when data was last updated:
+## Verifying Data Freshness
 
 ```sql
 -- Check data freshness
@@ -226,90 +308,6 @@ FROM main.account_monitoring_dev.contract_forecast;
 **Expected Results:**
 - `contract_burndown.latest_data` should be yesterday or today
 - `contract_forecast` should be updated within the last 7 days
-
-### Monitoring Job Health
-
-```bash
-# Check recent job runs
-databricks jobs list --profile YOUR_PROFILE
-
-# View run history for daily refresh
-databricks runs list --job-id <JOB_ID> --profile YOUR_PROFILE
-```
-
----
-
-## Visualizations
-
-### Contract Burndown Chart
-
-The burndown chart shows cumulative spending over time compared to the contract limit:
-
-```
-Cost ($)
-    │
- 50K├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Contract Limit ($50,000)
-    │                                    ╱
- 40K├                               ╱╱╱╱
-    │                          ╱╱╱╱
- 30K├                     ╱╱╱╱
-    │                ╱╱╱╱
- 20K├           ▄▄▄▀
-    │       ▄▄▀▀
- 10K├   ▄▄▀▀
-    │▄▀▀
-    └────┬────┬────┬────┬────┬────┬────┬────┬────► Date
-       Jul  Aug  Sep  Oct  Nov  Dec  Jan  Feb  Mar
-       2025                                   2026
-
-    ▄▄▄ Historical Consumption (Yellow)
-    ╱╱╱ ML Forecast (Red)
-    ─ ─ Contract Limit (Dashed Blue)
-```
-
-**How to read it:**
-- **Yellow line**: Actual cumulative spending to date
-- **Red line**: Prophet-predicted future spending
-- **Dashed line**: Contract commitment amount
-- **Intersection**: Where red crosses the dashed line = predicted exhaustion date
-
-### Forecast with Exhaustion Date
-
-The ML forecast visualization shows when the contract will be exhausted:
-
-```
-Cost ($)
-    │
- 50K├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╳ ─ ─ ─ ─  Contract Limit
-    │                            ╱ │
- 40K├                         ╱╱   │
-    │                      ╱╱╱     │
- 30K├                   ╱╱╱        │
-    │                ╱╱╱           │
- 20K├           ▄▄▄▀╱              │
-    │       ▄▄▀▀                   │
- 10K├   ▄▄▀▀                       │
-    │▄▀▀                           │
-    └────┬────┬────┬────┬────┬────┬┴───┬────► Date
-       Jul  Aug  Sep  Oct  Nov  Dec  Jan  Feb
-       2025                       ▲   2026
-                                  │
-                        Predicted Exhaustion
-                         Date: 2026-01-30
-```
-
-**Forecast Summary Output:**
-```
-============================================================
-FORECAST SUMMARY
-============================================================
-Contract ID: CONTRACT-2026-001
-Contract Value: $50,000.00
-Current Spend: $22,456.78
-Model: prophet
-Predicted Exhaustion Date: 2026-01-30
-============================================================
-```
 
 ---
 
@@ -333,70 +331,85 @@ Predicted Exhaustion Date: 2026-01-30
 
 ## Troubleshooting
 
-### No Data in Charts
+```mermaid
+flowchart TD
+    A[Issue?] --> B{No data in charts?}
+    B -->|Yes| C[Run daily refresh job]
+    B -->|No| D{Forecast not showing?}
+    D -->|Yes| E[Run weekly training job]
+    D -->|No| F{Jobs failing?}
+    F -->|Yes| G[Check warehouse status]
+    F -->|No| H[Check Unity Catalog permissions]
+
+    C --> I[databricks bundle run account_monitor_daily_refresh]
+    E --> J[databricks bundle run account_monitor_weekly_training]
+    G --> K[Start SQL Warehouse in UI]
+    H --> L[Grant SELECT on system.billing tables]
+```
+
+### Common Commands
 
 ```bash
-# 1. Check system tables have data
+# Check system tables have data
 databricks sql -e "SELECT COUNT(*) FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)"
 
-# 2. Run the daily refresh
+# Run the daily refresh
 databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
 
-# 3. Verify contract exists
-databricks sql -e "SELECT * FROM main.account_monitoring_dev.contracts WHERE status = 'ACTIVE'"
-```
-
-### Forecast Not Showing
-
-```bash
-# 1. Check if forecast table has data
-databricks sql -e "SELECT COUNT(*) FROM main.account_monitoring_dev.contract_forecast"
-
-# 2. If empty, run the training job
+# Run forecast training
 databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
 
-# 3. Check training logs
-databricks sql -e "SELECT * FROM main.account_monitoring_dev.forecast_debug_log ORDER BY created_at DESC LIMIT 10"
-```
-
-### Jobs Failing
-
-```bash
 # Check job run status
 databricks runs get --run-id <RUN_ID> --profile YOUR_PROFILE
-
-# Common fixes:
-# - Warehouse stopped: Start it in the SQL Warehouses page
-# - Table not found: Run setup job first
-# - Permission denied: Check Unity Catalog grants
 ```
 
 ---
 
 ## File Structure
 
+```mermaid
+flowchart LR
+    subgraph root["📁 Root"]
+        readme["README.md"]
+        config["databricks.yml"]
+    end
+
+    subgraph notebooks["📓 notebooks/"]
+        monitor["account_monitor_notebook.py"]
+        crud["contract_management_crud.py"]
+        forecast["consumption_forecaster.py"]
+    end
+
+    subgraph sql["🗃️ sql/"]
+        setup["setup_schema.sql"]
+        refresh["refresh_*.sql"]
+    end
+
+    subgraph resources["⚙️ resources/"]
+        jobs["jobs.yml"]
+    end
+
+    root --> notebooks
+    root --> sql
+    root --> resources
+```
+
 ```
 databricks_conso_reports/
 ├── databricks.yml              # Bundle configuration
 ├── README.md                   # This file
-│
 ├── notebooks/
 │   ├── account_monitor_notebook.py    # Main dashboard
 │   ├── contract_management_crud.py    # CRUD operations
 │   ├── consumption_forecaster.py      # ML forecasting
 │   └── post_deployment_validation.py  # Setup verification
-│
 ├── sql/
 │   ├── setup_schema.sql               # Create all tables
-│   ├── insert_sample_data.sql         # Sample contract data
 │   ├── refresh_dashboard_data.sql     # Daily data refresh
 │   ├── refresh_contract_burndown.sql  # Burndown calculation
-│   ├── build_forecast_features.sql    # ML feature prep
-│   └── create_forecast_schema.sql     # Forecast tables
-│
+│   └── build_forecast_features.sql    # ML feature prep
 ├── resources/
 │   └── jobs.yml                       # Job definitions
-│
 └── docs/
     └── user-guide/
         └── USER_GUIDE.md              # Detailed documentation
