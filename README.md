@@ -30,19 +30,22 @@ The Account Monitor is a complete solution for tracking Databricks consumption a
 
 ## Quick Start - First Install
 
-### Option A: One-Command Install (Recommended)
+### One-Command Install
 
 ```bash
 # 1. Configure your contracts
 vi config/contracts.yml
 
-# 2. Run the install script
-./scripts/first_install.sh --profile YOUR_PROFILE
+# 2. Deploy the bundle
+databricks bundle deploy --profile YOUR_PROFILE
+
+# 3. Run the first install job (does everything)
+databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
 ```
 
-The script will deploy, create tables, load data, and train the ML model automatically.
+This single job creates tables, loads contracts, populates data, and trains the ML model.
 
-### Option B: Manual Step-by-Step
+### Manual Step-by-Step (Alternative)
 
 Complete setup in 5 steps. After this, you'll have a working dashboard with ML forecasts.
 
@@ -521,10 +524,6 @@ flowchart LR
         dbconfig["databricks.yml"]
     end
 
-    subgraph scripts["🚀 scripts/"]
-        install["first_install.sh"]
-    end
-
     subgraph configdir["📝 config/"]
         contracts["contracts.yml"]
     end
@@ -545,12 +544,10 @@ flowchart LR
         jobs["jobs.yml"]
     end
 
-    root --> scripts
     root --> configdir
     root --> notebooks
     root --> sql
     root --> resources
-    scripts -->|"runs"| jobs
     configdir -->|"loaded by"| setupnb
 ```
 
@@ -558,8 +555,6 @@ flowchart LR
 databricks_conso_reports/
 ├── databricks.yml              # Bundle configuration
 ├── README.md                   # This file
-├── scripts/
-│   └── first_install.sh        # 🚀 ONE-COMMAND INSTALLER
 ├── config/
 │   └── contracts.yml           # 📝 YOUR CONTRACT CONFIGURATION
 ├── notebooks/
@@ -575,7 +570,7 @@ databricks_conso_reports/
 │   ├── build_forecast_features.sql    # ML feature prep
 │   └── validate_first_install.sql     # Installation validation
 ├── resources/
-│   └── jobs.yml                       # Job definitions
+│   └── jobs.yml                       # Job definitions (includes first_install)
 └── docs/
     └── user-guide/
         └── USER_GUIDE.md              # Detailed documentation
@@ -597,22 +592,19 @@ databricks_conso_reports/
 ## Quick Reference
 
 ```bash
-# FIRST TIME INSTALL (recommended - does everything)
-./scripts/first_install.sh --profile YOUR_PROFILE
-
-# Or run the first install job directly
+# FIRST TIME INSTALL (does everything in one job)
 databricks bundle deploy --profile YOUR_PROFILE
 databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
 
-# Manual commands for ongoing operations:
-# Deploy changes
-databricks bundle deploy --profile YOUR_PROFILE
-
-# Refresh data now
+# ONGOING OPERATIONS
+# Refresh data manually
 databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
 
-# Train forecast models
+# Retrain forecast models
 databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+
+# Deploy changes after editing config
+databricks bundle deploy --profile YOUR_PROFILE
 
 # Check job status
 databricks jobs list --profile YOUR_PROFILE
