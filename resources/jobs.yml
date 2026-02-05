@@ -3,6 +3,136 @@
 
 resources:
   jobs:
+    # ==========================================================================
+    # FIRST INSTALL JOB - Run this once to set up everything
+    # ==========================================================================
+    account_monitor_first_install:
+      name: "[${bundle.target}] Account Monitor - First Install"
+      description: "Complete first-time setup: creates schema, loads contracts, populates data, and trains ML model"
+
+      tasks:
+        # Phase 1: Schema Setup
+        - task_key: create_schema
+          description: "Create Unity Catalog schema and tables"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/setup_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: create_forecast_schema
+          description: "Create forecast tables"
+          depends_on:
+            - task_key: create_schema
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/create_forecast_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        # Phase 2: Load Contract Configuration
+        - task_key: load_contract_config
+          description: "Load contracts from config/contracts.yml"
+          depends_on:
+            - task_key: create_forecast_schema
+          notebook_task:
+            notebook_path: ../notebooks/setup_contracts.py
+            source: WORKSPACE
+
+        # Phase 3: Populate Data from System Tables
+        - task_key: refresh_dashboard_data
+          description: "Load dashboard data from system.billing.usage"
+          depends_on:
+            - task_key: load_contract_config
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/refresh_dashboard_data.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          timeout_seconds: 3600
+
+        - task_key: refresh_contract_burndown
+          description: "Calculate contract burndown metrics"
+          depends_on:
+            - task_key: refresh_dashboard_data
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/refresh_contract_burndown.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: optimize_tables
+          description: "Optimize Delta tables"
+          depends_on:
+            - task_key: refresh_contract_burndown
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/optimize_tables.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        # Phase 4: Train ML Model and Generate Forecasts
+        - task_key: build_forecast_features
+          description: "Prepare forecast feature data"
+          depends_on:
+            - task_key: refresh_contract_burndown
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/build_forecast_features.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: train_and_forecast
+          description: "Train Prophet model and generate forecasts"
+          depends_on:
+            - task_key: build_forecast_features
+            - task_key: optimize_tables
+          notebook_task:
+            notebook_path: ../notebooks/consumption_forecaster.py
+            base_parameters:
+              mode: "both"
+              forecast_horizon_days: "365"
+              confidence_interval: "0.80"
+              min_training_days: "30"
+            source: WORKSPACE
+          timeout_seconds: 7200
+
+        # Phase 5: Validation
+        - task_key: validate_installation
+          description: "Verify all data is ready"
+          depends_on:
+            - task_key: train_and_forecast
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/validate_first_install.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        type: first_install
+
+    # ==========================================================================
+    # REGULAR JOBS - Scheduled for ongoing operation
+    # ==========================================================================
+
     # Setup job - Creates Unity Catalog tables
     account_monitor_setup:
       name: "[${bundle.target}] Account Monitor - Setup"
