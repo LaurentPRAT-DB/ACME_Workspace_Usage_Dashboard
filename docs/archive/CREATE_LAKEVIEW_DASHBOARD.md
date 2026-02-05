@@ -1,332 +1,415 @@
-# Creating the Lakeview Dashboard
-
-This guide explains how to create the Account Monitor Lakeview dashboard programmatically using the `create_lakeview_dashboard.py` script.
-
-## Overview
-
-The script creates a comprehensive Lakeview dashboard with 3 pages:
-1. **Contract Burndown** - Real-time contract consumption tracking (8 visualizations)
-2. **Account Overview** - High-level metrics and spending overview (6 visualizations)
-3. **Usage Analytics** - Detailed usage breakdown (3 visualizations)
+# Step-by-Step: Create Contract Burndown Lakeview Dashboard
 
 ## Prerequisites
 
-### 1. Data Tables Required
+✅ Contract data loaded (run `verify_contract_burndown` notebook to confirm)
+✅ Burndown table populated with historical data
+✅ All queries available in `lakeview_dashboard_queries` notebook
 
-Ensure these tables exist and contain data:
-- `main.account_monitoring_dev.contract_burndown`
-- `main.account_monitoring_dev.contract_burndown_summary`
-- `main.account_monitoring_dev.dashboard_data`
-- `main.account_monitoring_dev.account_metadata`
-- `system.billing.usage`
+## Step 1: Create New Lakeview Dashboard
 
-Run the `account_monitor_notebook.py` notebook first to create these tables.
+1. **Navigate to Dashboards**
+   - In Databricks workspace, click **Dashboards** in the left sidebar
+   - Or go to: `https://dbc-cbb9ade6-873a.cloud.databricks.com/#dashboards`
 
-### 2. Databricks CLI Setup
+2. **Create Dashboard**
+   - Click **"Create Dashboard"** button (top right)
+   - Select **"Lakeview Dashboard"**
+   - Name: `Account Monitor - Contract Burndown`
+   - Click **"Create"**
 
-Install and configure Databricks CLI:
-```bash
-# Install
-pip install databricks-cli
+## Step 2: Add Contract Burndown Line Chart (Main Visualization)
 
-# Authenticate
-databricks auth login --profile <your-profile>
+### Create the Query
+
+1. Click **"Add"** → **"Visualization"**
+2. Click **"Create new query"**
+3. **Query Name:** `contract_burndown_chart`
+4. **Select Warehouse:** Choose "Serverless Starter Warehouse"
+5. **Copy this query:**
+
+```sql
+SELECT
+  contract_id,
+  CONCAT(contract_id, ' ($', FORMAT_NUMBER(commitment, 0), ')') as contract_label,
+  usage_date as date,
+  ROUND(cumulative_cost, 2) as actual_consumption,
+  ROUND(projected_linear_burn, 2) as ideal_consumption,
+  ROUND(commitment, 2) as contract_value,
+  ROUND(budget_pct_consumed, 1) as pct_consumed
+FROM main.account_monitoring_dev.contract_burndown
+WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)
+ORDER BY contract_id, usage_date;
 ```
 
-### 3. SQL Warehouse
+6. Click **"Run"** to test the query
+7. Click **"Save"**
 
-You need a SQL Warehouse ID. To find it:
-```bash
-databricks warehouses list --profile <your-profile>
+### Configure the Line Chart
+
+1. In the visualization panel (right side):
+   - **Visualization Type:** Select **"Line"**
+
+2. **General Tab:**
+   - **Chart Title:** `Contract Burndown - Actual vs Ideal`
+   - **Chart Description:** `Blue = Actual Spend | Green = Ideal Linear | Red = Contract Limit`
+
+3. **X-Axis Tab:**
+   - **Column:** `date`
+   - **Label:** `Date`
+   - **Format:** Date
+
+4. **Y-Axis Tab:**
+   - Click **"+ Add column"** three times to add three Y-axis columns:
+
+   **Column 1:**
+   - **Column:** `actual_consumption`
+   - **Label:** `Actual Spend`
+   - **Color:** Blue (#1E88E5)
+   - **Line Style:** Solid
+
+   **Column 2:**
+   - **Column:** `ideal_consumption`
+   - **Label:** `Ideal Linear Burn`
+   - **Color:** Green (#43A047)
+   - **Line Style:** Dashed
+
+   **Column 3:**
+   - **Column:** `contract_value`
+   - **Label:** `Contract Limit`
+   - **Color:** Red (#E53935)
+   - **Line Style:** Dotted
+
+5. **Series/Groups Tab:**
+   - **Group By:** `contract_label`
+   - **Show Legend:** Yes (checked)
+   - **Legend Position:** Bottom
+
+6. Click **"Save"**
+
+### Position the Chart
+
+- Drag the chart to the top of your dashboard
+- Resize to full width (12 columns)
+- Height: 8 rows
+
+## Step 3: Add Contract Summary Table
+
+### Create the Query
+
+1. Click **"Add"** → **"Visualization"**
+2. Click **"Create new query"**
+3. **Query Name:** `contract_summary`
+4. **Select Warehouse:** Choose "Serverless Starter Warehouse"
+5. **Copy this query:**
+
+```sql
+SELECT
+  contract_id as "Contract ID",
+  cloud_provider as "Cloud",
+  start_date as "Start Date",
+  end_date as "End Date",
+  CONCAT('$', FORMAT_NUMBER(commitment, 0)) as "Total Value",
+  CONCAT('$', FORMAT_NUMBER(total_consumed, 2)) as "Consumed",
+  CONCAT('$', FORMAT_NUMBER(budget_remaining, 2)) as "Remaining",
+  CONCAT(ROUND(consumed_pct, 1), '%') as "% Consumed",
+  pace_status as "Pace Status",
+  days_remaining as "Days Left",
+  projected_end_date as "Projected End"
+FROM main.account_monitoring_dev.contract_burndown_summary
+ORDER BY consumed_pct DESC;
 ```
 
-Or from the Databricks UI:
-1. Go to SQL Warehouses
-2. Click on a warehouse
-3. Copy the ID from the URL: `/sql/warehouses/<warehouse-id>`
+6. Click **"Run"** to test
+7. Click **"Save"**
 
-## Usage
+### Configure the Table
 
-### Basic Usage
+1. **Visualization Type:** **"Table"**
 
-```bash
-python create_lakeview_dashboard.py \
-  --profile <your-databricks-profile> \
-  --warehouse-id <your-warehouse-id>
+2. **General Tab:**
+   - **Title:** `Active Contracts - Status Summary`
+   - **Description:** `🟢 = On Pace | 🟡 = Above Pace | 🔴 = Over Pace`
+
+3. **Columns Tab:**
+   - Enable **"Allow Search"**
+   - Enable **"Allow Sort"**
+   - Enable **"Show Row Numbers"**
+   - **Rows Per Page:** 10
+
+4. **Conditional Formatting** (if available):
+   - **Column:** `Pace Status`
+   - **Rule:** Contains "OVER" → Background color: Light Red
+   - **Rule:** Contains "ABOVE" → Background color: Light Yellow
+   - **Rule:** Contains "ON PACE" → Background color: Light Green
+
+5. Click **"Save"**
+
+### Position the Table
+
+- Place below the line chart
+- Width: 12 columns
+- Height: 6 rows
+
+## Step 4: Add Today's Consumption Counter
+
+### Create the Query
+
+1. Click **"Add"** → **"Visualization"**
+2. Click **"Create new query"**
+3. **Query Name:** `daily_consumption`
+4. **Copy this query:**
+
+```sql
+SELECT
+  CONCAT('$', FORMAT_NUMBER(SUM(daily_cost), 2)) as daily_cost,
+  COUNT(DISTINCT contract_id) as active_contracts,
+  usage_date as date
+FROM main.account_monitoring_dev.contract_burndown
+WHERE usage_date = CURRENT_DATE() - 1
+GROUP BY usage_date;
 ```
 
-### With Auto-Publish
+5. Click **"Run"** and **"Save"**
 
-```bash
-python create_lakeview_dashboard.py \
-  --profile <your-databricks-profile> \
-  --warehouse-id <your-warehouse-id> \
-  --publish
+### Configure the Counter
+
+1. **Visualization Type:** **"Counter"**
+
+2. **General Tab:**
+   - **Title:** `Yesterday's Consumption`
+   - **Label:** `Total Spend`
+
+3. **Value Tab:**
+   - **Column:** `daily_cost`
+   - **Format:** Text (already formatted with $)
+
+4. Click **"Save"**
+
+### Position the Counter
+
+- Place at top left, above the line chart
+- Width: 3 columns
+- Height: 2 rows
+
+## Step 5: Add Pace Distribution Pie Chart
+
+### Create the Query
+
+1. Click **"Add"** → **"Visualization"**
+2. Click **"Create new query"**
+3. **Query Name:** `pace_distribution`
+4. **Copy this query:**
+
+```sql
+SELECT
+  pace_status,
+  COUNT(*) as contract_count
+FROM main.account_monitoring_dev.contract_burndown_summary
+GROUP BY pace_status
+ORDER BY
+  CASE
+    WHEN pace_status LIKE '%OVER%' THEN 1
+    WHEN pace_status LIKE '%ABOVE%' THEN 2
+    WHEN pace_status LIKE '%ON%' THEN 3
+    ELSE 4
+  END;
 ```
 
-### Custom Parent Path
+5. Click **"Run"** and **"Save"**
 
-```bash
-python create_lakeview_dashboard.py \
-  --profile <your-databricks-profile> \
-  --warehouse-id <your-warehouse-id> \
-  --parent-path "/Users/your.email@company.com" \
-  --publish
+### Configure the Pie Chart
+
+1. **Visualization Type:** **"Pie"** or **"Donut"**
+
+2. **General Tab:**
+   - **Title:** `Contract Pace Distribution`
+
+3. **Values Tab:**
+   - **Column:** `contract_count`
+   - **Label Column:** `pace_status`
+
+4. **Colors Tab (if available):**
+   - Assign colors to match status meanings
+
+5. Click **"Save"**
+
+### Position the Pie Chart
+
+- Place next to the counter (top right area)
+- Width: 3 columns
+- Height: 4 rows
+
+## Step 6: Add Monthly Trend Bar Chart
+
+### Create the Query
+
+1. Click **"Add"** → **"Visualization"**
+2. Click **"Create new query"**
+3. **Query Name:** `monthly_trend`
+4. **Copy this query:**
+
+```sql
+SELECT
+  DATE_TRUNC('MONTH', usage_date) as month,
+  contract_id,
+  SUM(daily_cost) as monthly_cost,
+  COUNT(*) as days_active
+FROM main.account_monitoring_dev.contract_burndown
+WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+GROUP BY DATE_TRUNC('MONTH', usage_date), contract_id
+ORDER BY month, contract_id;
 ```
 
-## Dashboard Structure
+5. Click **"Run"** and **"Save"**
 
-### Page 1: Contract Burndown
+### Configure the Bar Chart
 
-**Layout (6-column grid):**
-- Row 1 (y=0):
-  - Yesterday's Consumption (counter) - x=0, width=2, height=3
-  - Active Contracts (counter) - x=2, width=2, height=3
-  - Pace Distribution (pie chart) - x=4, width=2, height=6
+1. **Visualization Type:** **"Bar"** with stacking enabled
 
-- Row 2 (y=3):
-  - Contract Burndown Line Chart - x=0, width=4, height=8
-    - Shows actual vs ideal vs limit per contract
+2. **General Tab:**
+   - **Title:** `Monthly Consumption by Contract`
 
-- Row 3 (y=6):
-  - Contract Summary Table - x=4, width=2, height=6
+3. **X-Axis Tab:**
+   - **Column:** `month`
+   - **Label:** `Month`
 
-- Row 4 (y=11):
-  - Monthly Consumption Bar Chart - x=0, width=6, height=6
-    - Stacked by contract_id
+4. **Y-Axis Tab:**
+   - **Column:** `monthly_cost`
+   - **Label:** `Cost ($)`
+   - **Format:** Currency
 
-- Row 5 (y=17):
-  - Top Workspaces Table - x=0, width=3, height=6
-  - Contract Analysis Table - x=3, width=3, height=6
+5. **Series Tab:**
+   - **Group By:** `contract_id`
+   - **Stacking:** Enabled
 
-### Page 2: Account Overview
+6. Click **"Save"**
 
-**Layout:**
-- Row 1 (y=0):
-  - Unique SKUs (counter) - x=0, width=2, height=3
-  - Active Workspaces (counter) - x=2, width=2, height=3
-  - Account Information (table) - x=4, width=2, height=3
+### Position the Bar Chart
 
-- Row 2 (y=3):
-  - Data Freshness Table - x=0, width=6, height=3
+- Place below summary table
+- Width: 12 columns
+- Height: 6 rows
 
-- Row 3 (y=6):
-  - Total Spend by Cloud Table - x=0, width=6, height=5
+## Step 7: Dashboard Settings
 
-- Row 4 (y=11):
-  - Monthly Cost Trend Bar Chart - x=0, width=6, height=6
-    - Grouped by cloud_provider
+### Configure Refresh Schedule
 
-- Row 5 (y=17):
-  - Combined Burndown Line Chart - x=0, width=6, height=6
-    - All contracts aggregated
+1. Click **"Schedule"** (top right)
+2. **Refresh Schedule:**
+   - **Frequency:** Daily
+   - **Time:** 3:00 AM UTC (after daily refresh job)
+   - **Timezone:** UTC
+3. Click **"Save"**
 
-### Page 3: Usage Analytics
+### Set Permissions
 
-**Layout:**
-- Row 1 (y=0):
-  - Top Workspaces Table - x=0, width=3, height=6
-  - Top SKUs Table - x=3, width=3, height=6
+1. Click **"Share"** button (top right)
+2. Add users/groups who should have access:
+   - **Can View:** All relevant stakeholders
+   - **Can Edit:** Dashboard administrators
+   - **Can Manage:** You
+3. Click **"Done"**
 
-- Row 2 (y=6):
-  - Product Category Area Chart - x=0, width=6, height=6
+### Add Filters (Optional)
 
-## Output Files
+1. Click **"Add"** → **"Filter"**
+2. **Filter Type:** Date Range
+   - **Parameter Name:** `date_range`
+   - **Default:** Last 180 days
+3. Apply filter to relevant queries
 
-The script creates two files for debugging:
-- `dashboard_payload.json` - The serialized dashboard structure
-- `api_payload.json` - The complete API request payload
+## Step 8: Publish Dashboard
 
-## After Creation
+1. Review all visualizations
+2. Adjust layout and sizing as needed
+3. Click **"Publish"** (top right)
+4. Dashboard is now live!
 
-### View the Dashboard
+## Final Dashboard Layout
 
-1. Go to Databricks workspace
-2. Navigate to the parent path (default: `/Shared`)
-3. Open the dashboard: "Account Monitor - Cost & Usage Tracking with Contract Burndown"
-
-### Publish the Dashboard
-
-If you didn't use `--publish`, publish manually:
-```bash
-databricks api post /api/2.0/lakeview/dashboards/<dashboard-id>/published \
-  --profile <your-profile>
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Counter: Daily Cost    │ Pie: Pace Distribution             │
+│ (3x2)                  │ (3x4)                               │
+├────────────────────────┴─────────────────────────────────────┤
+│                                                               │
+│          Line Chart: Contract Burndown                        │
+│          (Actual vs Ideal vs Limit)                           │
+│          (12x8)                                               │
+│                                                               │
+├───────────────────────────────────────────────────────────────┤
+│          Table: Contract Summary                              │
+│          (Status, Pace, Projections)                          │
+│          (12x6)                                               │
+├───────────────────────────────────────────────────────────────┤
+│          Bar Chart: Monthly Trend                             │
+│          (Stacked by Contract)                                │
+│          (12x6)                                               │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-### Update the Dashboard
+## Verification Checklist
 
-To update an existing dashboard:
-```bash
-# Get dashboard ID
-databricks api get /api/2.0/lakeview/dashboards --profile <your-profile>
+After creating the dashboard, verify:
 
-# Update dashboard
-databricks api patch /api/2.0/lakeview/dashboards/<dashboard-id> \
-  --profile <your-profile> \
-  --json-file api_payload.json
-```
-
-## Customization
-
-### Change Catalog/Schema
-
-Edit the script constants:
-```python
-CATALOG = "main"
-SCHEMA = "account_monitoring_dev"
-```
-
-### Modify Visualizations
-
-The `LakeviewDashboardBuilder` class provides methods for each widget type:
-- `add_counter()` - KPI counters
-- `add_line_chart()` - Line charts
-- `add_bar_chart()` - Bar charts (grouped or stacked)
-- `add_pie_chart()` - Pie charts
-- `add_table()` - Data tables
-- `add_area_chart()` - Area charts
-
-### Add New Queries
-
-1. Add dataset:
-```python
-builder.add_dataset(
-    "dataset_name",
-    "Display Name",
-    "SELECT ... FROM ..."
-)
-```
-
-2. Add visualization:
-```python
-builder.add_bar_chart(
-    page,
-    "dataset_name",
-    "x_field",
-    "y_field",
-    "Chart Title",
-    {"x": 0, "y": 0, "width": 3, "height": 4}
-)
-```
+- [ ] Line chart shows blue (actual), green (ideal), and red (limit) lines
+- [ ] Chart displays data for both contracts
+- [ ] Summary table shows pace status with emoji indicators
+- [ ] Counter displays yesterday's consumption
+- [ ] Pie chart shows pace distribution
+- [ ] Bar chart shows monthly trends
+- [ ] Dashboard refreshes daily at 3 AM UTC
+- [ ] Permissions are set correctly
+- [ ] All queries run without errors
 
 ## Troubleshooting
 
-### Error: "Dataset not found"
+### "No data" in visualizations
 
-Check that all tables exist:
-```sql
-SHOW TABLES IN main.account_monitoring_dev;
-```
-
-### Error: "Warehouse not found"
-
-Verify warehouse ID:
-```bash
-databricks warehouses list --profile <your-profile>
-```
-
-### Error: "Permission denied"
-
-Ensure you have:
-- CREATE permission on the parent path
-- USE CATALOG permission on `main`
-- USE SCHEMA permission on `account_monitoring_dev`
-- CAN USE permission on the SQL Warehouse
-
-### Empty Visualizations
-
-Check data exists in tables:
+**Check:**
 ```sql
 SELECT COUNT(*) FROM main.account_monitoring_dev.contract_burndown;
-SELECT COUNT(*) FROM main.account_monitoring_dev.dashboard_data;
 ```
 
-Run the `account_monitor_notebook.py` to populate tables if needed.
-
-## Query Reference
-
-All queries are defined in `lakeview_dashboard_queries.sql`. The script uses these queries to create 16 datasets:
-
-1. contract_burndown_chart
-2. contract_summary_table
-3. daily_consumption_counter
-4. pace_distribution_pie
-5. contract_monthly_trend
-6. top_workspaces_detailed
-7. contract_detailed_analysis
-8. account_overview
-9. data_freshness
-10. total_spend
-11. monthly_trend
-12. top_workspaces
-13. top_skus
-14. product_category
-15. account_info
-16. combined_burndown
-
-## Dashboard Grid System
-
-Lakeview uses a **6-column grid** system:
-- Width: 1-6 columns
-- Height: units (typically 3-8 for most widgets)
-- X position: 0-5 (column start)
-- Y position: 0+ (row, grows downward)
-
-**Best Practices:**
-- Counters: width=2, height=3
-- Tables: width=3-6, height=6
-- Charts: width=3-6, height=6-8
-- Leave no gaps between widgets for clean alignment
-
-## API Reference
-
-### Create Dashboard
+If 0, run:
 ```bash
-databricks api post /api/2.0/lakeview/dashboards \
-  --profile <profile> \
-  --json '{
-    "display_name": "Dashboard Name",
-    "warehouse_id": "warehouse-id",
-    "parent_path": "/Shared",
-    "serialized_dashboard": "<json-string>"
-  }'
+databricks bundle run account_monitor_daily_refresh --profile LPT_FREE_EDITION -t dev
 ```
 
-### Update Dashboard
-```bash
-databricks api patch /api/2.0/lakeview/dashboards/<dashboard-id> \
-  --profile <profile> \
-  --json '{
-    "serialized_dashboard": "<json-string>"
-  }'
+### Chart shows flat lines
+
+**Check date range:**
+```sql
+SELECT MIN(usage_date), MAX(usage_date)
+FROM main.account_monitoring_dev.contract_burndown;
 ```
 
-### Publish Dashboard
-```bash
-databricks api post /api/2.0/lakeview/dashboards/<dashboard-id>/published \
-  --profile <profile>
+Adjust the date filter in Query 1 if needed.
+
+### Pace status not showing emojis
+
+The pace_status field includes emoji characters. If not displaying, check:
+- Browser font support
+- Databricks workspace settings
+
+## Next Steps
+
+1. ✅ Dashboard created
+2. Monitor daily consumption
+3. Set up alerts for contracts over pace
+4. Share dashboard link with stakeholders
+5. Add more visualizations as needed
+
+## Dashboard URL
+
+After publishing, your dashboard will be available at:
+```
+https://dbc-cbb9ade6-873a.cloud.databricks.com/#/dashboards/<dashboard-id>
 ```
 
-### List Dashboards
-```bash
-databricks api get /api/2.0/lakeview/dashboards --profile <profile>
-```
+Bookmark this URL for easy access!
 
-### Get Dashboard
-```bash
-databricks api get /api/2.0/lakeview/dashboards/<dashboard-id> --profile <profile>
-```
+---
 
-## Related Files
-
-- `lakeview_dashboard_queries.sql` - All SQL queries with documentation
-- `account_monitor_notebook.py` - Data preparation notebook
-- `lakeview_dashboard_config.json` - Configuration reference
-- `create_lakeview_dashboard.py` - This creation script
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review the Databricks Lakeview documentation
-3. Examine the generated JSON files for debugging
+**Need Help?** See `CONTRACT_BURNDOWN_GUIDE.md` for more details.
