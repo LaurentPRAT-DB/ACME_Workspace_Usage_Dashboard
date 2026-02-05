@@ -234,20 +234,40 @@ WHEN NOT MATCHED THEN INSERT *;
 The burndown chart shows cumulative spending over time compared to the contract limit:
 
 ```mermaid
-xychart-beta
-    title "Contract Burndown - Historical vs Forecast"
-    x-axis ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-    y-axis "Cost ($)" 0 --> 60000
-    line "Historical Spend" [5000, 10000, 15000, 20000, 25000, 30000]
-    line "ML Forecast" [null, null, null, null, null, 30000, 38000, 47000, 55000]
-    line "Contract Limit" [50000, 50000, 50000, 50000, 50000, 50000, 50000, 50000, 50000]
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ff6b6b', 'secondaryColor': '#ffd93d'}}}%%
+flowchart LR
+    subgraph chart["📈 Contract Burndown Chart"]
+        direction TB
+
+        subgraph historical["Historical Spend (Yellow)"]
+            h1["Jul: $5K"]
+            h2["Aug: $10K"]
+            h3["Sep: $15K"]
+            h4["Oct: $20K"]
+            h5["Nov: $25K"]
+            h6["Dec: $30K"]
+        end
+
+        subgraph forecast["ML Forecast (Red)"]
+            f1["Jan: $38K"]
+            f2["Feb: $47K"]
+            f3["Mar: $55K ❌"]
+        end
+
+        limit["━━━ Contract Limit: $50K ━━━"]
+    end
+
+    h6 --> f1
+    f2 -.->|"Crosses Limit"| limit
 ```
 
-**How to read it:**
-- **Yellow/Gold line**: Actual cumulative spending to date
-- **Red line**: Prophet-predicted future spending
-- **Dashed line**: Contract commitment amount ($50,000)
-- **Intersection**: Where forecast crosses the limit = **predicted exhaustion date**
+**Chart Legend:**
+| Element | Color | Description |
+|---------|-------|-------------|
+| Historical Spend | 🟡 Yellow | Actual cumulative spending to date |
+| ML Forecast | 🔴 Red | Prophet-predicted future spending |
+| Contract Limit | ⬛ Dashed | Contract commitment amount ($50,000) |
+| ❌ Intersection | | Where forecast crosses limit = **exhaustion date** |
 
 ### Exhaustion Prediction
 
