@@ -559,6 +559,7 @@ except Exception:
     forecast_exists = False
 
 if forecast_exists and not daily_spend.empty:
+  try:
     # Load forecast data
     forecast_df = spark.sql("""
         SELECT
@@ -607,6 +608,9 @@ if forecast_exists and not daily_spend.empty:
                 future_forecast = contract_forecast[contract_forecast['forecast_date'] > last_actual].copy()
 
                 if not future_forecast.empty:
+                    # Convert Decimal columns to float for plotting
+                    future_forecast['predicted_cumulative'] = future_forecast['predicted_cumulative'].astype(float)
+
                     # Forecast median line
                     fig_forecast.add_trace(go.Scatter(
                         x=future_forecast['forecast_date'],
@@ -616,29 +620,35 @@ if forecast_exists and not daily_spend.empty:
                         line=dict(width=2, color='green', dash='dash')
                     ))
 
-                    # Calculate cumulative bounds
+                    # Calculate cumulative bounds (convert Decimal to float)
+                    future_forecast['lower_bound'] = future_forecast['lower_bound'].astype(float)
+                    future_forecast['upper_bound'] = future_forecast['upper_bound'].astype(float)
                     cumulative_lower = max_cumulative + future_forecast['lower_bound'].cumsum()
                     cumulative_upper = max_cumulative + future_forecast['upper_bound'].cumsum()
 
-                    # Confidence band
+                    # Confidence band (use list concat to avoid pandas issues)
+                    x_band = list(future_forecast['forecast_date']) + list(future_forecast['forecast_date'][::-1])
+                    y_band = list(cumulative_upper) + list(cumulative_lower[::-1])
                     fig_forecast.add_trace(go.Scatter(
-                        x=pd.concat([future_forecast['forecast_date'], future_forecast['forecast_date'][::-1]]),
-                        y=pd.concat([cumulative_upper, cumulative_lower[::-1]]),
+                        x=x_band,
+                        y=y_band,
                         fill='toself',
                         fillcolor='rgba(0,255,0,0.15)',
                         line=dict(color='rgba(0,255,0,0)'),
                         name='80% Confidence Band'
                     ))
 
-                    # Get exhaustion dates
+                    # Get exhaustion dates (convert to pandas Timestamp for plotly)
                     p50_date = future_forecast['exhaustion_date_p50'].iloc[0]
                     p10_date = future_forecast['exhaustion_date_p10'].iloc[0]
                     p90_date = future_forecast['exhaustion_date_p90'].iloc[0]
 
                     # Add exhaustion date markers
                     if pd.notna(p50_date):
+                        # Convert date to timestamp for plotly compatibility
+                        p50_ts = pd.Timestamp(p50_date)
                         fig_forecast.add_vline(
-                            x=pd.to_datetime(p50_date),
+                            x=p50_ts,
                             line_dash="dot",
                             line_color="orange",
                             line_width=2,
@@ -705,6 +715,10 @@ if forecast_exists and not daily_spend.empty:
         """))
     else:
         print("Forecast table exists but is empty. Run the weekly training job to generate forecasts.")
+  except Exception as e:
+    print(f"Warning: Could not render ML forecast visualization: {e}")
+    print("The forecast data exists but visualization encountered an error.")
+    print("Check forecast_debug_log table for model status.")
 else:
     print("No forecast data available. Run the weekly training job to generate ML forecasts.")
     print("Command: databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE")
