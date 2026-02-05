@@ -181,7 +181,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   am.delivery_solutions_architect,
 # MAGIC   COUNT(DISTINCT u.workspace_id) as total_workspaces,
 # MAGIC   COUNT(DISTINCT u.sku_name) as total_skus
-# MAGIC FROM account_monitoring.account_metadata am
+# MAGIC FROM main.account_monitoring_dev.account_metadata am
 # MAGIC LEFT JOIN system.billing.usage u
 # MAGIC   ON am.account_id = u.account_id
 # MAGIC   AND u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
@@ -211,7 +211,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   AND u.cloud = lp.cloud
 # MAGIC   AND u.usage_date >= lp.price_start_time
 # MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
-# MAGIC LEFT JOIN account_monitoring.account_metadata am
+# MAGIC LEFT JOIN main.account_monitoring_dev.account_metadata am
 # MAGIC   ON u.account_id = am.account_id
 # MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
 # MAGIC GROUP BY am.customer_name, u.cloud
@@ -236,7 +236,7 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # MAGIC   c.total_value,
 # MAGIC   COALESCE(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 0) as consumed,
 # MAGIC   ROUND(COALESCE(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 0) / c.total_value * 100, 1) as consumed_pct
-# MAGIC FROM account_monitoring.contracts c
+# MAGIC FROM main.account_monitoring_dev.contracts c
 # MAGIC LEFT JOIN system.billing.usage u
 # MAGIC   ON c.account_id = u.account_id
 # MAGIC   AND c.cloud_provider = u.cloud
@@ -279,7 +279,7 @@ SELECT
     ORDER BY u.usage_date
     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
   ) as cumulative_cost
-FROM account_monitoring.contracts c
+FROM main.account_monitoring_dev.contracts c
 INNER JOIN system.billing.usage u
   ON c.account_id = u.account_id
   AND c.cloud_provider = u.cloud
@@ -683,7 +683,7 @@ if not monthly_df.empty:
 
 # Export to Delta table for Lakeview dashboard
 spark.sql("""
-CREATE OR REPLACE TABLE account_monitoring.dashboard_data AS
+CREATE OR REPLACE TABLE main.account_monitoring_dev.dashboard_data AS
 SELECT
   u.usage_date,
   u.account_id,
@@ -720,12 +720,12 @@ LEFT JOIN system.billing.list_prices lp
   AND u.cloud = lp.cloud
   AND u.usage_date >= lp.price_start_time
   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
-LEFT JOIN account_monitoring.account_metadata am
+LEFT JOIN main.account_monitoring_dev.account_metadata am
   ON u.account_id = am.account_id
 WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
 """)
 
-print("Dashboard data exported to: account_monitoring.dashboard_data")
+print("Dashboard data exported to: main.account_monitoring_dev.dashboard_data")
 
 # COMMAND ----------
 
