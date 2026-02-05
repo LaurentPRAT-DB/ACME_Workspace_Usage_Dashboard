@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.7.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.8.0-green)](CHANGELOG.md)
 
 ---
 
@@ -25,6 +25,115 @@ The Account Monitor is a complete solution for tracking Databricks consumption a
 | **Burndown Analysis** | Visualize cumulative spend vs contract limit |
 | **ML Forecasting** | Prophet-based predictions with exhaustion dates |
 | **Automated Jobs** | Daily refresh, weekly training, monthly summaries |
+
+---
+
+## Quick Start - First Install
+
+Complete setup in 5 steps. After this, you'll have a working dashboard with ML forecasts.
+
+```mermaid
+flowchart LR
+    subgraph step1["1️⃣ Configure"]
+        config["Edit contracts.yml"]
+    end
+
+    subgraph step2["2️⃣ Deploy"]
+        deploy["databricks bundle deploy"]
+    end
+
+    subgraph step3["3️⃣ Setup"]
+        setup["Run setup job"]
+    end
+
+    subgraph step4["4️⃣ Load Data"]
+        refresh["Run daily refresh"]
+    end
+
+    subgraph step5["5️⃣ Train Model"]
+        train["Run weekly training"]
+    end
+
+    subgraph done["✅ Ready"]
+        dashboard["Open Dashboard"]
+    end
+
+    step1 --> step2 --> step3 --> step4 --> step5 --> done
+```
+
+### Step 1: Configure Your Contracts
+
+Edit `config/contracts.yml` with your contract details:
+
+```yaml
+account_metadata:
+  account_id: "auto"                    # Auto-detect from billing
+  customer_name: "Your Organization"
+
+contracts:
+  - contract_id: "MY-CONTRACT-001"
+    cloud_provider: "auto"              # Auto-detect (AWS/Azure/GCP)
+    start_date: "auto"                  # Or specific date: "2025-01-01"
+    end_date: "auto"                    # Or specific date: "2025-12-31"
+    total_value: 50000.00               # Your contract commitment
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "ACTIVE"
+    notes: "Annual contract"
+```
+
+### Step 2: Deploy the Bundle
+
+```bash
+# Set your profile (replace with your actual profile name)
+export PROFILE="YOUR_PROFILE"
+
+# Deploy all resources to Databricks
+databricks bundle deploy --profile $PROFILE
+```
+
+### Step 3: Run Initial Setup
+
+This creates tables and loads your contracts from the config file:
+
+```bash
+databricks bundle run account_monitor_setup --profile $PROFILE
+```
+
+**Expected output:** Schema created, contracts loaded from `contracts.yml`
+
+### Step 4: Load Historical Data
+
+Run the daily refresh to populate burndown data from `system.billing.usage`:
+
+```bash
+databricks bundle run account_monitor_daily_refresh --profile $PROFILE
+```
+
+**Expected output:** `dashboard_data` and `contract_burndown` tables populated
+
+### Step 5: Train the Forecast Model
+
+Run the weekly training job to generate ML predictions:
+
+```bash
+databricks bundle run account_monitor_weekly_training --profile $PROFILE
+```
+
+**Expected output:** Prophet model trained, `contract_forecast` table populated with exhaustion dates
+
+### Step 6: View the Dashboard
+
+1. Open your Databricks workspace
+2. Navigate to **Workspace** > **Users** > **your-email** > **account_monitor** > **files** > **notebooks**
+3. Open **account_monitor_notebook**
+4. Click **Run All**
+
+You should see:
+- Contract summary with status
+- Daily cost trends
+- **Burndown chart with ML forecast line**
+- Predicted contract exhaustion date
 
 ---
 
@@ -455,6 +564,7 @@ databricks_conso_reports/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.8.0** | 2026-02-05 | Added Quick Start first-install guide with step-by-step workflow |
 | **1.7.0** | 2026-02-05 | Added Prophet ML forecasting, exhaustion predictions |
 | **1.6.1** | 2026-02-04 | Removed salesforce_id, added notes column |
 | **1.5.0** | 2026-02-01 | Initial stable release |
