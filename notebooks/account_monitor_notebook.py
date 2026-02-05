@@ -48,192 +48,72 @@ print(f"Configuration loaded - Analyzing last {LOOKBACK_DAYS} days")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Create Contract Management Table
+# MAGIC ## 2. Verify Setup
 # MAGIC
-# MAGIC Since contracts aren't in system tables, create a custom table to track them.
+# MAGIC Tables are created by the setup job. If you see errors below, run:
+# MAGIC ```
+# MAGIC databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+# MAGIC ```
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Create database for custom tracking tables
-# MAGIC CREATE DATABASE IF NOT EXISTS account_monitoring;
-# MAGIC
-# MAGIC -- Create contracts table
-# MAGIC CREATE TABLE IF NOT EXISTS account_monitoring.contracts (
-# MAGIC   contract_id STRING,
-# MAGIC   account_id STRING,
-# MAGIC   cloud_provider STRING,
-# MAGIC   start_date DATE,
-# MAGIC   end_date DATE,
-# MAGIC   total_value DECIMAL(18,2),
-# MAGIC   currency STRING DEFAULT 'USD',
-# MAGIC   commitment_type STRING,  -- 'DBU' or 'SPEND'
-# MAGIC   status STRING,  -- 'ACTIVE', 'EXPIRED', 'PENDING'
-# MAGIC   notes STRING,  -- Additional contract notes
-# MAGIC   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-# MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-# MAGIC   CONSTRAINT pk_contracts PRIMARY KEY (contract_id)
-# MAGIC )
-# MAGIC USING DELTA
-# MAGIC COMMENT 'Contract tracking for consumption monitoring'
-# MAGIC TBLPROPERTIES (
-# MAGIC   'delta.feature.allowColumnDefaults' = 'supported',
-# MAGIC   'delta.enableChangeDataFeed' = 'true',
-# MAGIC   'delta.autoOptimize.optimizeWrite' = 'true',
-# MAGIC   'delta.autoOptimize.autoCompact' = 'true'
-# MAGIC );
-# MAGIC
-# MAGIC -- Create account metadata table
-# MAGIC CREATE TABLE IF NOT EXISTS account_monitoring.account_metadata (
-# MAGIC   account_id STRING,
-# MAGIC   customer_name STRING,
-# MAGIC   business_unit_l0 STRING,
-# MAGIC   business_unit_l1 STRING,
-# MAGIC   business_unit_l2 STRING,
-# MAGIC   business_unit_l3 STRING,
-# MAGIC   account_executive STRING,
-# MAGIC   solutions_architect STRING,
-# MAGIC   delivery_solutions_architect STRING,
-# MAGIC   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-# MAGIC   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-# MAGIC   CONSTRAINT pk_account_metadata PRIMARY KEY (account_id)
-# MAGIC )
-# MAGIC USING DELTA
-# MAGIC COMMENT 'Account metadata and organizational information'
-# MAGIC TBLPROPERTIES (
-# MAGIC   'delta.feature.allowColumnDefaults' = 'supported',
-# MAGIC   'delta.enableChangeDataFeed' = 'true',
-# MAGIC   'delta.autoOptimize.optimizeWrite' = 'true',
-# MAGIC   'delta.autoOptimize.autoCompact' = 'true'
-# MAGIC );
+# MAGIC -- Verify tables exist
+# MAGIC SELECT
+# MAGIC   'contracts' as table_name,
+# MAGIC   COUNT(*) as row_count
+# MAGIC FROM main.account_monitoring_dev.contracts
+# MAGIC UNION ALL
+# MAGIC SELECT
+# MAGIC   'account_metadata' as table_name,
+# MAGIC   COUNT(*) as row_count
+# MAGIC FROM main.account_monitoring_dev.account_metadata
+# MAGIC UNION ALL
+# MAGIC SELECT
+# MAGIC   'contract_burndown' as table_name,
+# MAGIC   COUNT(*) as row_count
+# MAGIC FROM main.account_monitoring_dev.contract_burndown
+# MAGIC UNION ALL
+# MAGIC SELECT
+# MAGIC   'contract_forecast' as table_name,
+# MAGIC   COUNT(*) as row_count
+# MAGIC FROM main.account_monitoring_dev.contract_forecast;
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Insert Sample Contract Data
+# MAGIC ## 3. View Contract Data
 # MAGIC
-# MAGIC This cell automatically detects your actual account_id and usage date range,
-# MAGIC then creates a sample contract that aligns with your real usage data.
-# MAGIC This ensures the burndown chart will display data.
+# MAGIC Contract data is configured via `config/contracts.yml` and loaded during setup.
+# MAGIC To modify contracts, edit the config file and re-run the setup job:
+# MAGIC ```
+# MAGIC databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+# MAGIC ```
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Get actual account_id, date range, and total cost from usage data
-# MAGIC CREATE OR REPLACE TEMP VIEW usage_summary AS
+# MAGIC -- Show current contracts (configured via config/contracts.yml)
 # MAGIC SELECT
-# MAGIC   u.account_id,
-# MAGIC   u.cloud,
-# MAGIC   MIN(u.usage_date) as first_usage_date,
-# MAGIC   MAX(u.usage_date) as last_usage_date,
-# MAGIC   DATEDIFF(MAX(u.usage_date), MIN(u.usage_date)) as days_of_data,
-# MAGIC   COUNT(DISTINCT u.usage_date) as usage_days,
-# MAGIC   SUM(u.usage_quantity) as total_usage,
-# MAGIC   ROUND(SUM(u.usage_quantity * COALESCE(lp.pricing.default, 0)), 2) as total_cost
-# MAGIC FROM system.billing.usage u
-# MAGIC LEFT JOIN system.billing.list_prices lp
-# MAGIC   ON u.sku_name = lp.sku_name
-# MAGIC   AND u.cloud = lp.cloud
-# MAGIC   AND u.usage_date >= lp.price_start_time
-# MAGIC   AND (u.usage_date < lp.price_end_time OR lp.price_end_time IS NULL)
-# MAGIC WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-# MAGIC GROUP BY u.account_id, u.cloud
-# MAGIC ORDER BY total_cost DESC
-# MAGIC LIMIT 1;
-# MAGIC
-# MAGIC SELECT
-# MAGIC   *,
-# MAGIC   ROUND((3000.00 / total_cost - 1) * 100, 1) as remaining_budget_pct,
-# MAGIC   CONCAT('Current spend: USD ', ROUND(total_cost, 2), ' of USD 3,000 contract (', ROUND(total_cost / 3000.00 * 100, 1), '% burned)') as note
-# MAGIC FROM usage_summary;
-# MAGIC
-# MAGIC -- Delete all contracts to start fresh (only keep contract 1694992)
-# MAGIC DELETE FROM account_monitoring.contracts WHERE contract_id != '1694992';
-# MAGIC
-# MAGIC -- Insert/Update single sample contract (1694992) with fixed USD 3,000 value
-# MAGIC -- Contract spans 2 years: starts 1 year ago, ends 1 year from now
-# MAGIC MERGE INTO account_monitoring.contracts AS target
-# MAGIC USING (
-# MAGIC   SELECT
-# MAGIC     '1694992' as contract_id,
-# MAGIC     us.account_id,
-# MAGIC     us.cloud as cloud_provider,
-# MAGIC     DATE_SUB(CURRENT_DATE(), 365) as start_date,
-# MAGIC     DATE_ADD(CURRENT_DATE(), 365) as end_date,
-# MAGIC     3000.00 as total_value,
-# MAGIC     'USD' as currency,
-# MAGIC     'SPEND' as commitment_type,
-# MAGIC     'ACTIVE' as status,
-# MAGIC     CONCAT('Sample contract: 2-year period (', DATE_SUB(CURRENT_DATE(), 365), ' to ', DATE_ADD(CURRENT_DATE(), 365), '), USD 3,000 total commitment. Current spend: USD ', ROUND(us.total_cost, 2)) as notes,
-# MAGIC     CURRENT_TIMESTAMP() as created_at,
-# MAGIC     CURRENT_TIMESTAMP() as updated_at
-# MAGIC   FROM usage_summary us
-# MAGIC ) AS source
-# MAGIC ON target.contract_id = source.contract_id
-# MAGIC WHEN MATCHED THEN UPDATE SET
-# MAGIC   account_id = source.account_id,
-# MAGIC   cloud_provider = source.cloud_provider,
-# MAGIC   start_date = source.start_date,
-# MAGIC   end_date = source.end_date,
-# MAGIC   total_value = source.total_value,
-# MAGIC   currency = source.currency,
-# MAGIC   commitment_type = source.commitment_type,
-# MAGIC   status = source.status,
-# MAGIC   notes = source.notes,
-# MAGIC   updated_at = source.updated_at
-# MAGIC WHEN NOT MATCHED THEN INSERT (
-# MAGIC   contract_id, account_id, cloud_provider, start_date, end_date,
-# MAGIC   total_value, currency, commitment_type, status, notes, created_at, updated_at
-# MAGIC ) VALUES (
-# MAGIC   source.contract_id, source.account_id, source.cloud_provider, source.start_date,
-# MAGIC   source.end_date, source.total_value, source.currency, source.commitment_type,
-# MAGIC   source.status, source.notes, source.created_at, source.updated_at
-# MAGIC );
-# MAGIC
-# MAGIC -- Insert sample account metadata based on actual usage
-# MAGIC MERGE INTO account_monitoring.account_metadata AS target
-# MAGIC USING (
-# MAGIC   SELECT
-# MAGIC     us.account_id,
-# MAGIC     'Mercuria Inc.' as customer_name,
-# MAGIC     'AMER' as business_unit_l0,
-# MAGIC     'West' as business_unit_l1,
-# MAGIC     'Texas' as business_unit_l2,
-# MAGIC     'Enterprise' as business_unit_l3,
-# MAGIC     'Claudio Crivelli' as account_executive,
-# MAGIC     'Laurent Prat' as solutions_architect,
-# MAGIC     'NA' as delivery_solutions_architect,
-# MAGIC     CURRENT_TIMESTAMP() as created_at,
-# MAGIC     CURRENT_TIMESTAMP() as updated_at
-# MAGIC   FROM usage_summary us
-# MAGIC ) AS source
-# MAGIC ON target.account_id = source.account_id
-# MAGIC WHEN MATCHED THEN UPDATE SET
-# MAGIC   customer_name = source.customer_name,
-# MAGIC   business_unit_l0 = source.business_unit_l0,
-# MAGIC   business_unit_l1 = source.business_unit_l1,
-# MAGIC   business_unit_l2 = source.business_unit_l2,
-# MAGIC   business_unit_l3 = source.business_unit_l3,
-# MAGIC   account_executive = source.account_executive,
-# MAGIC   solutions_architect = source.solutions_architect,
-# MAGIC   delivery_solutions_architect = source.delivery_solutions_architect,
-# MAGIC   updated_at = source.updated_at
-# MAGIC WHEN NOT MATCHED THEN INSERT (
-# MAGIC   account_id, customer_name, business_unit_l0, business_unit_l1,
-# MAGIC   business_unit_l2, business_unit_l3, account_executive, solutions_architect,
-# MAGIC   delivery_solutions_architect, created_at, updated_at
-# MAGIC ) VALUES (
-# MAGIC   source.account_id, source.customer_name, source.business_unit_l0, source.business_unit_l1,
-# MAGIC   source.business_unit_l2, source.business_unit_l3, source.account_executive, source.solutions_architect,
-# MAGIC   source.delivery_solutions_architect, source.created_at, source.updated_at
-# MAGIC );
-# MAGIC
-# MAGIC -- Show created contract
-# MAGIC SELECT
-# MAGIC   c.*,
+# MAGIC   c.contract_id,
+# MAGIC   c.cloud_provider,
+# MAGIC   c.start_date,
+# MAGIC   c.end_date,
+# MAGIC   c.total_value,
+# MAGIC   c.currency,
+# MAGIC   c.status,
 # MAGIC   DATEDIFF(c.end_date, c.start_date) as contract_days,
-# MAGIC   DATEDIFF(CURRENT_DATE(), c.start_date) as days_elapsed
-# MAGIC FROM account_monitoring.contracts c;
+# MAGIC   DATEDIFF(CURRENT_DATE(), c.start_date) as days_elapsed,
+# MAGIC   c.notes
+# MAGIC FROM main.account_monitoring_dev.contracts c
+# MAGIC WHERE c.status = 'ACTIVE'
+# MAGIC ORDER BY c.contract_id;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Show account metadata (configured via config/contracts.yml)
+# MAGIC SELECT * FROM main.account_monitoring_dev.account_metadata;
 
 # COMMAND ----------
 
