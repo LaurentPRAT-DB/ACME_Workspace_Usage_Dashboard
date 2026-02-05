@@ -1,0 +1,84 @@
+# Contract Configuration File
+# ============================
+# Edit this file to configure your account metadata and contracts.
+# This data will be loaded during setup instead of hard-coded sample data.
+#
+# Usage:
+#   databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+#
+# The setup job will read this file and insert/update the data.
+
+# Account Metadata
+# ----------------
+# Information about your organization for reporting purposes.
+# The account_id will be auto-detected from system.billing.usage if set to "auto"
+
+account_metadata:
+  account_id: "auto"  # "auto" = detect from system.billing.usage, or specify explicitly
+  customer_name: "Your Organization Name"
+
+  # Business unit hierarchy (for organizational reporting)
+  business_unit_l0: "REGION"        # Top level (e.g., AMER, EMEA, APAC)
+  business_unit_l1: "SUB-REGION"    # Second level (e.g., US, UK, Germany)
+  business_unit_l2: "COUNTRY"       # Third level
+  business_unit_l3: "DIVISION"      # Fourth level
+
+  # Team assignments
+  account_executive: "Account Executive Name"
+  solutions_architect: "Solutions Architect Name"
+  delivery_solutions_architect: "Delivery SA Name"
+
+  # Classification
+  region: "US-WEST"
+  industry: "Technology"
+
+# Contracts
+# ---------
+# Define one or more contracts to track.
+# Each contract tracks spending against a commitment amount.
+#
+# Fields:
+#   contract_id: Unique identifier for this contract
+#   cloud_provider: "auto" (detect), "AWS", "AZURE", or "GCP"
+#   start_date: Contract start date (YYYY-MM-DD) or "auto" for 1 year ago
+#   end_date: Contract end date (YYYY-MM-DD) or "auto" for 1 year from now
+#   total_value: Contract commitment amount in dollars
+#   currency: Currency code (default: USD)
+#   commitment_type: "SPEND" (dollar amount) or "DBU" (compute units)
+#   status: "ACTIVE", "EXPIRED", or "PENDING"
+#   notes: Optional description
+
+contracts:
+  - contract_id: "CONTRACT-001"
+    cloud_provider: "auto"          # Auto-detect from usage data
+    start_date: "auto"              # 1 year ago
+    end_date: "auto"                # 1 year from now
+    total_value: 3000.00
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "ACTIVE"
+    notes: "Sample contract for burndown demo"
+
+# Example: Multiple contracts
+# ---------------------------
+# Uncomment and modify to add more contracts:
+#
+#   - contract_id: "CONTRACT-002"
+#     cloud_provider: "AWS"
+#     start_date: "2025-01-01"
+#     end_date: "2025-12-31"
+#     total_value: 50000.00
+#     currency: "USD"
+#     commitment_type: "SPEND"
+#     status: "ACTIVE"
+#     notes: "Annual enterprise contract"
+#
+#   - contract_id: "CONTRACT-003"
+#     cloud_provider: "AZURE"
+#     start_date: "2025-06-01"
+#     end_date: "2026-05-31"
+#     total_value: 100000.00
+#     currency: "USD"
+#     commitment_type: "DBU"
+#     status: "ACTIVE"
+#     notes: "DBU commitment contract"

@@ -175,7 +175,7 @@ gantt
 
 ### Step 1: Configure the Bundle
 
-Edit `databricks.yml` with your settings:
+Edit `databricks.yml` with your workspace settings:
 
 ```yaml
 targets:
@@ -188,7 +188,51 @@ targets:
       schema: "account_monitoring_dev"
 ```
 
-### Step 2: Deploy
+### Step 2: Configure Your Contracts
+
+Edit `config/contracts.yml` to define your organization and contracts:
+
+```yaml
+# config/contracts.yml
+account_metadata:
+  account_id: "auto"                    # Auto-detect from billing data
+  customer_name: "Your Organization"
+  business_unit_l0: "AMER"
+  account_executive: "John Doe"
+  solutions_architect: "Jane Smith"
+  region: "US-WEST"
+  industry: "Technology"
+
+contracts:
+  - contract_id: "CONTRACT-2026-001"
+    cloud_provider: "auto"              # Auto-detect (AWS/Azure/GCP)
+    start_date: "2025-07-01"            # Or "auto" for 1 year ago
+    end_date: "2026-06-30"              # Or "auto" for 1 year from now
+    total_value: 50000.00
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "ACTIVE"
+    notes: "Annual enterprise contract"
+
+  # Add more contracts as needed:
+  - contract_id: "CONTRACT-2026-002"
+    cloud_provider: "AWS"
+    start_date: "2026-01-01"
+    end_date: "2026-12-31"
+    total_value: 100000.00
+    currency: "USD"
+    commitment_type: "DBU"
+    status: "PENDING"
+    notes: "DBU commitment for next year"
+```
+
+**Auto-detection:**
+- `account_id: "auto"` → Reads from `system.billing.usage`
+- `cloud_provider: "auto"` → Detects from your actual usage data
+- `start_date: "auto"` → Sets to 1 year ago
+- `end_date: "auto"` → Sets to 1 year from now
+
+### Step 3: Deploy and Setup
 
 ```bash
 # Authenticate
@@ -197,33 +241,19 @@ databricks auth login --host https://your-workspace.cloud.databricks.com --profi
 # Deploy all resources
 databricks bundle deploy --profile YOUR_PROFILE
 
-# Run setup to create tables
+# Run setup (creates tables + loads contracts from config)
 databricks bundle run account_monitor_setup --profile YOUR_PROFILE
 ```
 
-### Step 3: Add Your Contract Data
+### Updating Contracts Later
 
-Open the **Contract Management CRUD** notebook and add your actual contract:
+To add or modify contracts after initial setup:
 
-```sql
--- Example: Add a contract
-MERGE INTO main.account_monitoring_dev.contracts AS target
-USING (SELECT
-  'CONTRACT-2026-001' as contract_id,
-  'your-databricks-account-id' as account_id,
-  'AWS' as cloud_provider,
-  DATE '2025-07-01' as start_date,
-  DATE '2026-06-30' as end_date,
-  50000.00 as total_value,
-  'USD' as currency,
-  'SPEND' as commitment_type,
-  'ACTIVE' as status,
-  'Annual enterprise contract' as notes
-) AS source
-ON target.contract_id = source.contract_id
-WHEN MATCHED THEN UPDATE SET *
-WHEN NOT MATCHED THEN INSERT *;
-```
+1. Edit `config/contracts.yml`
+2. Redeploy: `databricks bundle deploy --profile YOUR_PROFILE`
+3. Re-run setup: `databricks bundle run account_monitor_setup --profile YOUR_PROFILE`
+
+Or use the **Contract Management CRUD** notebook for manual changes
 
 ---
 
@@ -365,13 +395,18 @@ databricks runs get --run-id <RUN_ID> --profile YOUR_PROFILE
 flowchart LR
     subgraph root["📁 Root"]
         readme["README.md"]
-        config["databricks.yml"]
+        dbconfig["databricks.yml"]
+    end
+
+    subgraph configdir["📝 config/"]
+        contracts["contracts.yml"]
     end
 
     subgraph notebooks["📓 notebooks/"]
         monitor["account_monitor_notebook.py"]
         crud["contract_management_crud.py"]
         forecast["consumption_forecaster.py"]
+        setupnb["setup_contracts.py"]
     end
 
     subgraph sql["🗃️ sql/"]
@@ -383,19 +418,24 @@ flowchart LR
         jobs["jobs.yml"]
     end
 
+    root --> configdir
     root --> notebooks
     root --> sql
     root --> resources
+    configdir -->|"loaded by"| setupnb
 ```
 
 ```
 databricks_conso_reports/
 ├── databricks.yml              # Bundle configuration
 ├── README.md                   # This file
+├── config/
+│   └── contracts.yml           # 📝 YOUR CONTRACT CONFIGURATION
 ├── notebooks/
 │   ├── account_monitor_notebook.py    # Main dashboard
 │   ├── contract_management_crud.py    # CRUD operations
 │   ├── consumption_forecaster.py      # ML forecasting
+│   ├── setup_contracts.py             # Config loader
 │   └── post_deployment_validation.py  # Setup verification
 ├── sql/
 │   ├── setup_schema.sql               # Create all tables

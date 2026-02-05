@@ -19,17 +19,13 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
 
-        - task_key: insert_sample_data
-          description: "Insert sample account metadata and contracts"
+        - task_key: load_contract_config
+          description: "Load contracts from config/contracts.yml"
           depends_on:
             - task_key: create_schema
-          sql_task:
-            warehouse_id: ${var.warehouse_id}
-            file:
-              path: ../sql/insert_sample_data.sql
-            parameters:
-              catalog: ${var.catalog}
-              schema: ${var.schema}
+          notebook_task:
+            notebook_path: ../notebooks/setup_contracts.py
+            source: WORKSPACE
 
       tags:
         bundle: account_monitor
