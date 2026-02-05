@@ -108,4 +108,65 @@ TBLPROPERTIES (
   'delta.autoOptimize.autoCompact' = 'true'
 );
 
+-- Create forecast tables for Prophet-based predictions
+
+-- Table: contract_forecast
+-- Stores daily forecast predictions and exhaustion dates
+CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.contract_forecast (
+  contract_id STRING NOT NULL COMMENT 'Contract identifier',
+  forecast_date DATE NOT NULL COMMENT 'Date this forecast was generated',
+  model_version STRING COMMENT 'Model version/MLflow run ID',
+  predicted_daily_cost DECIMAL(18,2) COMMENT 'Prophet predicted daily cost',
+  predicted_cumulative DECIMAL(18,2) COMMENT 'Cumulative predicted cost from contract start',
+  lower_bound DECIMAL(18,2) COMMENT '10th percentile (optimistic)',
+  upper_bound DECIMAL(18,2) COMMENT '90th percentile (conservative)',
+  exhaustion_date_p10 DATE COMMENT 'Optimistic exhaustion date (10th percentile)',
+  exhaustion_date_p50 DATE COMMENT 'Median exhaustion date prediction',
+  exhaustion_date_p90 DATE COMMENT 'Conservative exhaustion date (90th percentile)',
+  days_to_exhaustion INT COMMENT 'Days until median exhaustion date',
+  created_at TIMESTAMP COMMENT 'When this forecast was created',
+  CONSTRAINT pk_forecast PRIMARY KEY (contract_id, forecast_date)
+)
+USING DELTA
+COMMENT 'Prophet-based consumption forecasts for contracts'
+TBLPROPERTIES (
+  'delta.enableChangeDataFeed' = 'true',
+  'delta.autoOptimize.optimizeWrite' = 'true',
+  'delta.autoOptimize.autoCompact' = 'true'
+);
+
+-- Table: forecast_model_registry
+-- Tracks trained models and their performance
+CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.forecast_model_registry (
+  model_id STRING NOT NULL COMMENT 'Unique model identifier',
+  contract_id STRING NOT NULL COMMENT 'Contract this model was trained for',
+  trained_at TIMESTAMP COMMENT 'When the model was trained',
+  training_start_date DATE COMMENT 'Start of training data window',
+  training_end_date DATE COMMENT 'End of training data window',
+  training_points INT COMMENT 'Number of data points used for training',
+  mape DECIMAL(10,4) COMMENT 'Mean Absolute Percentage Error',
+  rmse DECIMAL(18,4) COMMENT 'Root Mean Square Error',
+  mae DECIMAL(18,4) COMMENT 'Mean Absolute Error',
+  mlflow_experiment_id STRING COMMENT 'MLflow experiment ID',
+  mlflow_run_id STRING COMMENT 'MLflow run ID',
+  is_active BOOLEAN COMMENT 'Whether this model is currently active',
+  CONSTRAINT pk_model_registry PRIMARY KEY (model_id)
+)
+USING DELTA
+COMMENT 'Registry of trained Prophet models for forecasting'
+TBLPROPERTIES (
+  'delta.enableChangeDataFeed' = 'true',
+  'delta.autoOptimize.optimizeWrite' = 'true'
+);
+
+-- View: Latest forecast per contract
+CREATE OR REPLACE VIEW main.account_monitoring_dev.contract_forecast_latest AS
+SELECT *
+FROM main.account_monitoring_dev.contract_forecast f
+WHERE forecast_date = (
+  SELECT MAX(forecast_date)
+  FROM main.account_monitoring_dev.contract_forecast
+  WHERE contract_id = f.contract_id
+);
+
 SELECT 'Schema and tables created successfully' as status;

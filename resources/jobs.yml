@@ -88,6 +88,32 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
 
+        - task_key: build_forecast_features
+          description: "Prepare forecast feature data"
+          depends_on:
+            - task_key: refresh_contract_burndown
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/build_forecast_features.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: run_forecast_inference
+          description: "Generate consumption forecasts"
+          depends_on:
+            - task_key: build_forecast_features
+          notebook_task:
+            notebook_path: ../notebooks/consumption_forecaster.py
+            base_parameters:
+              mode: "inference"
+              forecast_horizon_days: "365"
+              confidence_interval: "0.80"
+              min_training_days: "30"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
       schedule:
         quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM
         timezone_id: "UTC"
@@ -187,3 +213,58 @@ resources:
         bundle: account_monitor
         environment: ${bundle.target}
         schedule: monthly
+
+    # Weekly model training job
+    account_monitor_weekly_training:
+      name: "[${bundle.target}] Account Monitor - Weekly Training"
+      description: "Weekly Prophet model training for consumption forecasting"
+
+      tasks:
+        - task_key: create_forecast_schema
+          description: "Ensure forecast tables exist"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/create_forecast_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: build_forecast_features
+          description: "Prepare forecast feature data"
+          depends_on:
+            - task_key: create_forecast_schema
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/build_forecast_features.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: train_prophet_models
+          description: "Train Prophet models for all contracts"
+          depends_on:
+            - task_key: build_forecast_features
+          notebook_task:
+            notebook_path: ../notebooks/consumption_forecaster.py
+            base_parameters:
+              mode: "both"
+              forecast_horizon_days: "365"
+              confidence_interval: "0.80"
+              min_training_days: "30"
+            source: WORKSPACE
+          timeout_seconds: 7200
+
+      schedule:
+        quartz_cron_expression: "0 0 3 ? * SUN"  # Every Sunday at 3 AM
+        timezone_id: "UTC"
+        pause_status: UNPAUSED
+
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        schedule: weekly
+        ml: forecasting

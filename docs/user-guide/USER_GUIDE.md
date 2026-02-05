@@ -1,6 +1,6 @@
 # Account Monitor - User Guide
 
-**Version 1.6.1**
+**Version 1.7.0**
 
 A comprehensive guide for managing and monitoring Databricks account costs and contract consumption.
 
@@ -14,7 +14,8 @@ A comprehensive guide for managing and monitoring Databricks account costs and c
 4. [Data Refresh Jobs](#data-refresh-jobs)
 5. [Managing Contracts (CRUD Operations)](#managing-contracts-crud-operations)
 6. [Dashboard & Burndown Charts](#dashboard--burndown-charts)
-7. [Troubleshooting](#troubleshooting)
+7. [Consumption Forecasting (ML)](#consumption-forecasting-ml)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -518,6 +519,187 @@ See `docs/archive/CREATE_LAKEVIEW_DASHBOARD.md` for detailed instructions.
 
 ---
 
+## Consumption Forecasting (ML)
+
+Version 1.7.0 introduces Prophet-based machine learning forecasting for contract consumption prediction.
+
+### How It Works
+
+The forecasting system uses Facebook Prophet to analyze historical daily spending patterns and predict future consumption. Key features:
+
+- **Time Series Analysis**: Captures yearly, weekly, and monthly seasonality patterns
+- **Confidence Intervals**: Provides p10 (optimistic), p50 (median), and p90 (conservative) predictions
+- **Automatic Fallback**: Uses linear projection when insufficient data (<30 days)
+- **MLflow Integration**: Tracks experiments and model versions
+
+### Forecast Tables
+
+Two new tables store forecasting data:
+
+#### contract_forecast
+Stores daily predictions and exhaustion dates.
+
+| Column | Description |
+|--------|-------------|
+| contract_id | Contract identifier |
+| forecast_date | Date of prediction |
+| predicted_daily_cost | Prophet predicted daily cost |
+| predicted_cumulative | Cumulative predicted cost |
+| lower_bound | 10th percentile (optimistic) |
+| upper_bound | 90th percentile (conservative) |
+| exhaustion_date_p10 | Optimistic exhaustion date |
+| exhaustion_date_p50 | Median exhaustion date |
+| exhaustion_date_p90 | Conservative exhaustion date |
+| days_to_exhaustion | Days until median exhaustion |
+| model_version | "prophet" or "linear_fallback" |
+
+#### forecast_model_registry
+Tracks trained models and performance metrics.
+
+| Column | Description |
+|--------|-------------|
+| model_id | Unique model identifier |
+| contract_id | Contract this model is for |
+| trained_at | Training timestamp |
+| mape | Mean Absolute Percentage Error |
+| rmse | Root Mean Square Error |
+| mlflow_run_id | MLflow experiment run ID |
+| is_active | Whether model is currently active |
+
+### Jobs
+
+Two jobs manage forecasting:
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| **Weekly Training** | Sunday 3 AM UTC | Train Prophet models for all contracts |
+| **Daily Inference** | Part of daily refresh | Generate forecasts using trained models |
+
+### Running Forecasts Manually
+
+**Train new models:**
+```bash
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+```
+
+**Run inference only:**
+```bash
+databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
+```
+
+**Run the notebook interactively:**
+1. Open `notebooks/consumption_forecaster.py`
+2. Set widget parameters:
+   - `mode`: "training", "inference", or "both"
+   - `forecast_horizon_days`: 365 (default)
+   - `confidence_interval`: 0.80 (default)
+   - `min_training_days`: 30 (minimum days required)
+3. Run all cells
+
+### Interpreting Forecasts
+
+#### Exhaustion Dates
+
+The forecast provides three exhaustion date predictions:
+
+- **p10 (Optimistic)**: 10% chance contract exhausts before this date
+- **p50 (Median)**: 50% probability - most likely exhaustion date
+- **p90 (Conservative)**: 90% chance contract exhausts before this date
+
+**Example Interpretation:**
+```
+exhaustion_date_p10: 2026-08-15  (10% probability)
+exhaustion_date_p50: 2026-10-01  (most likely)
+exhaustion_date_p90: 2026-12-01  (90% probability)
+```
+
+This means there's:
+- 10% chance the contract exhausts by August 15
+- 50% chance by October 1
+- 90% chance by December 1
+
+#### Forecast Status
+
+The enhanced burndown chart shows:
+- **Blue line**: Historical actual spend
+- **Green dashed line**: Forecasted median spend
+- **Green shaded area**: 80% confidence band
+- **Red line**: Contract limit
+- **Orange vertical line**: Predicted exhaustion date (p50)
+
+#### Model Quality Metrics
+
+Check model quality in the model registry:
+
+```sql
+SELECT
+  contract_id,
+  ROUND(mape, 2) as mape_pct,
+  ROUND(rmse, 2) as rmse_dollars,
+  training_points,
+  is_active
+FROM main.account_monitoring_dev.forecast_model_registry
+WHERE is_active = TRUE;
+```
+
+**MAPE Guidelines:**
+- < 10%: Excellent accuracy
+- 10-20%: Good accuracy
+- 20-30%: Acceptable
+- > 30%: Consider investigating data quality
+
+### Viewing Forecasts
+
+**SQL Query - Latest Forecast:**
+```sql
+SELECT * FROM main.account_monitoring_dev.contract_forecast_latest;
+```
+
+**SQL Query - Forecast Details with Contract Info:**
+```sql
+SELECT * FROM main.account_monitoring_dev.contract_forecast_details;
+```
+
+**Dashboard:**
+The Account Monitor notebook (Section 9b) displays an enhanced burndown chart with forecast overlay when forecast data is available.
+
+### Troubleshooting Forecasts
+
+#### "No forecast data available"
+
+**Cause:** Weekly training job hasn't run yet.
+
+**Solution:**
+```bash
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+```
+
+#### "Insufficient data" warning
+
+**Cause:** Contract has fewer than 30 days of historical data.
+
+**Solution:** The system automatically falls back to linear projection. Wait for more data to accumulate or reduce `min_training_days` parameter (not recommended for accuracy).
+
+#### Poor forecast accuracy (high MAPE)
+
+**Causes:**
+- Irregular spending patterns
+- Sudden changes in usage
+- Too few data points
+
+**Solutions:**
+1. Check if spending patterns are highly irregular
+2. Consider adjusting Prophet parameters in the notebook
+3. Wait for more historical data
+
+#### MLflow experiment not found
+
+**Cause:** First time running or experiment was deleted.
+
+**Solution:** The forecaster automatically creates the experiment on first run. Check MLflow UI at `/Shared/consumption_forecaster`.
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -637,19 +819,28 @@ databricks_conso_reports/
 │   │   └── USER_GUIDE.md      # This guide
 │   └── archive/               # Old summaries
 ├── notebooks/
-│   ├── account_monitor_notebook.py
-│   ├── contract_management_crud.py
-│   └── post_deployment_validation.py
+│   ├── account_monitor_notebook.py    # Main dashboard
+│   ├── consumption_forecaster.py      # Prophet ML forecasting
+│   ├── contract_management_crud.py    # CRUD operations
+│   └── post_deployment_validation.py  # Validation checks
 ├── sql/
-│   ├── setup_schema.sql
+│   ├── setup_schema.sql               # Schema + forecast tables
+│   ├── create_forecast_schema.sql     # Forecast tables only
+│   ├── build_forecast_features.sql    # Feature engineering
 │   ├── insert_sample_data.sql
 │   └── refresh_*.sql
 └── resources/
-    └── jobs.yml               # Job definitions
+    └── jobs.yml               # Job definitions (incl. weekly training)
 ```
 
 ### Version History
 
+- **1.7.0** (2026-02-05) - Added Prophet-based ML consumption forecasting
+  - New tables: contract_forecast, forecast_model_registry
+  - Weekly training job for Prophet models
+  - Enhanced burndown chart with forecast overlay
+  - Confidence intervals (p10/p50/p90) for exhaustion dates
+  - MLflow experiment tracking
 - **1.6.1** (2026-02-04) - Fixed salesforce_id errors, added notes column
 - **1.5.x** - Initial stable release
 
