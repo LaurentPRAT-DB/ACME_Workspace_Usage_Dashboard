@@ -1,274 +1,438 @@
 # Databricks Account Monitor
 
-**Track consumption, costs, and contract burndown across your Databricks workspaces**
+**Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.6.1-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.7.0-green)](CHANGELOG.md)
 
 ---
 
-## 📚 Documentation
+## Overview
 
-**👉 [Complete User Guide](docs/user-guide/USER_GUIDE.md)** - Start here for comprehensive instructions
+The Account Monitor is a complete solution for tracking Databricks consumption and predicting when contracts will be exhausted. It combines:
 
-### Quick Links
+- **Real-time cost tracking** from Databricks system tables
+- **ML-based forecasting** using Prophet to predict future consumption
+- **Contract burndown visualization** showing historical spend and projected exhaustion dates
+- **Automated refresh jobs** to keep data current
 
-- **[Installation & Setup](docs/user-guide/USER_GUIDE.md#installation--setup)** - Deploy with Databricks Asset Bundles
-- **[Understanding Tables](docs/user-guide/USER_GUIDE.md#understanding-the-data-model)** - Data model and schemas
-- **[Managing Contracts](docs/user-guide/USER_GUIDE.md#managing-contracts-crud-operations)** - CRUD operations guide
-- **[Data Refresh Jobs](docs/user-guide/USER_GUIDE.md#data-refresh-jobs)** - Automated job schedules
-- **[Dashboard Guide](docs/user-guide/USER_GUIDE.md#dashboard--burndown-charts)** - Visualizations and burndown charts
-- **[Troubleshooting](docs/user-guide/USER_GUIDE.md#troubleshooting)** - Common issues and solutions
+### Key Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **Cost Monitoring** | Track spending across all workspaces, SKUs, and products |
+| **Contract Management** | Store contract details (value, dates, cloud provider) |
+| **Burndown Analysis** | Visualize cumulative spend vs contract limit |
+| **ML Forecasting** | Prophet-based predictions with exhaustion dates |
+| **Automated Jobs** | Daily refresh, weekly training, monthly summaries |
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     DATABRICKS SYSTEM TABLES                     │
+│  ┌─────────────────────┐    ┌─────────────────────┐             │
+│  │ system.billing.usage│    │system.billing.      │             │
+│  │                     │    │    list_prices      │             │
+│  └──────────┬──────────┘    └──────────┬──────────┘             │
+└─────────────┼──────────────────────────┼────────────────────────┘
+              │                          │
+              ▼                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DAILY REFRESH JOB                           │
+│         Joins usage with prices, enriches with metadata          │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNITY CATALOG TABLES                          │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
+│  │  contracts  │ │dashboard_data│ │contract_    │ │ forecast_  │ │
+│  │             │ │              │ │  burndown   │ │  models    │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └────────────┘ │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEEKLY TRAINING JOB                           │
+│              Train Prophet models per contract                   │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   CONTRACT_FORECAST TABLE                        │
+│          Daily predictions + exhaustion dates (p10/p50/p90)      │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    DASHBOARD NOTEBOOK                            │
+│         Burndown charts, forecasts, cost analysis                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Setup
 
 ### Prerequisites
-- Databricks workspace with Unity Catalog
-- Databricks CLI installed
-- Access to system.billing tables
 
-### Installation
+- Databricks workspace with **Unity Catalog** enabled
+- Access to **system.billing** tables (account admin or granted access)
+- **Databricks CLI** installed and configured
+- A **SQL Warehouse** (serverless recommended)
+
+### Step 1: Configure the Bundle
+
+Edit `databricks.yml` with your settings:
+
+```yaml
+targets:
+  dev:
+    workspace:
+      host: https://your-workspace.cloud.databricks.com
+    variables:
+      warehouse_id: "your-warehouse-id"   # From SQL Warehouses page
+      catalog: "main"
+      schema: "account_monitoring_dev"
+```
+
+### Step 2: Deploy
 
 ```bash
-# 1. Authenticate
-databricks auth login https://your-workspace.cloud.databricks.com --profile YOUR_PROFILE
+# Authenticate
+databricks auth login --host https://your-workspace.cloud.databricks.com --profile YOUR_PROFILE
 
-# 2. Configure
-# Edit databricks.yml and set your profile and warehouse_id
-
-# 3. Deploy
+# Deploy all resources
 databricks bundle deploy --profile YOUR_PROFILE
 
-# 4. Run Setup
+# Run setup to create tables
 databricks bundle run account_monitor_setup --profile YOUR_PROFILE
 ```
 
-**Done!** Your tables are created and sample data is loaded.
+### Step 3: Add Your Contract Data
 
-### Next Steps
+Open the **Contract Management CRUD** notebook and add your actual contract:
 
-1. **Update Your Data** - Open the Contract Management CRUD notebook and add your actual contracts
-2. **View Dashboard** - Open the Account Monitor notebook to see your cost analysis
-3. **Schedule Jobs** - Jobs are already deployed and scheduled (daily, weekly, monthly)
-
----
-
-## 🎯 What This Solution Does
-
-### Cost Tracking
-- Monitor Databricks spending across all workspaces
-- Track costs by product category (compute, SQL, DLT, etc.)
-- Identify top consumers and cost anomalies
-
-### Contract Management
-- Store and track contract details (value, dates, cloud provider)
-- Calculate contract burndown and consumption rates
-- Project contract exhaustion dates
-- Get alerts for overspending
-
-### Organizational Reporting
-- Organize accounts by business units (4 levels)
-- Track team assignments (AE, SA, DSA)
-- Generate summaries by region, team, or account
-
-### Automation
-- **Daily** - Refresh dashboard data from system tables
-- **Weekly** - Analyze contracts and identify anomalies
-- **Monthly** - Generate summaries and archive old data
-
----
-
-## 📊 Key Features
-
-### Interactive Notebooks
-
-**Account Monitor Dashboard** - Main analytics notebook
-- Cost trends over time
-- Contract burndown visualization
-- Top consumers analysis
-- Product category breakdown
-
-**Contract Management CRUD** - Manage your data
-- Add/update/delete contracts
-- Manage account metadata
-- Data validation tools
-- Bulk operations
-
-**Post Deployment Validation** - Verify your setup
-- Check table creation
-- Validate data integrity
-- Test job configurations
-
-### Automated Jobs
-
-| Job | Schedule | Purpose |
-|-----|----------|---------|
-| Setup | On-demand | Initialize schema and tables |
-| Daily Refresh | 2 AM UTC | Update dashboard data |
-| Weekly Review | Mon 8 AM | Contract analysis |
-| Monthly Summary | 1st @ 6 AM | Generate reports |
-
-### Data Tables
-
-**Contracts** - Track your Databricks contracts
-- Contract value, dates, status
-- Cloud provider and commitment type
-- Notes and metadata
-
-**Account Metadata** - Organizational structure
-- Business unit hierarchy (4 levels)
-- Team assignments (AE, SA, DSA)
-- Regional and industry tags
-
-**Dashboard Data** - Pre-aggregated analytics
-- Usage and cost by day/workspace/SKU
-- Product category breakdowns
-- Optimized for fast queries
-
----
-
-## 🏗️ Architecture
-
-```
-System Tables (Databricks)
-    ↓
-Daily Refresh Job
-    ↓
-Dashboard Data Tables (Unity Catalog)
-    ↓
-Notebooks & Lakeview Dashboards
-    ↓
-Business Insights
+```sql
+-- Example: Add a contract
+MERGE INTO main.account_monitoring_dev.contracts AS target
+USING (SELECT
+  'CONTRACT-2026-001' as contract_id,
+  'your-databricks-account-id' as account_id,
+  'AWS' as cloud_provider,
+  DATE '2025-07-01' as start_date,
+  DATE '2026-06-30' as end_date,
+  50000.00 as total_value,
+  'USD' as currency,
+  'SPEND' as commitment_type,
+  'ACTIVE' as status,
+  'Annual enterprise contract' as notes
+) AS source
+ON target.contract_id = source.contract_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *;
 ```
 
-**Data Flow:**
-1. System tables (`system.billing.usage`, `system.billing.list_prices`) contain raw data
-2. Daily job aggregates and enriches data
-3. Tables store processed data with business context
-4. Notebooks and dashboards provide visualization
+---
+
+## Data Model
+
+### System Tables (Read-Only, Managed by Databricks)
+
+These are the source tables containing raw billing data:
+
+| Table | Description |
+|-------|-------------|
+| `system.billing.usage` | Raw usage records (DBUs, dates, workspaces, SKUs) |
+| `system.billing.list_prices` | Pricing information per SKU and cloud |
+
+### Application Tables (Created by Setup Job)
+
+#### `contracts` - Your Contract Information
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Unique identifier (PK) |
+| `account_id` | STRING | Databricks account ID |
+| `cloud_provider` | STRING | AWS, Azure, or GCP |
+| `start_date` | DATE | Contract start |
+| `end_date` | DATE | Contract end |
+| `total_value` | DECIMAL(18,2) | Contract commitment amount |
+| `currency` | STRING | USD, EUR, etc. |
+| `commitment_type` | STRING | SPEND or DBU |
+| `status` | STRING | ACTIVE, EXPIRED, PENDING |
+| `notes` | STRING | Additional notes |
+
+#### `contract_burndown` - Daily Consumption Tracking
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Link to contract |
+| `usage_date` | DATE | Day of consumption |
+| `daily_cost` | DECIMAL(18,2) | Cost for that day |
+| `cumulative_cost` | DECIMAL(18,2) | Running total from contract start |
+| `remaining_budget` | DECIMAL(18,2) | Contract value minus cumulative |
+| `burn_rate_7d` | DECIMAL(18,2) | 7-day average daily spend |
+
+#### `contract_forecast` - ML Predictions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Link to contract |
+| `forecast_date` | DATE | Predicted date |
+| `predicted_cumulative` | DECIMAL(18,2) | Predicted total spend by this date |
+| `exhaustion_date_p10` | DATE | Optimistic exhaustion (10th percentile) |
+| `exhaustion_date_p50` | DATE | Median exhaustion prediction |
+| `exhaustion_date_p90` | DATE | Conservative exhaustion (90th percentile) |
+| `model_version` | STRING | "prophet" or "linear_fallback" |
 
 ---
 
-## 📁 Repository Structure
+## Running the Solution
+
+### Scheduled Jobs
+
+| Job | Schedule | Purpose | Command to Run Manually |
+|-----|----------|---------|------------------------|
+| **Daily Refresh** | 2:00 AM UTC | Update consumption data from system tables | `databricks bundle run account_monitor_daily_refresh` |
+| **Weekly Training** | Sunday 3:00 AM | Retrain Prophet models with latest data | `databricks bundle run account_monitor_weekly_training` |
+| **Weekly Review** | Monday 8:00 AM | Contract analysis and anomaly detection | `databricks bundle run account_monitor_weekly_review` |
+| **Monthly Summary** | 1st of month 6:00 AM | Archive old data, generate reports | `databricks bundle run account_monitor_monthly_summary` |
+
+### Verifying Data Freshness
+
+Run this query to check when data was last updated:
+
+```sql
+-- Check data freshness
+SELECT
+  'contract_burndown' as table_name,
+  MAX(usage_date) as latest_data,
+  DATEDIFF(CURRENT_DATE(), MAX(usage_date)) as days_stale
+FROM main.account_monitoring_dev.contract_burndown
+
+UNION ALL
+
+SELECT
+  'contract_forecast' as table_name,
+  MAX(forecast_date) as latest_data,
+  DATEDIFF(CURRENT_DATE(), MAX(created_at)) as days_stale
+FROM main.account_monitoring_dev.contract_forecast;
+```
+
+**Expected Results:**
+- `contract_burndown.latest_data` should be yesterday or today
+- `contract_forecast` should be updated within the last 7 days
+
+### Monitoring Job Health
+
+```bash
+# Check recent job runs
+databricks jobs list --profile YOUR_PROFILE
+
+# View run history for daily refresh
+databricks runs list --job-id <JOB_ID> --profile YOUR_PROFILE
+```
+
+---
+
+## Visualizations
+
+### Contract Burndown Chart
+
+The burndown chart shows cumulative spending over time compared to the contract limit:
+
+```
+Cost ($)
+    │
+ 50K├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Contract Limit ($50,000)
+    │                                    ╱
+ 40K├                               ╱╱╱╱
+    │                          ╱╱╱╱
+ 30K├                     ╱╱╱╱
+    │                ╱╱╱╱
+ 20K├           ▄▄▄▀
+    │       ▄▄▀▀
+ 10K├   ▄▄▀▀
+    │▄▀▀
+    └────┬────┬────┬────┬────┬────┬────┬────┬────► Date
+       Jul  Aug  Sep  Oct  Nov  Dec  Jan  Feb  Mar
+       2025                                   2026
+
+    ▄▄▄ Historical Consumption (Yellow)
+    ╱╱╱ ML Forecast (Red)
+    ─ ─ Contract Limit (Dashed Blue)
+```
+
+**How to read it:**
+- **Yellow line**: Actual cumulative spending to date
+- **Red line**: Prophet-predicted future spending
+- **Dashed line**: Contract commitment amount
+- **Intersection**: Where red crosses the dashed line = predicted exhaustion date
+
+### Forecast with Exhaustion Date
+
+The ML forecast visualization shows when the contract will be exhausted:
+
+```
+Cost ($)
+    │
+ 50K├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╳ ─ ─ ─ ─  Contract Limit
+    │                            ╱ │
+ 40K├                         ╱╱   │
+    │                      ╱╱╱     │
+ 30K├                   ╱╱╱        │
+    │                ╱╱╱           │
+ 20K├           ▄▄▄▀╱              │
+    │       ▄▄▀▀                   │
+ 10K├   ▄▄▀▀                       │
+    │▄▀▀                           │
+    └────┬────┬────┬────┬────┬────┬┴───┬────► Date
+       Jul  Aug  Sep  Oct  Nov  Dec  Jan  Feb
+       2025                       ▲   2026
+                                  │
+                        Predicted Exhaustion
+                         Date: 2026-01-30
+```
+
+**Forecast Summary Output:**
+```
+============================================================
+FORECAST SUMMARY
+============================================================
+Contract ID: CONTRACT-2026-001
+Contract Value: $50,000.00
+Current Spend: $22,456.78
+Model: prophet
+Predicted Exhaustion Date: 2026-01-30
+============================================================
+```
+
+---
+
+## Notebooks
+
+| Notebook | Purpose |
+|----------|---------|
+| **account_monitor_notebook.py** | Main dashboard with all visualizations |
+| **contract_management_crud.py** | Add, update, delete contracts and metadata |
+| **consumption_forecaster.py** | Prophet model training and inference |
+| **post_deployment_validation.py** | Verify setup and data integrity |
+
+### Opening the Dashboard
+
+1. Navigate to your Databricks workspace
+2. Go to **Workspace** > **Users** > **your-email** > **account_monitor** > **files** > **notebooks**
+3. Open **account_monitor_notebook**
+4. Click **Run All** to see all visualizations
+
+---
+
+## Troubleshooting
+
+### No Data in Charts
+
+```bash
+# 1. Check system tables have data
+databricks sql -e "SELECT COUNT(*) FROM system.billing.usage WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)"
+
+# 2. Run the daily refresh
+databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
+
+# 3. Verify contract exists
+databricks sql -e "SELECT * FROM main.account_monitoring_dev.contracts WHERE status = 'ACTIVE'"
+```
+
+### Forecast Not Showing
+
+```bash
+# 1. Check if forecast table has data
+databricks sql -e "SELECT COUNT(*) FROM main.account_monitoring_dev.contract_forecast"
+
+# 2. If empty, run the training job
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+
+# 3. Check training logs
+databricks sql -e "SELECT * FROM main.account_monitoring_dev.forecast_debug_log ORDER BY created_at DESC LIMIT 10"
+```
+
+### Jobs Failing
+
+```bash
+# Check job run status
+databricks runs get --run-id <RUN_ID> --profile YOUR_PROFILE
+
+# Common fixes:
+# - Warehouse stopped: Start it in the SQL Warehouses page
+# - Table not found: Run setup job first
+# - Permission denied: Check Unity Catalog grants
+```
+
+---
+
+## File Structure
 
 ```
 databricks_conso_reports/
-├── README.md                          # This file
-├── databricks.yml                     # DAB configuration
-├── docs/
-│   ├── user-guide/
-│   │   └── USER_GUIDE.md             # 📚 Main documentation
-│   └── archive/                       # Old summaries
+├── databricks.yml              # Bundle configuration
+├── README.md                   # This file
+│
 ├── notebooks/
-│   ├── account_monitor_notebook.py   # Main dashboard
-│   ├── contract_management_crud.py   # Data management
-│   └── post_deployment_validation.py # Setup validation
+│   ├── account_monitor_notebook.py    # Main dashboard
+│   ├── contract_management_crud.py    # CRUD operations
+│   ├── consumption_forecaster.py      # ML forecasting
+│   └── post_deployment_validation.py  # Setup verification
+│
 ├── sql/
-│   ├── setup_schema.sql              # Table creation
-│   ├── insert_sample_data.sql        # Sample data
-│   ├── refresh_dashboard_data.sql    # Daily refresh
-│   └── refresh_contract_burndown.sql # Burndown calc
-└── resources/
-    └── jobs.yml                       # Job definitions
+│   ├── setup_schema.sql               # Create all tables
+│   ├── insert_sample_data.sql         # Sample contract data
+│   ├── refresh_dashboard_data.sql     # Daily data refresh
+│   ├── refresh_contract_burndown.sql  # Burndown calculation
+│   ├── build_forecast_features.sql    # ML feature prep
+│   └── create_forecast_schema.sql     # Forecast tables
+│
+├── resources/
+│   └── jobs.yml                       # Job definitions
+│
+└── docs/
+    └── user-guide/
+        └── USER_GUIDE.md              # Detailed documentation
 ```
 
 ---
 
-## 🔧 Common Tasks
+## Version History
 
-### Add a New Contract
+| Version | Date | Changes |
+|---------|------|---------|
+| **1.7.0** | 2026-02-05 | Added Prophet ML forecasting, exhaustion predictions |
+| **1.6.1** | 2026-02-04 | Removed salesforce_id, added notes column |
+| **1.5.0** | 2026-02-01 | Initial stable release |
 
-```sql
-INSERT INTO main.account_monitoring_dev.contracts
-VALUES (
-  'CONTRACT_2026_001',
-  'your-account-id',
-  'AWS',
-  '2026-01-01',
-  '2027-01-01',
-  10000.00,
-  'USD',
-  'SPEND',
-  'ACTIVE',
-  'Annual contract',
-  CURRENT_TIMESTAMP(),
-  CURRENT_TIMESTAMP()
-);
-```
+---
 
-### View Current Spending
-
-```sql
-SELECT
-  contract_id,
-  total_value,
-  SUM(actual_cost) as spent,
-  (SUM(actual_cost) / total_value * 100) as percent_used
-FROM main.account_monitoring_dev.contracts c
-JOIN main.account_monitoring_dev.dashboard_data d
-  ON c.account_id = d.account_id
-WHERE c.status = 'ACTIVE'
-GROUP BY contract_id, total_value;
-```
-
-### Refresh Dashboard Data
+## Quick Reference
 
 ```bash
+# Deploy everything
+databricks bundle deploy --profile YOUR_PROFILE
+
+# Run setup (first time only)
+databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+
+# Refresh data now
 databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
+
+# Train forecast models
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+
+# Check job status
+databricks jobs list --profile YOUR_PROFILE
 ```
 
 ---
 
-## 🆘 Support & Troubleshooting
-
-### Common Issues
-
-**"Table not found"**
-→ Run setup job: `databricks bundle run account_monitor_setup`
-
-**"No data in dashboard"**
-→ Check system tables have data, then run daily refresh job
-
-**"Warehouse not found"**
-→ Update `warehouse_id` in `databricks.yml`
-
-**Detailed troubleshooting:** See [User Guide - Troubleshooting](docs/user-guide/USER_GUIDE.md#troubleshooting)
-
----
-
-## 📝 Version History
-
-- **1.6.1** (2026-02-04)
-  - Removed salesforce_id field (breaking change)
-  - Added notes column to contracts table
-  - Fixed MERGE statement wildcard issues
-  - Clean schema for fresh deployments
-
-- **1.5.x** - Initial stable release
-
----
-
-## 🤝 Contributing
-
-This solution is designed for use by power users and administrators. For technical questions or feature requests, consult with your Databricks team.
-
----
-
-## 📄 License
-
-MIT License - See [LICENSE](LICENSE) file for details
-
----
-
-## 🎓 Learning Resources
-
-- [Databricks System Tables](https://docs.databricks.com/en/admin/system-tables/index.html)
-- [Databricks Asset Bundles](https://docs.databricks.com/en/dev-tools/bundles/index.html)
-- [Unity Catalog](https://docs.databricks.com/en/data-governance/unity-catalog/index.html)
-- [Lakeview Dashboards](https://docs.databricks.com/en/dashboards/index.html)
-
----
-
-**Questions?** Check the [Complete User Guide](docs/user-guide/USER_GUIDE.md) for detailed instructions on all features.
+**Need more details?** See the [Complete User Guide](docs/user-guide/USER_GUIDE.md)
