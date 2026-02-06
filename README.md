@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.8.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.9.0-green)](CHANGELOG.md)
 
 ---
 
@@ -107,6 +107,9 @@ export PROFILE="YOUR_PROFILE"
 
 # Deploy all resources to Databricks
 databricks bundle deploy --profile $PROFILE
+
+# If dashboard was modified in UI, use --force to overwrite
+databricks bundle deploy --profile $PROFILE --force
 ```
 
 ### Step 3: Run Initial Setup
@@ -141,16 +144,19 @@ databricks bundle run account_monitor_weekly_training --profile $PROFILE
 
 ### Step 6: View the Dashboard
 
-1. Open your Databricks workspace
-2. Navigate to **Workspace** > **Users** > **your-email** > **account_monitor** > **files** > **notebooks**
-3. Open **account_monitor_notebook**
-4. Click **Run All**
+The Lakeview dashboard is automatically deployed. Open it from:
+1. **Databricks Workspace** > **Dashboards** > **Contract Consumption Monitor**
 
-You should see:
-- Contract summary with status
-- Daily cost trends
-- **Burndown chart with ML forecast line**
-- Predicted contract exhaustion date
+Or use the CLI:
+```bash
+databricks lakeview list --profile YOUR_PROFILE
+```
+
+**Dashboard Pages:**
+| Page | Description |
+|------|-------------|
+| **Executive Summary** | Contract overview, pace status, total consumption |
+| **Contract Burndown** | Cumulative spend vs commitment with ML forecast |
 
 ---
 
@@ -472,10 +478,13 @@ FROM main.account_monitoring_dev.contract_forecast;
 
 ### Opening the Dashboard
 
-1. Navigate to your Databricks workspace
-2. Go to **Workspace** > **Users** > **your-email** > **account_monitor** > **files** > **notebooks**
-3. Open **account_monitor_notebook**
-4. Click **Run All** to see all visualizations
+**Lakeview Dashboard (recommended):**
+1. Navigate to **Dashboards** in your Databricks workspace
+2. Open **Contract Consumption Monitor**
+
+**Notebook (alternative):**
+1. Go to **Workspace** > **Users** > **your-email** > **account_monitor** > **files** > **notebooks**
+2. Open **account_monitor_notebook** and click **Run All**
 
 ---
 
@@ -582,6 +591,7 @@ databricks_conso_reports/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.9.0** | 2026-02-06 | Simplified dashboard (2 pages), optimized bundle sync config |
 | **1.8.0** | 2026-02-05 | Added Quick Start first-install guide with step-by-step workflow |
 | **1.7.0** | 2026-02-05 | Added Prophet ML forecasting, exhaustion predictions |
 | **1.6.1** | 2026-02-04 | Removed salesforce_id, added notes column |
@@ -603,8 +613,8 @@ databricks bundle run account_monitor_daily_refresh --profile YOUR_PROFILE
 # Retrain forecast models
 databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
 
-# Deploy changes after editing config
-databricks bundle deploy --profile YOUR_PROFILE
+# Deploy changes after editing config (use --force if dashboard was modified in UI)
+databricks bundle deploy --profile YOUR_PROFILE --force
 
 # Check job status
 databricks jobs list --profile YOUR_PROFILE
