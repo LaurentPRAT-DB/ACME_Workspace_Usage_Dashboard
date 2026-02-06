@@ -1,0 +1,16 @@
+# Dashboard definitions for Account Monitor
+# Deploys Lakeview dashboards via Databricks Asset Bundles
+
+resources:
+  dashboards:
+    contract_consumption_monitor:
+      display_name: "Contract Consumption Monitor"
+      warehouse_id: ${var.warehouse_id}
+      file_path: ../resources/dashboards/contract_consumption_monitor.json
+
+      # Dashboard permissions
+      permissions:
+        - level: CAN_VIEW
+          user_name: ${workspace.current_user.userName}
+        - level: CAN_EDIT
+          user_name: ${workspace.current_user.userName}
