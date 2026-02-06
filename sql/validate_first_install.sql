@@ -52,7 +52,20 @@ FROM main.account_monitoring_dev.contract_forecast
 WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring_dev.contract_forecast)
 ORDER BY contract_id;
 
+-- Check Prophet model status
+SELECT
+  'FORECAST MODEL CHECK' as check_name,
+  model_version,
+  CASE
+    WHEN model_version = 'prophet' THEN 'OK - Prophet model active'
+    WHEN model_version = 'linear_fallback' THEN 'WARNING - Using linear fallback (Prophet may have failed)'
+    ELSE 'UNKNOWN'
+  END as status
+FROM main.account_monitoring_dev.contract_forecast
+WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring_dev.contract_forecast)
+LIMIT 1;
+
 -- Final status
 SELECT
   'SUCCESS: First install validation complete!' as status,
-  'Open account_monitor_notebook to view the dashboard' as next_step;
+  'Open the Contract Consumption Monitor dashboard to view results' as next_step;
