@@ -12,7 +12,11 @@
 # MAGIC - MLflow experiment tracking
 # MAGIC - Automatic fallback for insufficient data
 # MAGIC
-# MAGIC **Version:** 1.0.0
+# MAGIC **Version:** 1.0.1
+
+# COMMAND ----------
+
+# MAGIC %pip install prophet==1.1.5 --quiet
 
 # COMMAND ----------
 
@@ -85,24 +89,16 @@ except Exception as e:
 
 # COMMAND ----------
 
-# Try to import Prophet, fall back to linear-only mode if not available
+# Import Prophet (installed via %pip install above)
 log_debug("Checking Prophet availability...")
 PROPHET_AVAILABLE = False
 try:
     from prophet import Prophet
     PROPHET_AVAILABLE = True
     log_debug("Prophet is available")
-except ImportError:
-    try:
-        log_debug("Prophet not found, attempting install...")
-        import subprocess
-        subprocess.check_call(["pip", "install", "prophet", "-q"])
-        from prophet import Prophet
-        PROPHET_AVAILABLE = True
-        log_debug("Prophet installed successfully")
-    except Exception as e:
-        log_debug(f"Warning: Prophet not available ({e}). Using linear projection only.")
-        PROPHET_AVAILABLE = False
+except ImportError as e:
+    log_debug(f"Warning: Prophet not available ({e}). Using linear projection only.")
+    PROPHET_AVAILABLE = False
 
 # COMMAND ----------
 
@@ -516,10 +512,10 @@ def run_training(burndown_df, contracts_df):
     models = {}
     model_records = []
 
+    log_debug(f"Starting training for {len(contracts_df)} contracts")
     for _, contract in contracts_df.iterrows():
         contract_id = contract['contract_id']
-        print(f"\n{'='*50}")
-        print(f"Training model for contract: {contract_id}")
+        log_debug(f"Training model for contract: {contract_id}")
 
         with mlflow.start_run(run_name=f"contract_{contract_id}"):
             # Log parameters
@@ -528,15 +524,18 @@ def run_training(burndown_df, contracts_df):
             mlflow.log_param("min_training_days", MIN_TRAINING_DAYS)
 
             # Train model
+            log_debug(f"  Calling train_prophet_model...")
             model, metrics, error = train_prophet_model(
                 burndown_df, contract_id, CONFIDENCE_INTERVAL
             )
 
             if error:
-                print(f"  Skipping: {error}")
+                log_debug(f"  Training error: {error}")
                 mlflow.log_param("status", "skipped")
                 mlflow.log_param("error", error)
                 continue
+
+            log_debug(f"  Training successful! MAPE={metrics.get('mape', 'N/A')}, points={metrics.get('training_points', 0)}")
 
             # Log metrics
             if metrics['mape'] is not None:
