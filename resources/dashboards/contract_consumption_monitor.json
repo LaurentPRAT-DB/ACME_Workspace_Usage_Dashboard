@@ -51,9 +51,9 @@
     },
     {
       "name": "ds_prophet_combined",
-      "displayName": "Prophet Combined View",
+      "displayName": "Contract Burndown with ML Forecast",
       "queryLines": [
-        "WITH actuals AS (SELECT contract_id, usage_date as date, cumulative_cost as value, 'Actual' as series_type FROM main.account_monitoring_dev.contract_burndown), forecasts AS (SELECT contract_id, forecast_date as date, predicted_cumulative as value, 'Prophet Forecast' as series_type FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), commitment_line AS (SELECT b.contract_id, b.usage_date as date, b.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_burndown b UNION ALL SELECT f.contract_id, f.forecast_date as date, c.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_forecast f JOIN main.account_monitoring_dev.contracts c ON f.contract_id = c.contract_id WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), upper_band AS (SELECT f.contract_id, f.forecast_date as date, f.upper_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as value, 'Confidence Upper' as series_type FROM main.account_monitoring_dev.contract_forecast f WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), lower_band AS (SELECT f.contract_id, f.forecast_date as date, f.lower_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as value, 'Confidence Lower' as series_type FROM main.account_monitoring_dev.contract_forecast f WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line UNION ALL SELECT * FROM upper_band UNION ALL SELECT * FROM lower_band ORDER BY contract_id, date, series_type"
+        "WITH contract_dates AS (SELECT contract_id, MIN(usage_date) as min_date, MAX(usage_date) as max_date FROM main.account_monitoring_dev.contract_burndown GROUP BY contract_id), actuals AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as value, 'Historical Consumption' as series_type FROM main.account_monitoring_dev.contract_burndown b), forecasts AS (SELECT f.contract_id, f.forecast_date as date, f.predicted_cumulative as value, 'ML Forecast (Prophet)' as series_type FROM main.account_monitoring_dev.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), commitment_line AS (SELECT b.contract_id, b.usage_date as date, c.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_burndown b JOIN main.account_monitoring_dev.contracts c ON b.contract_id = c.contract_id UNION ALL SELECT f.contract_id, f.forecast_date as date, c.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_forecast f JOIN main.account_monitoring_dev.contracts c ON f.contract_id = c.contract_id INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date, series_type"
       ]
     },
     {
@@ -498,17 +498,15 @@
                   "scale": {
                     "type": "categorical",
                     "mappings": [
-                      {"value": "Actual", "color": "#0066FF"},
-                      {"value": "Prophet Forecast", "color": "#00A972"},
-                      {"value": "Contract Commitment", "color": "#FF3621"},
-                      {"value": "Confidence Upper", "color": "#99DDB4"},
-                      {"value": "Confidence Lower", "color": "#99DDB4"}
+                      {"value": "Historical Consumption", "color": "#FFD700"},
+                      {"value": "ML Forecast (Prophet)", "color": "#FF0000"},
+                      {"value": "Contract Commitment", "color": "#00008B"}
                     ]
                   },
                   "displayName": "Series"
                 }
               },
-              "frame": {"showTitle": true, "title": "Prophet Model: Actual vs Forecast with Contract Commitment"}
+              "frame": {"showTitle": true, "title": "Contract Burndown with ML Forecast"}
             }
           },
           "position": {"x": 2, "y": 0, "width": 4, "height": 5}
