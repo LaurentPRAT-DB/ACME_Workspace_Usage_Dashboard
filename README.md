@@ -391,19 +391,25 @@ Or use the **Contract Management CRUD** notebook for manual changes
 
 ## Visualizations
 
-### Contract Burndown Chart
+### Contract Burndown Chart (Lakeview Dashboard)
 
-The burndown chart shows cumulative spending over time compared to the contract limit:
+The Lakeview dashboard **Contract Burndown** page shows cumulative spending with ML forecasts:
 
-![Contract Burndown with ML Forecast](docs/user-guide/contract_burndown_predict.png)
+**Prophet ML Forecast Chart:**
+| Series | Color | Description |
+|--------|-------|-------------|
+| **Historical Consumption** | Gold (#FFD700) | Actual cumulative spending to date |
+| **ML Forecast (Prophet)** | Red (#FF0000) | Prophet-predicted future spending |
+| **Contract Commitment** | Dark Blue (#00008B) | Horizontal line at contract limit |
+| **Exhaustion: \<date\>** | White | Vertical line marking predicted exhaustion date |
 
-**Chart Legend:**
-| Element | Description |
-|---------|-------------|
-| **Historical Consumption** (blue dots) | Actual cumulative spending to date |
-| **ML Forecast (Prophet)** (cyan line) | Prophet-predicted future spending |
-| **Contract Commitment** (dashed line) | Contract limit amount |
-| **Intersection Point** | Where forecast crosses the limit = **predicted exhaustion date** |
+The exhaustion date line shows exactly when the forecast crosses the contract commitment, with the date displayed in the legend (e.g., "Exhaustion: Jul 29, 2026").
+
+**Contract Burndown Page Widgets:**
+1. Contract Burndown - Actual Consumption Over Time
+2. Contract Burndown with Prophet ML Forecast (with exhaustion line)
+3. Contract Details & Status (Start Date, End Date, Value, Consumed, etc.)
+4. Contract Exhaustion Prediction (Predicted Date, Days Until, Status)
 
 ### Exhaustion Prediction
 
