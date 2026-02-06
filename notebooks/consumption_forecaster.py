@@ -12,11 +12,7 @@
 # MAGIC - MLflow experiment tracking
 # MAGIC - Automatic fallback for insufficient data
 # MAGIC
-# MAGIC **Version:** 1.0.1
-
-# COMMAND ----------
-
-# MAGIC %pip install prophet==1.1.5 --quiet
+# MAGIC **Version:** 1.0.2
 
 # COMMAND ----------
 
@@ -89,16 +85,24 @@ except Exception as e:
 
 # COMMAND ----------
 
-# Import Prophet (installed via %pip install above)
+# Try to import Prophet, fall back to linear-only mode if not available
 log_debug("Checking Prophet availability...")
 PROPHET_AVAILABLE = False
 try:
     from prophet import Prophet
     PROPHET_AVAILABLE = True
     log_debug("Prophet is available")
-except ImportError as e:
-    log_debug(f"Warning: Prophet not available ({e}). Using linear projection only.")
-    PROPHET_AVAILABLE = False
+except ImportError:
+    try:
+        log_debug("Prophet not found, attempting install...")
+        import subprocess
+        subprocess.check_call(["pip", "install", "prophet", "-q"])
+        from prophet import Prophet
+        PROPHET_AVAILABLE = True
+        log_debug("Prophet installed successfully")
+    except Exception as e:
+        log_debug(f"Warning: Prophet not available ({e}). Using linear projection only.")
+        PROPHET_AVAILABLE = False
 
 # COMMAND ----------
 
@@ -787,8 +791,13 @@ try:
         log_debug("="*60)
         log_debug("INFERENCE PHASE")
         log_debug("="*60)
-        forecasts = run_inference(models, burndown_df, contracts_df)
-        save_forecasts(forecasts)
+        # Skip inference if no trained models and running inference-only
+        if MODE == "inference" and not models:
+            log_debug("WARNING: No trained models available. Skipping inference to preserve existing forecasts.")
+            log_debug("Run with mode='both' or 'training' first to train Prophet models.")
+        else:
+            forecasts = run_inference(models, burndown_df, contracts_df)
+            save_forecasts(forecasts)
 
     log_debug("="*60)
     log_debug("COMPLETE")
