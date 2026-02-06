@@ -63,13 +63,26 @@ permissions:
 
 # Sync configuration for development
 sync:
-  # Include these paths for syncing
+  # Include only files needed for deployment
   include:
+    # All notebooks (jobs + manual operations)
     - "notebooks/**"
-    - "docs/**"
-    - "sql/**"
-    - "*.json"
-    - "*.yml"
+    # SQL files used by jobs
+    - "sql/setup_schema.sql"
+    - "sql/create_forecast_schema.sql"
+    - "sql/refresh_dashboard_data.sql"
+    - "sql/refresh_contract_burndown.sql"
+    - "sql/optimize_tables.sql"
+    - "sql/build_forecast_features.sql"
+    - "sql/validate_first_install.sql"
+    - "sql/check_data_freshness.sql"
+    - "sql/contract_analysis.sql"
+    - "sql/cost_anomalies.sql"
+    - "sql/top_consumers.sql"
+    - "sql/monthly_summary.sql"
+    - "sql/archive_old_data.sql"
+    # Config files read by notebooks
+    - "config/contracts.yml"
 
   # Exclude these patterns
   exclude:
@@ -85,3 +98,4 @@ sync:
     - sync.sh
     - sync_to_workspace.py
     - resources/**
+    - docs/**
