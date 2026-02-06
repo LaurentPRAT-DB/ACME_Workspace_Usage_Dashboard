@@ -348,6 +348,54 @@
         },
         {
           "widget": {
+            "name": "w_prophet_burndown",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_prophet_combined",
+                "fields": [
+                  {"name": "date", "expression": "`date`"},
+                  {"name": "value", "expression": "`value`"},
+                  {"name": "series_type", "expression": "`series_type`"},
+                  {"name": "contract_id", "expression": "`contract_id`"}
+                ],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {"type": "temporal"},
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "value",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Cumulative Cost ($)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "Historical Consumption", "color": "#FFD700"},
+                      {"value": "ML Forecast (Prophet)", "color": "#FF0000"},
+                      {"value": "Contract Commitment", "color": "#00008B"}
+                    ]
+                  },
+                  "displayName": "Series"
+                }
+              },
+              "frame": {"showTitle": true, "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"}
+            }
+          },
+          "position": {"x": 0, "y": 5, "width": 6, "height": 5}
+        },
+        {
+          "widget": {
             "name": "w_contract_table",
             "queries": [{
               "name": "main_query",
@@ -386,7 +434,7 @@
               "frame": {"showTitle": true, "title": "Active Contracts - Status Summary"}
             }
           },
-          "position": {"x": 0, "y": 5, "width": 6, "height": 5}
+          "position": {"x": 0, "y": 10, "width": 6, "height": 5}
         },
         {
           "widget": {
@@ -427,7 +475,7 @@
               "frame": {"showTitle": true, "title": "Monthly Consumption by Contract"}
             }
           },
-          "position": {"x": 0, "y": 10, "width": 6, "height": 4}
+          "position": {"x": 0, "y": 15, "width": 6, "height": 4}
         }
       ]
     },
