@@ -110,21 +110,25 @@
     {
       "name": "page_executive",
       "displayName": "Executive Summary",
-      "pageType": "PAGE_TYPE_CANVAS",
       "layout": [
         {
           "widget": {
             "name": "w_total_value",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_executive_summary",
-                "fields": [
-                  {"name": "total_contract_value", "expression": "`total_contract_value`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "total_contract_value",
+                      "expression": "`total_contract_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 2,
               "widgetType": "counter",
@@ -134,24 +138,37 @@
                   "displayName": "Total Contract Value (USD)"
                 }
               },
-              "frame": {"showTitle": true, "title": "Total Contract Value"}
+              "frame": {
+                "showTitle": true,
+                "title": "Total Contract Value"
+              }
             }
           },
-          "position": {"x": 0, "y": 0, "width": 2, "height": 2}
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
         },
         {
           "widget": {
             "name": "w_total_consumed",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_executive_summary",
-                "fields": [
-                  {"name": "total_consumed", "expression": "`total_consumed`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "total_consumed",
+                      "expression": "`total_consumed`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 2,
               "widgetType": "counter",
@@ -161,24 +178,37 @@
                   "displayName": "Total Consumed (USD)"
                 }
               },
-              "frame": {"showTitle": true, "title": "Total Consumed"}
+              "frame": {
+                "showTitle": true,
+                "title": "Total Consumed"
+              }
             }
           },
-          "position": {"x": 2, "y": 0, "width": 2, "height": 2}
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
         },
         {
           "widget": {
             "name": "w_remaining",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_executive_summary",
-                "fields": [
-                  {"name": "remaining_budget", "expression": "`remaining_budget`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "remaining_budget",
+                      "expression": "`remaining_budget`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 2,
               "widgetType": "counter",
@@ -188,192 +218,315 @@
                   "displayName": "Remaining Budget (USD)"
                 }
               },
-              "frame": {"showTitle": true, "title": "Remaining Budget"}
+              "frame": {
+                "showTitle": true,
+                "title": "Remaining Budget"
+              }
             }
           },
-          "position": {"x": 4, "y": 0, "width": 2, "height": 2}
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
         },
         {
           "widget": {
             "name": "w_pace_pie",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_pace_distribution",
-                "fields": [
-                  {"name": "contract_count", "expression": "`contract_count`"},
-                  {"name": "pace_status", "expression": "`pace_status`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pace_distribution",
+                  "fields": [
+                    {
+                      "name": "contract_count",
+                      "expression": "`contract_count`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 3,
               "widgetType": "pie",
               "encodings": {
                 "angle": {
                   "fieldName": "contract_count",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Contract Count"
                 },
                 "color": {
                   "fieldName": "pace_status",
-                  "scale": {"type": "categorical"},
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Pace Status"
                 }
               },
-              "frame": {"showTitle": true, "title": "Contract Pace Distribution"}
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Pace Distribution"
+              }
             }
           },
-          "position": {"x": 0, "y": 2, "width": 3, "height": 4}
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
             "name": "w_combined_burndown",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_combined_burndown",
-                "fields": [
-                  {"name": "usage_date", "expression": "`usage_date`"},
-                  {"name": "total_actual", "expression": "`total_actual`"},
-                  {"name": "total_ideal", "expression": "`total_ideal`"},
-                  {"name": "total_commitment", "expression": "`total_commitment`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_combined_burndown",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "total_actual",
+                      "expression": "`total_actual`"
+                    },
+                    {
+                      "name": "total_ideal",
+                      "expression": "`total_ideal`"
+                    },
+                    {
+                      "name": "total_commitment",
+                      "expression": "`total_commitment`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 3,
               "widgetType": "line",
               "encodings": {
                 "x": {
                   "fieldName": "usage_date",
-                  "scale": {"type": "temporal"},
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Date"
                 },
                 "y": {
                   "fieldName": "total_actual",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Total Consumption (USD)"
                 }
               },
-              "frame": {"showTitle": true, "title": "Combined Contract Consumption - All Contracts"}
+              "frame": {
+                "showTitle": true,
+                "title": "Combined Contract Consumption - All Contracts"
+              }
             }
           },
-          "position": {"x": 3, "y": 2, "width": 3, "height": 4}
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 4
+          }
         },
         {
           "widget": {
             "name": "w_daily_trend",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_consumption_trend",
-                "fields": [
-                  {"name": "usage_date", "expression": "`usage_date`"},
-                  {"name": "daily_cost", "expression": "`daily_cost`"},
-                  {"name": "moving_avg_7d", "expression": "`moving_avg_7d`"},
-                  {"name": "moving_avg_30d", "expression": "`moving_avg_30d`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_consumption_trend",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "daily_cost",
+                      "expression": "`daily_cost`"
+                    },
+                    {
+                      "name": "moving_avg_7d",
+                      "expression": "`moving_avg_7d`"
+                    },
+                    {
+                      "name": "moving_avg_30d",
+                      "expression": "`moving_avg_30d`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 3,
               "widgetType": "line",
               "encodings": {
                 "x": {
                   "fieldName": "usage_date",
-                  "scale": {"type": "temporal"},
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Date"
                 },
                 "y": {
                   "fieldName": "daily_cost",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Daily Cost (USD)"
                 }
               },
-              "frame": {"showTitle": true, "title": "Daily Consumption with Moving Averages (7d & 30d)"}
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Consumption with Moving Averages (7d & 30d)"
+              }
             }
           },
-          "position": {"x": 0, "y": 6, "width": 6, "height": 4}
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 4
+          }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "page_burndown",
       "displayName": "Contract Burndown",
-      "pageType": "PAGE_TYPE_CANVAS",
       "layout": [
         {
           "widget": {
             "name": "w_burndown_chart",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_contract_burndown",
-                "fields": [
-                  {"name": "usage_date", "expression": "`usage_date`"},
-                  {"name": "actual_consumption", "expression": "`actual_consumption`"},
-                  {"name": "contract_label", "expression": "`contract_label`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_burndown",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "actual_consumption",
+                      "expression": "`actual_consumption`"
+                    },
+                    {
+                      "name": "contract_label",
+                      "expression": "`contract_label`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 3,
               "widgetType": "line",
               "encodings": {
                 "x": {
                   "fieldName": "usage_date",
-                  "scale": {"type": "temporal"},
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Date"
                 },
                 "y": {
                   "fieldName": "actual_consumption",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Cumulative Cost (USD)"
                 },
                 "color": {
                   "fieldName": "contract_label",
-                  "scale": {"type": "categorical"},
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Contract"
                 }
               },
-              "frame": {"showTitle": true, "title": "Contract Burndown - Actual Consumption Over Time"}
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Burndown - Actual Consumption Over Time"
+              }
             }
           },
-          "position": {"x": 0, "y": 0, "width": 6, "height": 5}
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 5
+          }
         },
         {
           "widget": {
             "name": "w_prophet_burndown",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_prophet_combined",
-                "fields": [
-                  {"name": "date", "expression": "`date`"},
-                  {"name": "value", "expression": "`value`"},
-                  {"name": "series_type", "expression": "`series_type`"},
-                  {"name": "contract_id", "expression": "`contract_id`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_prophet_combined",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    },
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    },
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 3,
               "widgetType": "line",
               "encodings": {
                 "x": {
                   "fieldName": "date",
-                  "scale": {"type": "temporal"},
+                  "scale": {
+                    "type": "temporal"
+                  },
                   "displayName": "Date"
                 },
                 "y": {
                   "fieldName": "value",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Cumulative Cost ($)"
                 },
                 "color": {
@@ -381,393 +534,171 @@
                   "scale": {
                     "type": "categorical",
                     "mappings": [
-                      {"value": "Historical Consumption", "color": "#FFD700"},
-                      {"value": "ML Forecast (Prophet)", "color": "#FF0000"},
-                      {"value": "Contract Commitment", "color": "#00008B"}
+                      {
+                        "value": "Historical Consumption",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "ML Forecast (Prophet)",
+                        "color": "#FF0000"
+                      },
+                      {
+                        "value": "Contract Commitment",
+                        "color": "#00008B"
+                      }
                     ]
                   },
                   "displayName": "Series"
                 }
               },
-              "frame": {"showTitle": true, "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"}
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"
+              }
             }
           },
-          "position": {"x": 0, "y": 5, "width": 6, "height": 5}
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
         },
         {
           "widget": {
             "name": "w_contract_table",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_contract_summary",
-                "fields": [
-                  {"name": "contract_id", "expression": "`contract_id`"},
-                  {"name": "cloud_provider", "expression": "`cloud_provider`"},
-                  {"name": "contract_value", "expression": "`contract_value`"},
-                  {"name": "consumed", "expression": "`consumed`"},
-                  {"name": "remaining", "expression": "`remaining`"},
-                  {"name": "consumed_pct", "expression": "`consumed_pct`"},
-                  {"name": "pace_status", "expression": "`pace_status`"},
-                  {"name": "days_remaining", "expression": "`days_remaining`"},
-                  {"name": "projected_end_date", "expression": "`projected_end_date`"}
-                ],
-                "disaggregated": true
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_summary",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "remaining",
+                      "expression": "`remaining`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    },
+                    {
+                      "name": "projected_end_date",
+                      "expression": "`projected_end_date`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
               }
-            }],
+            ],
             "spec": {
               "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  {"fieldName": "contract_id", "type": "string", "displayAs": "string", "title": "Contract ID"},
-                  {"fieldName": "cloud_provider", "type": "string", "displayAs": "string", "title": "Cloud"},
-                  {"fieldName": "contract_value", "type": "float", "displayAs": "number", "numberFormat": "$#,##0", "title": "Value", "alignContent": "right"},
-                  {"fieldName": "consumed", "type": "float", "displayAs": "number", "numberFormat": "$#,##0.00", "title": "Consumed", "alignContent": "right"},
-                  {"fieldName": "remaining", "type": "float", "displayAs": "number", "numberFormat": "$#,##0.00", "title": "Remaining", "alignContent": "right"},
-                  {"fieldName": "consumed_pct", "type": "float", "displayAs": "number", "numberFormat": "0.0", "title": "% Used", "alignContent": "right"},
-                  {"fieldName": "pace_status", "type": "string", "displayAs": "string", "title": "Pace Status"},
-                  {"fieldName": "days_remaining", "type": "integer", "displayAs": "number", "title": "Days Left", "alignContent": "right"},
-                  {"fieldName": "projected_end_date", "type": "datetime", "displayAs": "datetime", "title": "Projected End"}
-                ]
-              },
-              "frame": {"showTitle": true, "title": "Active Contracts - Status Summary"}
-            }
-          },
-          "position": {"x": 0, "y": 10, "width": 6, "height": 5}
-        },
-        {
-          "widget": {
-            "name": "w_monthly_bar",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_monthly_consumption",
-                "fields": [
-                  {"name": "month", "expression": "`month`"},
-                  {"name": "monthly_cost", "expression": "SUM(`monthly_cost`)"},
-                  {"name": "contract_id", "expression": "`contract_id`"}
-                ],
-                "disaggregated": false
-              }
-            }],
-            "spec": {
-              "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "month",
-                  "scale": {"type": "temporal"},
-                  "displayName": "Month"
-                },
-                "y": {
-                  "fieldName": "sum(monthly_cost)",
-                  "scale": {"type": "quantitative"},
-                  "displayName": "Monthly Cost (USD)"
-                },
-                "color": {
-                  "fieldName": "contract_id",
-                  "scale": {"type": "categorical"},
-                  "displayName": "Contract"
-                },
-                "label": {"show": false}
-              },
-              "frame": {"showTitle": true, "title": "Monthly Consumption by Contract"}
-            }
-          },
-          "position": {"x": 0, "y": 15, "width": 6, "height": 4}
-        }
-      ]
-    },
-    {
-      "name": "page_forecast",
-      "displayName": "Prophet Forecasts",
-      "pageType": "PAGE_TYPE_CANVAS",
-      "layout": [
-        {
-          "widget": {
-            "name": "w_at_risk_counter",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_contracts_at_risk",
-                "fields": [
-                  {"name": "at_risk_count", "expression": "`at_risk_count`"}
-                ],
-                "disaggregated": true
-              }
-            }],
-            "spec": {
-              "version": 2,
-              "widgetType": "counter",
-              "encodings": {
-                "value": {
-                  "fieldName": "at_risk_count",
-                  "displayName": "Contracts at Risk"
-                }
-              },
-              "frame": {"showTitle": true, "title": "Contracts at Risk"}
-            }
-          },
-          "position": {"x": 0, "y": 0, "width": 2, "height": 2}
-        },
-        {
-          "widget": {
-            "name": "w_forecast_chart",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_prophet_combined",
-                "fields": [
-                  {"name": "date", "expression": "`date`"},
-                  {"name": "value", "expression": "`value`"},
-                  {"name": "series_type", "expression": "`series_type`"},
-                  {"name": "contract_id", "expression": "`contract_id`"}
-                ],
-                "disaggregated": true
-              }
-            }],
-            "spec": {
-              "version": 3,
-              "widgetType": "line",
-              "encodings": {
-                "x": {
-                  "fieldName": "date",
-                  "scale": {"type": "temporal"},
-                  "displayName": "Date"
-                },
-                "y": {
-                  "fieldName": "value",
-                  "scale": {"type": "quantitative"},
-                  "displayName": "Cumulative Cost (USD)"
-                },
-                "color": {
-                  "fieldName": "series_type",
-                  "scale": {
-                    "type": "categorical",
-                    "mappings": [
-                      {"value": "Historical Consumption", "color": "#FFD700"},
-                      {"value": "ML Forecast (Prophet)", "color": "#FF0000"},
-                      {"value": "Contract Commitment", "color": "#00008B"}
-                    ]
+                  {
+                    "fieldName": "contract_id",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Contract ID"
                   },
-                  "displayName": "Series"
-                }
-              },
-              "frame": {"showTitle": true, "title": "Contract Burndown with ML Forecast"}
-            }
-          },
-          "position": {"x": 2, "y": 0, "width": 4, "height": 5}
-        },
-        {
-          "widget": {
-            "name": "w_forecast_table",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_forecast_summary",
-                "fields": [
-                  {"name": "contract_id", "expression": "`contract_id`"},
-                  {"name": "cloud_provider", "expression": "`cloud_provider`"},
-                  {"name": "contract_value", "expression": "`contract_value`"},
-                  {"name": "exhaustion_date_p10", "expression": "`exhaustion_date_p10`"},
-                  {"name": "exhaustion_date_p50", "expression": "`exhaustion_date_p50`"},
-                  {"name": "exhaustion_date_p90", "expression": "`exhaustion_date_p90`"},
-                  {"name": "days_to_exhaustion", "expression": "`days_to_exhaustion`"},
-                  {"name": "forecast_status", "expression": "`forecast_status`"},
-                  {"name": "contract_end", "expression": "`contract_end`"}
-                ],
-                "disaggregated": true
-              }
-            }],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {"fieldName": "contract_id", "type": "string", "displayAs": "string", "title": "Contract ID"},
-                  {"fieldName": "cloud_provider", "type": "string", "displayAs": "string", "title": "Cloud"},
-                  {"fieldName": "contract_value", "type": "float", "displayAs": "number", "numberFormat": "$#,##0", "title": "Value", "alignContent": "right"},
-                  {"fieldName": "exhaustion_date_p10", "type": "datetime", "displayAs": "datetime", "title": "Exhaustion (Optimistic)"},
-                  {"fieldName": "exhaustion_date_p50", "type": "datetime", "displayAs": "datetime", "title": "Exhaustion (Median)"},
-                  {"fieldName": "exhaustion_date_p90", "type": "datetime", "displayAs": "datetime", "title": "Exhaustion (Conservative)"},
-                  {"fieldName": "days_to_exhaustion", "type": "integer", "displayAs": "number", "title": "Days to Exhaustion", "alignContent": "right"},
-                  {"fieldName": "forecast_status", "type": "string", "displayAs": "string", "title": "Status"},
-                  {"fieldName": "contract_end", "type": "datetime", "displayAs": "datetime", "title": "Contract End"}
-                ]
-              },
-              "frame": {"showTitle": true, "title": "Prophet Forecast Summary - Exhaustion Dates"}
-            }
-          },
-          "position": {"x": 0, "y": 5, "width": 6, "height": 5}
-        }
-      ]
-    },
-    {
-      "name": "page_usage",
-      "displayName": "Usage Analytics",
-      "pageType": "PAGE_TYPE_CANVAS",
-      "layout": [
-        {
-          "widget": {
-            "name": "w_product_area",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_product_category",
-                "fields": [
-                  {"name": "month", "expression": "`month`"},
-                  {"name": "total_cost", "expression": "SUM(`total_cost`)"},
-                  {"name": "product_category", "expression": "`product_category`"}
-                ],
-                "disaggregated": false
-              }
-            }],
-            "spec": {
-              "version": 3,
-              "widgetType": "area",
-              "encodings": {
-                "x": {
-                  "fieldName": "month",
-                  "scale": {"type": "temporal"},
-                  "displayName": "Month"
-                },
-                "y": {
-                  "fieldName": "sum(total_cost)",
-                  "scale": {"type": "quantitative"},
-                  "displayName": "Cost (USD)"
-                },
-                "color": {
-                  "fieldName": "product_category",
-                  "scale": {"type": "categorical"},
-                  "displayName": "Product Category"
-                }
-              },
-              "frame": {"showTitle": true, "title": "Cost by Product Category Over Time"}
-            }
-          },
-          "position": {"x": 0, "y": 0, "width": 6, "height": 4}
-        },
-        {
-          "widget": {
-            "name": "w_top_workspaces",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_top_workspaces",
-                "fields": [
-                  {"name": "workspace_id", "expression": "`workspace_id`"},
-                  {"name": "cloud_provider", "expression": "`cloud_provider`"},
-                  {"name": "total_cost", "expression": "`total_cost`"},
-                  {"name": "total_dbu", "expression": "`total_dbu`"},
-                  {"name": "unique_skus", "expression": "`unique_skus`"}
-                ],
-                "disaggregated": true
-              }
-            }],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {"fieldName": "workspace_id", "type": "string", "displayAs": "string", "title": "Workspace ID"},
-                  {"fieldName": "cloud_provider", "type": "string", "displayAs": "string", "title": "Cloud"},
-                  {"fieldName": "total_cost", "type": "float", "displayAs": "number", "numberFormat": "$#,##0.00", "title": "Total Cost (30d)", "alignContent": "right"},
-                  {"fieldName": "total_dbu", "type": "float", "displayAs": "number", "numberFormat": "#,##0.00", "title": "Total DBU", "alignContent": "right"},
-                  {"fieldName": "unique_skus", "type": "integer", "displayAs": "number", "title": "Unique SKUs", "alignContent": "right"}
-                ]
-              },
-              "frame": {"showTitle": true, "title": "Top 10 Workspaces by Cost (Last 30 Days)"}
-            }
-          },
-          "position": {"x": 0, "y": 4, "width": 3, "height": 4}
-        },
-        {
-          "widget": {
-            "name": "w_top_skus",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_top_skus",
-                "fields": [
-                  {"name": "sku_name", "expression": "`sku_name`"},
-                  {"name": "cloud_provider", "expression": "`cloud_provider`"},
-                  {"name": "usage_unit", "expression": "`usage_unit`"},
-                  {"name": "total_usage", "expression": "`total_usage`"},
-                  {"name": "total_cost", "expression": "`total_cost`"}
-                ],
-                "disaggregated": true
-              }
-            }],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {"fieldName": "sku_name", "type": "string", "displayAs": "string", "title": "SKU Name"},
-                  {"fieldName": "cloud_provider", "type": "string", "displayAs": "string", "title": "Cloud"},
-                  {"fieldName": "usage_unit", "type": "string", "displayAs": "string", "title": "Unit"},
-                  {"fieldName": "total_usage", "type": "float", "displayAs": "number", "numberFormat": "#,##0.00", "title": "Total Usage", "alignContent": "right"},
-                  {"fieldName": "total_cost", "type": "float", "displayAs": "number", "numberFormat": "$#,##0.00", "title": "Total Cost", "alignContent": "right"}
-                ]
-              },
-              "frame": {"showTitle": true, "title": "Top 10 SKUs by Cost (Last 90 Days)"}
-            }
-          },
-          "position": {"x": 3, "y": 4, "width": 3, "height": 4}
-        },
-        {
-          "widget": {
-            "name": "w_cloud_bar",
-            "queries": [{
-              "name": "main_query",
-              "query": {
-                "datasetName": "ds_monthly_by_cloud",
-                "fields": [
-                  {"name": "month", "expression": "`month`"},
-                  {"name": "monthly_cost", "expression": "SUM(`monthly_cost`)"},
-                  {"name": "cloud_provider", "expression": "`cloud_provider`"}
-                ],
-                "disaggregated": false
-              }
-            }],
-            "spec": {
-              "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "month",
-                  "scale": {"type": "temporal"},
-                  "displayName": "Month"
-                },
-                "y": {
-                  "fieldName": "sum(monthly_cost)",
-                  "scale": {"type": "quantitative"},
-                  "displayName": "Monthly Cost (USD)"
-                },
-                "color": {
-                  "fieldName": "cloud_provider",
-                  "scale": {
-                    "type": "categorical",
-                    "mappings": [
-                      {"value": "aws", "color": "#FF9900"},
-                      {"value": "azure", "color": "#0078D4"},
-                      {"value": "gcp", "color": "#4285F4"},
-                      {"value": "AWS", "color": "#FF9900"},
-                      {"value": "AZURE", "color": "#0078D4"},
-                      {"value": "GCP", "color": "#4285F4"}
-                    ]
+                  {
+                    "fieldName": "cloud_provider",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Cloud"
                   },
-                  "displayName": "Cloud Provider"
-                },
-                "label": {"show": false}
+                  {
+                    "fieldName": "contract_value",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "$#,##0",
+                    "title": "Value",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "$#,##0.00",
+                    "title": "Consumed",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "remaining",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "$#,##0.00",
+                    "title": "Remaining",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "0.0",
+                    "title": "% Used",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Pace Status"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Days Left",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "projected_end_date",
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "title": "Projected End"
+                  }
+                ]
               },
-              "frame": {"showTitle": true, "title": "Monthly Cost Trend by Cloud Provider"}
+              "frame": {
+                "showTitle": true,
+                "title": "Active Contracts - Status Summary"
+              }
             }
           },
-          "position": {"x": 0, "y": 8, "width": 6, "height": 4}
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 5
+          }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     }
   ],
   "uiSettings": {
@@ -777,3 +708,4 @@
     "applyModeEnabled": false
   }
 }
+
