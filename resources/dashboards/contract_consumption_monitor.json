@@ -46,7 +46,14 @@
       "name": "ds_forecast_with_history",
       "displayName": "Forecast with History",
       "queryLines": [
-        "WITH history AS (SELECT contract_id, usage_date as date, cumulative_cost as value, 'Actual' as series_type FROM main.account_monitoring_dev.contract_burndown), forecast AS (SELECT contract_id, forecast_date as date, predicted_cumulative as value, 'Forecast' as series_type FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)) SELECT * FROM history UNION ALL SELECT * FROM forecast ORDER BY contract_id, date"
+        "WITH history AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as actual_value, CAST(NULL AS DOUBLE) as forecast_value, CAST(NULL AS DOUBLE) as lower_bound, CAST(NULL AS DOUBLE) as upper_bound, b.commitment as contract_commitment FROM main.account_monitoring_dev.contract_burndown b), forecast AS (SELECT f.contract_id, f.forecast_date as date, CAST(NULL AS DOUBLE) as actual_value, f.predicted_cumulative as forecast_value, f.lower_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as lower_bound, f.upper_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as upper_bound, c.commitment as contract_commitment FROM main.account_monitoring_dev.contract_forecast f JOIN main.account_monitoring_dev.contracts c ON f.contract_id = c.contract_id WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id)) SELECT * FROM history UNION ALL SELECT * FROM forecast ORDER BY contract_id, date"
+      ]
+    },
+    {
+      "name": "ds_prophet_combined",
+      "displayName": "Prophet Combined View",
+      "queryLines": [
+        "WITH actuals AS (SELECT contract_id, usage_date as date, cumulative_cost as value, 'Actual' as series_type FROM main.account_monitoring_dev.contract_burndown), forecasts AS (SELECT contract_id, forecast_date as date, predicted_cumulative as value, 'Prophet Forecast' as series_type FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), commitment_line AS (SELECT b.contract_id, b.usage_date as date, b.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_burndown b UNION ALL SELECT f.contract_id, f.forecast_date as date, c.commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.contract_forecast f JOIN main.account_monitoring_dev.contracts c ON f.contract_id = c.contract_id WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), upper_band AS (SELECT f.contract_id, f.forecast_date as date, f.upper_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as value, 'Confidence Upper' as series_type FROM main.account_monitoring_dev.contract_forecast f WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)), lower_band AS (SELECT f.contract_id, f.forecast_date as date, f.lower_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring_dev.contract_burndown WHERE contract_id = f.contract_id) as value, 'Confidence Lower' as series_type FROM main.account_monitoring_dev.contract_forecast f WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.contract_burndown)) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line UNION ALL SELECT * FROM upper_band UNION ALL SELECT * FROM lower_band ORDER BY contract_id, date, series_type"
       ]
     },
     {
@@ -462,7 +469,7 @@
             "queries": [{
               "name": "main_query",
               "query": {
-                "datasetName": "ds_forecast_with_history",
+                "datasetName": "ds_prophet_combined",
                 "fields": [
                   {"name": "date", "expression": "`date`"},
                   {"name": "value", "expression": "`value`"},
@@ -492,13 +499,16 @@
                     "type": "categorical",
                     "mappings": [
                       {"value": "Actual", "color": "#0066FF"},
-                      {"value": "Forecast", "color": "#00A972"}
+                      {"value": "Prophet Forecast", "color": "#00A972"},
+                      {"value": "Contract Commitment", "color": "#FF3621"},
+                      {"value": "Confidence Upper", "color": "#99DDB4"},
+                      {"value": "Confidence Lower", "color": "#99DDB4"}
                     ]
                   },
-                  "displayName": "Type"
+                  "displayName": "Series"
                 }
               },
-              "frame": {"showTitle": true, "title": "Historical + Prophet Forecast (Actual vs Predicted)"}
+              "frame": {"showTitle": true, "title": "Prophet Model: Actual vs Forecast with Contract Commitment"}
             }
           },
           "position": {"x": 2, "y": 0, "width": 4, "height": 5}
