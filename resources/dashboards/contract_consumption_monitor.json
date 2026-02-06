@@ -109,7 +109,7 @@
       "name": "ds_exhaustion_date",
       "displayName": "Contract Exhaustion Date",
       "queryLines": [
-        "SELECT c.contract_id, c.start_date, c.end_date, c.total_value as commitment, COALESCE(f.exhaustion_date_p50, c.end_date) as predicted_exhaustion_date, CASE WHEN f.exhaustion_date_p50 IS NOT NULL THEN DATEDIFF(f.exhaustion_date_p50, CURRENT_DATE()) ELSE DATEDIFF(c.end_date, CURRENT_DATE()) END as days_until_exhaustion, f.model_type, CASE WHEN f.exhaustion_date_p50 < c.end_date THEN \"EARLY EXHAUSTION\" WHEN f.exhaustion_date_p50 > c.end_date THEN \"UNDER-CONSUMPTION\" ELSE \"ON TRACK\" END as exhaustion_status FROM main.account_monitoring_dev.contracts c LEFT JOIN (SELECT contract_id, exhaustion_date_p50, model_type FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring_dev.contract_forecast)) f ON c.contract_id = f.contract_id WHERE c.status = \"ACTIVE\""
+        "SELECT c.contract_id, c.start_date, c.end_date, c.total_value as commitment, COALESCE(f.exhaustion_date_p50, c.end_date) as predicted_exhaustion_date, CASE WHEN f.exhaustion_date_p50 IS NOT NULL THEN DATEDIFF(f.exhaustion_date_p50, CURRENT_DATE()) ELSE DATEDIFF(c.end_date, CURRENT_DATE()) END as days_until_exhaustion, f.model_version, CASE WHEN f.exhaustion_date_p50 < c.end_date THEN \"EARLY EXHAUSTION\" WHEN f.exhaustion_date_p50 > c.end_date THEN \"UNDER-CONSUMPTION\" ELSE \"ON TRACK\" END as exhaustion_status FROM main.account_monitoring_dev.contracts c LEFT JOIN (SELECT contract_id, exhaustion_date_p50, model_version FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring_dev.contract_forecast)) f ON c.contract_id = f.contract_id WHERE c.status = \"ACTIVE\""
       ]
     }
   ],
@@ -498,20 +498,16 @@
                   "datasetName": "ds_prophet_combined",
                   "fields": [
                     {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    },
+                    {
                       "name": "date",
                       "expression": "`date`"
                     },
                     {
                       "name": "value",
                       "expression": "`value`"
-                    },
-                    {
-                      "name": "series_type",
-                      "expression": "`series_type`"
-                    },
-                    {
-                      "name": "contract_id",
-                      "expression": "`contract_id`"
                     }
                   ],
                   "disaggregated": true
@@ -520,24 +516,29 @@
             ],
             "spec": {
               "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"
+              },
               "widgetType": "line",
               "encodings": {
                 "x": {
                   "fieldName": "date",
+                  "displayName": "Date",
                   "scale": {
                     "type": "temporal"
-                  },
-                  "displayName": "Date"
+                  }
                 },
                 "y": {
                   "fieldName": "value",
+                  "displayName": "Cumulative Cost ($)",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Cumulative Cost ($)"
+                  }
                 },
                 "color": {
                   "fieldName": "series_type",
+                  "displayName": "Series",
                   "scale": {
                     "type": "categorical",
                     "mappings": [
@@ -554,13 +555,8 @@
                         "color": "#00008B"
                       }
                     ]
-                  },
-                  "displayName": "Series"
+                  }
                 }
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"
               }
             }
           },
@@ -619,10 +615,6 @@
                     {
                       "name": "days_remaining",
                       "expression": "`days_remaining`"
-                    },
-                    {
-                      "name": "projected_end_date",
-                      "expression": "`projected_end_date`"
                     }
                   ],
                   "disaggregated": true
@@ -630,84 +622,65 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 2,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "contract_id",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Contract ID"
+                    "displayName": "Contract ID",
+                    "type": "string"
                   },
                   {
                     "fieldName": "cloud_provider",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Cloud"
+                    "displayName": "Cloud",
+                    "type": "string"
                   },
                   {
                     "fieldName": "start_date",
-                    "type": "date",
-                    "displayAs": "date",
-                    "title": "Start Date"
+                    "displayName": "Start Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "end_date",
-                    "type": "date",
-                    "displayAs": "date",
-                    "title": "End Date"
+                    "displayName": "End Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "contract_value",
-                    "type": "float",
-                    "displayAs": "number",
-                    "numberFormat": "$#,##0",
-                    "title": "Value",
-                    "alignContent": "right"
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "consumed",
-                    "type": "float",
-                    "displayAs": "number",
-                    "numberFormat": "$#,##0.00",
-                    "title": "Consumed",
-                    "alignContent": "right"
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0.00"
                   },
                   {
                     "fieldName": "remaining",
-                    "type": "float",
-                    "displayAs": "number",
-                    "numberFormat": "$#,##0.00",
-                    "title": "Remaining",
-                    "alignContent": "right"
+                    "displayName": "Remaining ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0.00"
                   },
                   {
                     "fieldName": "consumed_pct",
-                    "type": "float",
-                    "displayAs": "number",
-                    "numberFormat": "0.0",
-                    "title": "% Used",
-                    "alignContent": "right"
+                    "displayName": "% Used",
+                    "type": "number",
+                    "numberFormat": "0.0%"
                   },
                   {
                     "fieldName": "pace_status",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Pace Status"
+                    "displayName": "Pace Status",
+                    "type": "string"
                   },
                   {
                     "fieldName": "days_remaining",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "title": "Days Left",
-                    "alignContent": "right"
-                  },
-                  {
-                    "fieldName": "projected_end_date",
-                    "type": "datetime",
-                    "displayAs": "datetime",
-                    "title": "Projected End"
+                    "displayName": "Days Left",
+                    "type": "number"
                   }
                 ]
               },
@@ -750,8 +723,8 @@
                       "expression": "`days_until_exhaustion`"
                     },
                     {
-                      "name": "model_type",
-                      "expression": "`model_type`"
+                      "name": "model_version",
+                      "expression": "`model_version`"
                     },
                     {
                       "name": "exhaustion_status",
@@ -763,54 +736,47 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 2,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "contract_id",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Contract"
+                    "displayName": "Contract",
+                    "type": "string"
                   },
                   {
                     "fieldName": "commitment",
-                    "type": "float",
-                    "displayAs": "number",
-                    "numberFormat": "$#,##0",
-                    "title": "Commitment",
-                    "alignContent": "right"
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "predicted_exhaustion_date",
-                    "type": "date",
-                    "displayAs": "date",
-                    "title": "Predicted Exhaustion Date"
+                    "displayName": "Predicted Exhaustion Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "days_until_exhaustion",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "title": "Days Until Exhaustion",
-                    "alignContent": "right"
+                    "displayName": "Days Until Exhaustion",
+                    "type": "number"
                   },
                   {
-                    "fieldName": "model_type",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Forecast Model"
+                    "fieldName": "model_version",
+                    "displayName": "Forecast Model",
+                    "type": "string"
                   },
                   {
                     "fieldName": "exhaustion_status",
-                    "type": "string",
-                    "displayAs": "string",
-                    "title": "Status"
+                    "displayName": "Status",
+                    "type": "string"
                   }
                 ]
               },
               "frame": {
                 "showTitle": true,
-                "title": "Contract Exhaustion Prediction (when consumption crosses commitment)"
+                "title": "Contract Exhaustion Prediction"
               }
             }
           },
