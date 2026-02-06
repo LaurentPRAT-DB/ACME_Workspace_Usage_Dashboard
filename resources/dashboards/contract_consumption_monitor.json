@@ -104,6 +104,13 @@
       "queryLines": [
         "SELECT usage_date, daily_cost, AVG(daily_cost) OVER (ORDER BY usage_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as moving_avg_7d, AVG(daily_cost) OVER (ORDER BY usage_date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as moving_avg_30d FROM (SELECT usage_date, SUM(daily_cost) as daily_cost FROM main.account_monitoring_dev.contract_burndown GROUP BY usage_date) daily WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180) ORDER BY usage_date"
       ]
+    },
+    {
+      "name": "ds_exhaustion_date",
+      "displayName": "Contract Exhaustion Date",
+      "queryLines": [
+        "SELECT c.contract_id, c.start_date, c.end_date, c.total_value as commitment, COALESCE(f.exhaustion_date_p50, c.end_date) as predicted_exhaustion_date, CASE WHEN f.exhaustion_date_p50 IS NOT NULL THEN DATEDIFF(f.exhaustion_date_p50, CURRENT_DATE()) ELSE DATEDIFF(c.end_date, CURRENT_DATE()) END as days_until_exhaustion, f.model_type, CASE WHEN f.exhaustion_date_p50 < c.end_date THEN \"EARLY EXHAUSTION\" WHEN f.exhaustion_date_p50 > c.end_date THEN \"UNDER-CONSUMPTION\" ELSE \"ON TRACK\" END as exhaustion_status FROM main.account_monitoring_dev.contracts c LEFT JOIN (SELECT contract_id, exhaustion_date_p50, model_type FROM main.account_monitoring_dev.contract_forecast WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring_dev.contract_forecast)) f ON c.contract_id = f.contract_id WHERE c.status = \"ACTIVE\""
+      ]
     }
   ],
   "pages": [
@@ -582,6 +589,14 @@
                       "expression": "`cloud_provider`"
                     },
                     {
+                      "name": "start_date",
+                      "expression": "`start_date`"
+                    },
+                    {
+                      "name": "end_date",
+                      "expression": "`end_date`"
+                    },
+                    {
                       "name": "contract_value",
                       "expression": "`contract_value`"
                     },
@@ -630,6 +645,18 @@
                     "type": "string",
                     "displayAs": "string",
                     "title": "Cloud"
+                  },
+                  {
+                    "fieldName": "start_date",
+                    "type": "date",
+                    "displayAs": "date",
+                    "title": "Start Date"
+                  },
+                  {
+                    "fieldName": "end_date",
+                    "type": "date",
+                    "displayAs": "date",
+                    "title": "End Date"
                   },
                   {
                     "fieldName": "contract_value",
@@ -686,7 +713,7 @@
               },
               "frame": {
                 "showTitle": true,
-                "title": "Active Contracts - Status Summary"
+                "title": "Contract Details & Status"
               }
             }
           },
@@ -695,6 +722,103 @@
             "y": 10,
             "width": 6,
             "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "w_exhaustion_date",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_exhaustion_date",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "commitment",
+                      "expression": "`commitment`"
+                    },
+                    {
+                      "name": "predicted_exhaustion_date",
+                      "expression": "`predicted_exhaustion_date`"
+                    },
+                    {
+                      "name": "days_until_exhaustion",
+                      "expression": "`days_until_exhaustion`"
+                    },
+                    {
+                      "name": "model_type",
+                      "expression": "`model_type`"
+                    },
+                    {
+                      "name": "exhaustion_status",
+                      "expression": "`exhaustion_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Contract"
+                  },
+                  {
+                    "fieldName": "commitment",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "$#,##0",
+                    "title": "Commitment",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "predicted_exhaustion_date",
+                    "type": "date",
+                    "displayAs": "date",
+                    "title": "Predicted Exhaustion Date"
+                  },
+                  {
+                    "fieldName": "days_until_exhaustion",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Days Until Exhaustion",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "model_type",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Forecast Model"
+                  },
+                  {
+                    "fieldName": "exhaustion_status",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Status"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Exhaustion Prediction (when consumption crosses commitment)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 6,
+            "height": 3
           }
         }
       ],
