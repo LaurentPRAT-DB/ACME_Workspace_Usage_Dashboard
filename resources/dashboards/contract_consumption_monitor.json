@@ -11,7 +11,7 @@
       "name": "ds_pace_distribution",
       "displayName": "Pace Distribution",
       "queryLines": [
-        "SELECT pace_status, COUNT(*) as contract_count FROM main.account_monitoring_dev.contract_burndown_summary GROUP BY pace_status ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
+        "SELECT contract_id, pace_status, ROUND(consumed_pct, 1) as consumed_pct FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
       ]
     },
     {
@@ -53,7 +53,7 @@
       "name": "ds_prophet_combined",
       "displayName": "Contract Burndown with ML Forecast",
       "queryLines": [
-        "WITH contract_dates AS (SELECT contract_id, MIN(usage_date) as min_date, MAX(usage_date) as max_date, MAX(commitment) as commitment FROM main.account_monitoring_dev.contract_burndown GROUP BY contract_id), all_dates AS (SELECT DISTINCT contract_id, usage_date as date FROM main.account_monitoring_dev.contract_burndown UNION SELECT DISTINCT f.contract_id, f.forecast_date as date FROM main.account_monitoring_dev.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), actuals AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as value, 'Historical Consumption' as series_type FROM main.account_monitoring_dev.contract_burndown b), forecasts AS (SELECT f.contract_id, f.forecast_date as date, f.predicted_cumulative as value, 'ML Forecast (Prophet)' as series_type FROM main.account_monitoring_dev.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), commitment_line AS (SELECT ad.contract_id, ad.date, cd.commitment as value, 'Contract Commitment' as series_type FROM all_dates ad INNER JOIN contract_dates cd ON ad.contract_id = cd.contract_id) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date, series_type"
+        "WITH contract_dates AS (SELECT contract_id, MIN(usage_date) as min_date, MAX(usage_date) as max_date, MAX(commitment) as commitment FROM main.account_monitoring_dev.contract_burndown GROUP BY contract_id), all_dates AS (SELECT DISTINCT contract_id, usage_date as date FROM main.account_monitoring_dev.contract_burndown UNION SELECT DISTINCT f.contract_id, f.forecast_date as date FROM main.account_monitoring_dev.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), actuals AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as value, CONCAT(b.contract_id, ' - Historical') as series_type FROM main.account_monitoring_dev.contract_burndown b), forecasts AS (SELECT f.contract_id, f.forecast_date as date, f.predicted_cumulative as value, CONCAT(f.contract_id, ' - Forecast') as series_type FROM main.account_monitoring_dev.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), commitment_line AS (SELECT ad.contract_id, ad.date, cd.commitment as value, CONCAT(ad.contract_id, ' - Commitment') as series_type FROM all_dates ad INNER JOIN contract_dates cd ON ad.contract_id = cd.contract_id) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date, series_type"
       ]
     },
     {
@@ -275,7 +275,7 @@
         },
         {
           "widget": {
-            "name": "w_pace_pie",
+            "name": "w_pace_bar",
             "queries": [
               {
                 "name": "main_query",
@@ -283,8 +283,12 @@
                   "datasetName": "ds_pace_distribution",
                   "fields": [
                     {
-                      "name": "contract_count",
-                      "expression": "`contract_count`"
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
                     },
                     {
                       "name": "pace_status",
@@ -297,14 +301,21 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "pie",
+              "widgetType": "bar",
               "encodings": {
-                "angle": {
-                  "fieldName": "contract_count",
+                "x": {
+                  "fieldName": "contract_id",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Contract"
+                },
+                "y": {
+                  "fieldName": "consumed_pct",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Contract Count"
+                  "displayName": "% Consumed"
                 },
                 "color": {
                   "fieldName": "pace_status",
@@ -463,6 +474,106 @@
             "width": 6,
             "height": 4
           }
+        },
+        {
+          "widget": {
+            "name": "w_contract_summary_exec",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_summary",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "cloud_provider",
+                    "displayName": "Cloud",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "contract_value",
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "displayName": "% Used",
+                    "type": "number",
+                    "numberFormat": "0.0%"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "displayName": "Pace Status",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "displayName": "Days Left",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Details & Status"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 4
+          }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"
@@ -566,7 +677,7 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "title": "Contract Burndown with Prophet ML Forecast (from contract_forecast table)"
+                "title": "Contract Burndown with Prophet ML Forecast"
               },
               "widgetType": "line",
               "encodings": {
@@ -588,21 +699,7 @@
                   "fieldName": "series_type",
                   "displayName": "Series",
                   "scale": {
-                    "type": "categorical",
-                    "mappings": [
-                      {
-                        "value": "Historical Consumption",
-                        "color": "#FFD700"
-                      },
-                      {
-                        "value": "ML Forecast (Prophet)",
-                        "color": "#FF0000"
-                      },
-                      {
-                        "value": "Contract Commitment",
-                        "color": "#00008B"
-                      }
-                    ]
+                    "type": "categorical"
                   }
                 }
               }
