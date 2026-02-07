@@ -519,6 +519,11 @@ def calculate_scenario_forecast(contract_id, scenario_id, discount_pct, forecast
     discount_factor = 1 - (discount_pct / 100)
     records = []
 
+    # Convert Decimal columns to float (required for pandas arithmetic)
+    for col in ['predicted_daily_cost', 'predicted_cumulative', 'lower_bound', 'upper_bound']:
+        if col in contract_forecast.columns:
+            contract_forecast[col] = contract_forecast[col].astype(float)
+
     # Calculate scaled predictions
     contract_forecast['scaled_daily'] = contract_forecast['predicted_daily_cost'] * discount_factor
     contract_forecast['scaled_lower'] = contract_forecast['lower_bound'] * discount_factor
