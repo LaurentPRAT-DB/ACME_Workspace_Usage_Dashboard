@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.9.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.10.0-green)](CHANGELOG.md)
 
 ---
 
@@ -24,6 +24,7 @@ The Account Monitor is a complete solution for tracking Databricks consumption a
 | **Contract Management** | Store contract details (value, dates, cloud provider) |
 | **Burndown Analysis** | Visualize cumulative spend vs contract limit |
 | **ML Forecasting** | Prophet-based predictions with exhaustion dates |
+| **What-If Analysis** | Discount scenario simulation with savings projections |
 | **Automated Jobs** | Daily refresh, weekly training, monthly summaries |
 
 ---
@@ -157,6 +158,7 @@ databricks lakeview list --profile YOUR_PROFILE
 |------|-------------|
 | **Executive Summary** | Contract overview, pace status, total consumption |
 | **Contract Burndown** | Cumulative spend vs commitment with ML forecast |
+| **What-If Analysis** | Discount scenario comparison and savings projections |
 
 ---
 
@@ -216,6 +218,11 @@ erDiagram
     CONTRACTS ||--o{ CONTRACT_BURNDOWN : "tracks daily"
     CONTRACTS ||--o{ CONTRACT_FORECAST : "predicts"
     CONTRACTS ||--o{ DASHBOARD_DATA : "enriches"
+    CONTRACTS ||--o{ DISCOUNT_SCENARIOS : "simulates"
+    DISCOUNT_TIERS ||--o{ DISCOUNT_SCENARIOS : "configures"
+    DISCOUNT_SCENARIOS ||--o{ SCENARIO_BURNDOWN : "projects"
+    DISCOUNT_SCENARIOS ||--o{ SCENARIO_FORECAST : "predicts"
+    DISCOUNT_SCENARIOS ||--|| SCENARIO_SUMMARY : "summarizes"
 
     CONTRACTS {
         string contract_id PK
@@ -256,6 +263,34 @@ erDiagram
         string sku_name
         decimal usage_quantity
         decimal actual_cost
+    }
+
+    DISCOUNT_TIERS {
+        string tier_id PK
+        string tier_name
+        decimal min_commitment
+        decimal max_commitment
+        int duration_years
+        decimal discount_rate
+    }
+
+    DISCOUNT_SCENARIOS {
+        string scenario_id PK
+        string contract_id FK
+        string scenario_name
+        decimal discount_pct
+        boolean is_baseline
+        boolean is_recommended
+        string status
+    }
+
+    SCENARIO_SUMMARY {
+        string scenario_id PK
+        decimal cumulative_savings
+        date scenario_exhaustion_date
+        int days_extended
+        decimal utilization_pct
+        boolean is_sweet_spot
     }
 ```
 
@@ -468,6 +503,149 @@ Days Remaining: 120
 
 ---
 
+## What-If Discount Simulation
+
+The What-If simulator helps you understand how different discount levels could impact your contract consumption and extend your contract runway.
+
+### Objectives
+
+1. **Scenario Comparison**: Generate multiple discount scenarios (0%, 5%, 10%, 15%, 20%+) to compare savings
+2. **Duration Incentives**: Show how longer contract commitments unlock higher discount rates
+3. **Sweet Spot Detection**: Identify the optimal discount level based on your consumption patterns
+4. **Break-Even Analysis**: Determine minimum consumption needed to justify each discount tier
+5. **Exhaustion Extension**: Calculate how many additional days each discount level provides
+
+### How It Works
+
+```mermaid
+flowchart LR
+    subgraph input["📊 Inputs"]
+        burndown["Contract Burndown"]
+        forecast["Prophet Forecast"]
+        tiers["Discount Tiers"]
+    end
+
+    subgraph simulate["🧮 Simulator"]
+        scenarios["Generate Scenarios"]
+        scale["Apply Discount Factor"]
+        predict["Project Exhaustion"]
+    end
+
+    subgraph output["📈 Outputs"]
+        comparison["Scenario Comparison"]
+        sweet["Sweet Spot"]
+        savings["Savings Analysis"]
+    end
+
+    input --> simulate --> output
+```
+
+The simulator:
+1. Reads your historical consumption from `contract_burndown`
+2. Loads Prophet forecasts from `contract_forecast`
+3. Looks up maximum discount rates from `discount_tiers` based on commitment value and duration
+4. Generates scenarios at each discount level (capped by tier max)
+5. Calculates simulated burndown with discount applied
+6. Projects new exhaustion dates for each scenario
+7. Identifies the "sweet spot" (highest savings with ≥85% utilization)
+
+### Discount Tier Configuration
+
+Default discount tiers are based on commitment level and contract duration:
+
+| Commitment | 1-Year | 2-Year | 3-Year |
+|------------|--------|--------|--------|
+| $50K - $100K | 5% | 8% | 10% |
+| $100K - $250K | 10% | 15% | 18% |
+| $250K - $500K | 15% | 20% | 25% |
+| $500K - $1M | 20% | 25% | 30% |
+| $1M - $5M | 25% | 30% | 35% |
+| $5M+ | 30% | 35% | 40% |
+
+**Customizing Tiers:**
+
+Edit or replace the discount tiers in `sql/populate_discount_tiers.sql`:
+
+```sql
+-- Example: Add a custom tier for your organization
+INSERT INTO main.account_monitoring_dev.discount_tiers
+  (tier_id, tier_name, min_commitment, max_commitment, duration_years, discount_rate, notes, effective_date)
+VALUES
+  ('CUSTOM_1Y', 'Custom - 1 Year', 150000, 200000, 1, 0.12, 'Negotiated rate', '2026-01-01');
+```
+
+Then redeploy and rerun the setup job.
+
+### Example What-If Results
+
+For a **$100,000 contract** with **1-year duration**, the simulator generates:
+
+| Scenario | Discount | Savings to Date | Exhaustion Date | Days Extended |
+|----------|----------|-----------------|-----------------|---------------|
+| Baseline (No Discount) | 0% | $0 | Jul 29, 2026 | - |
+| 5% Discount | 5% | $2,145 | Aug 18, 2026 | +20 |
+| 10% Discount (Max for 1yr) | 10% | $4,290 | Sep 8, 2026 | +41 |
+| **15% (If 2yr commit)** | 15% | $6,435 | Sep 29, 2026 | +62 |
+| **18% (If 3yr commit)** | 18% | $7,722 | Oct 13, 2026 | +76 |
+
+**Reading the results:**
+- **Baseline**: Current consumption without discount
+- **Regular scenarios**: What you can achieve with your current contract duration
+- **"If Xyr commit" scenarios**: Potential savings if you extend to a longer contract term
+
+### Sweet Spot Recommendation
+
+The simulator automatically identifies the **sweet spot** - the discount level that provides maximum savings while maintaining healthy utilization (≥85%):
+
+```
+Sweet Spot Recommendation:
+┌─────────────────┬────────────────────────────┬───────────┬──────────┐
+│ Contract        │ Recommended Scenario       │ Savings   │ Days +   │
+├─────────────────┼────────────────────────────┼───────────┼──────────┤
+│ CONTRACT-2026   │ 10% Discount (Max for 1yr) │ $4,290    │ +41      │
+└─────────────────┴────────────────────────────┴───────────┴──────────┘
+```
+
+### Dashboard - What-If Analysis Page
+
+The Lakeview dashboard includes a **What-If Analysis** page with:
+
+| Widget | Description |
+|--------|-------------|
+| **Scenario Comparison Table** | All scenarios ranked by savings with status indicators |
+| **Scenario Burndown Chart** | Multi-line chart comparing cumulative spend across scenarios |
+| **Sweet Spot Summary** | Recommended scenario per contract |
+| **Longer Duration Opportunities** | Potential savings with extended commitments |
+
+### What-If Tables
+
+| Table | Purpose |
+|-------|---------|
+| `discount_tiers` | Configurable discount rates by commitment and duration |
+| `discount_scenarios` | Generated scenarios for each contract |
+| `scenario_burndown` | Simulated daily consumption with discount applied |
+| `scenario_forecast` | Scaled Prophet predictions for each scenario |
+| `scenario_summary` | Denormalized KPIs for dashboard queries |
+
+### Running What-If Simulation
+
+The What-If simulation runs automatically as part of:
+- **First Install**: After Prophet training completes
+- **Weekly Training**: After model retraining
+
+To run manually:
+
+```bash
+# Run the full simulator notebook
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+
+# Or just refresh scenarios (SQL-only, uses existing data)
+databricks workspace import-file sql/refresh_whatif_scenarios.sql /tmp/refresh.sql --profile YOUR_PROFILE
+databricks sql execute --file /tmp/refresh.sql --profile YOUR_PROFILE
+```
+
+---
+
 ## Verifying Data Freshness
 
 ```sql
@@ -500,6 +678,7 @@ FROM main.account_monitoring_dev.contract_forecast;
 | **account_monitor_notebook.py** | Main dashboard with all visualizations |
 | **contract_management_crud.py** | Add, update, delete contracts and metadata |
 | **consumption_forecaster.py** | Prophet model training and inference |
+| **whatif_simulator.py** | What-If discount scenario generation |
 | **post_deployment_validation.py** | Verify setup and data integrity |
 
 ### Opening the Dashboard
@@ -596,6 +775,7 @@ databricks_conso_reports/
 │   ├── account_monitor_notebook.py    # Main dashboard
 │   ├── contract_management_crud.py    # CRUD operations
 │   ├── consumption_forecaster.py      # ML forecasting
+│   ├── whatif_simulator.py            # What-If discount scenarios
 │   ├── setup_contracts.py             # Config loader
 │   └── post_deployment_validation.py  # Setup verification
 ├── sql/
@@ -603,6 +783,9 @@ databricks_conso_reports/
 │   ├── refresh_dashboard_data.sql     # Daily data refresh
 │   ├── refresh_contract_burndown.sql  # Burndown calculation
 │   ├── build_forecast_features.sql    # ML feature prep
+│   ├── create_whatif_schema.sql       # What-If simulation tables
+│   ├── populate_discount_tiers.sql    # Default discount tier config
+│   ├── refresh_whatif_scenarios.sql   # Refresh scenario calculations
 │   └── validate_first_install.sql     # Installation validation
 ├── resources/
 │   └── jobs.yml                       # Job definitions (includes first_install)
@@ -617,6 +800,7 @@ databricks_conso_reports/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.10.0** | 2026-02-07 | What-If discount simulation with tier-based scenarios and sweet spot detection |
 | **1.9.0** | 2026-02-06 | Simplified dashboard (2 pages), optimized bundle sync config |
 | **1.8.0** | 2026-02-05 | Added Quick Start first-install guide with step-by-step workflow |
 | **1.7.0** | 2026-02-05 | Added Prophet ML forecasting, exhaustion predictions |
