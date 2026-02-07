@@ -60,11 +60,13 @@ resources:
 
         # Phase 2: Load Contract Configuration
         - task_key: load_contract_config
-          description: "Load contracts from config/contracts.yml"
+          description: "Load contracts from config files"
           depends_on:
             - task_key: populate_discount_tiers
           notebook_task:
             notebook_path: ../notebooks/setup_contracts.py
+            base_parameters:
+              config_files: ${var.config_files}
             source: WORKSPACE
 
         # Phase 3: Populate Data from System Tables
@@ -184,11 +186,13 @@ resources:
               schema: ${var.schema}
 
         - task_key: load_contract_config
-          description: "Load contracts from config/contracts.yml"
+          description: "Load contracts from config files"
           depends_on:
             - task_key: create_schema
           notebook_task:
             notebook_path: ../notebooks/setup_contracts.py
+            base_parameters:
+              config_files: ${var.config_files}
             source: WORKSPACE
 
       tags:

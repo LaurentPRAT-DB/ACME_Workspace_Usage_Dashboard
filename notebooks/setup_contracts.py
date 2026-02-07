@@ -2,11 +2,15 @@
 # MAGIC %md
 # MAGIC # Contract Setup from Configuration
 # MAGIC
-# MAGIC This notebook loads contract data from `config/contracts.yml` and inserts it into the database.
+# MAGIC This notebook loads contract data from YAML configuration files and inserts it into the database.
 # MAGIC
 # MAGIC **Usage:**
 # MAGIC - Edit `config/contracts.yml` to define your contracts
 # MAGIC - Run this notebook (or the setup job) to load the data
+# MAGIC
+# MAGIC **Parameters:**
+# MAGIC - `config_files`: Comma-separated list of config files to load (default: `config/contracts.yml`)
+# MAGIC - Example: `config/contracts.yml,config/contracts_customer_b.yml`
 
 # COMMAND ----------
 
@@ -19,13 +23,18 @@ import yaml
 from datetime import datetime, timedelta
 from pyspark.sql import functions as F
 
+# Get parameters with defaults
+dbutils.widgets.text("config_files", "config/contracts.yml", "Config Files (comma-separated)")
+
 # Configuration
 CATALOG = "main"
 SCHEMA = "account_monitoring_dev"
-CONFIG_PATH = "../config/contracts.yml"
+CONFIG_FILES = dbutils.widgets.get("config_files").split(",")
+CONFIG_FILES = [f.strip() for f in CONFIG_FILES if f.strip()]  # Clean up whitespace
 
-print(f"Contract Setup v1.0")
+print(f"Contract Setup v2.0")
 print(f"Target: {CATALOG}.{SCHEMA}")
+print(f"Config files to process: {CONFIG_FILES}")
 
 # COMMAND ----------
 
@@ -38,46 +47,42 @@ def load_config(config_path: str) -> dict:
     """Load contract configuration from YAML file."""
     import os
 
+    # Get current user for workspace path
+    current_user = spark.sql("SELECT current_user()").collect()[0][0]
+
     # Try multiple paths (workspace vs local)
     paths_to_try = [
         config_path,
-        "/Workspace/Users/" + spark.sql("SELECT current_user()").collect()[0][0] + "/account_monitor/files/config/contracts.yml",
-        "config/contracts.yml",
-        "./config/contracts.yml"
+        f"../config/{config_path.split('/')[-1]}",  # Relative to notebook
+        f"/Workspace/Users/{current_user}/account_monitor/files/{config_path}",
+        f"/Workspace/Users/{current_user}/account_monitor/files/config/{config_path.split('/')[-1]}",
     ]
 
     for path in paths_to_try:
         try:
             # For workspace files
             if path.startswith("/Workspace"):
-                content = dbutils.fs.head(f"file:{path}", 10000)
+                content = dbutils.fs.head(f"file:{path}", 50000)
                 config = yaml.safe_load(content)
-                print(f"Loaded config from: {path}")
+                print(f"  ✓ Loaded config from: {path}")
                 return config
             else:
-                # For bundled files, read via spark
+                # For bundled files, read via open()
                 try:
                     with open(path, 'r') as f:
                         config = yaml.safe_load(f.read())
-                        print(f"Loaded config from: {path}")
+                        print(f"  ✓ Loaded config from: {path}")
                         return config
                 except FileNotFoundError:
                     continue
         except Exception as e:
             continue
 
-    raise FileNotFoundError(f"Could not find contracts.yml in any of: {paths_to_try}")
+    raise FileNotFoundError(f"Could not find config file. Tried: {paths_to_try}")
 
-# Load the configuration
-try:
-    config = load_config(CONFIG_PATH)
-    print(f"\nConfiguration loaded successfully!")
-    print(f"  Account: {config.get('account_metadata', {}).get('customer_name', 'N/A')}")
-    print(f"  Contracts: {len(config.get('contracts', []))}")
-except Exception as e:
-    print(f"Error loading config: {e}")
-    print("\nUsing default configuration...")
-    config = {
+def get_default_config():
+    """Return default configuration when no config file is found."""
+    return {
         "account_metadata": {
             "account_id": "auto",
             "customer_name": "Default Organization",
@@ -103,6 +108,37 @@ except Exception as e:
             "notes": "Default contract - please update config/contracts.yml"
         }]
     }
+
+# Load all configuration files
+all_configs = []
+print(f"\nLoading {len(CONFIG_FILES)} config file(s)...")
+
+for config_file in CONFIG_FILES:
+    try:
+        config = load_config(config_file)
+        all_configs.append(config)
+        print(f"    Account: {config.get('account_metadata', {}).get('customer_name', 'N/A')}")
+        print(f"    Contracts: {len(config.get('contracts', []))}")
+    except Exception as e:
+        print(f"  ✗ Error loading {config_file}: {e}")
+
+# If no configs loaded, use default
+if not all_configs:
+    print("\nNo config files loaded. Using default configuration...")
+    all_configs = [get_default_config()]
+
+# Merge all configs - combine contracts from all files
+# Use first config's account_metadata, but merge all contracts
+merged_config = {
+    "account_metadata": all_configs[0].get("account_metadata", {}),
+    "contracts": []
+}
+
+for cfg in all_configs:
+    merged_config["contracts"].extend(cfg.get("contracts", []))
+
+config = merged_config
+print(f"\n✓ Total contracts to process: {len(config['contracts'])}")
 
 # COMMAND ----------
 

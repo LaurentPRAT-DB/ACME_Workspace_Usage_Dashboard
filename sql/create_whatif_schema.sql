@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_summary (
   days_extended INT COMMENT 'Additional days gained',
   -- Break-even analysis
   break_even_consumption DECIMAL(18,2) COMMENT 'Consumption needed to justify commit',
-  utilization_pct DECIMAL(5,2) COMMENT 'Current utilization percentage',
+  utilization_pct DECIMAL(10,2) COMMENT 'Current utilization percentage',
   break_even_status STRING COMMENT 'ABOVE_BREAKEVEN, AT_RISK, BELOW_BREAKEVEN',
   -- Status indicators
   exhaustion_status STRING COMMENT 'EARLY_EXHAUSTION, ON_TRACK, EXTENDED',

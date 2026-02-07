@@ -364,6 +364,26 @@ contracts:
 - `start_date: "auto"` → Sets to 1 year ago
 - `end_date: "auto"` → Sets to 1 year from now
 
+**Multiple Config Files:**
+
+You can load contracts from multiple YAML files by setting the `config_files` variable:
+
+```yaml
+# In databricks.yml - set for a specific target
+targets:
+  dev:
+    variables:
+      config_files: "config/contracts.yml,config/contracts_customer_b.yml"
+```
+
+Or pass at runtime:
+```bash
+databricks bundle run account_monitor_first_install \
+  --param config_files="config/contracts.yml,config/contracts_customer_b.yml"
+```
+
+See `config/contracts_example.yml` for a template.
+
 ### Step 3: Deploy and Setup
 
 ```bash

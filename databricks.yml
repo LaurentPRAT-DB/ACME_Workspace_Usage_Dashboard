@@ -26,6 +26,10 @@ variables:
     description: Maximum projected end date for contract burndown calculations
     default: "2032-12-31"
 
+  config_files:
+    description: Comma-separated list of contract config files to load
+    default: "config/contracts.yml"
+
 # Include configuration files
 include:
   - resources/*.yml

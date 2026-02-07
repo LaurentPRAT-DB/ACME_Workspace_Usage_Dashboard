@@ -1,0 +1,49 @@
+# Example additional contracts configuration file
+# This shows how to define contracts for a different customer/account
+#
+# Usage:
+#   1. Copy this file and rename it (e.g., contracts_customer_b.yml)
+#   2. Update the values for your specific customer
+#   3. Pass multiple config files to the job:
+#      databricks bundle run account_monitor_first_install \
+#        --param config_files="config/contracts.yml,config/contracts_customer_b.yml"
+#
+#   Or set in databricks.yml variables:
+#      variables:
+#        config_files: "config/contracts.yml,config/contracts_customer_b.yml"
+
+account_metadata:
+  account_id: "auto"                    # Auto-detect from billing data
+  customer_name: "Example Customer B"
+  business_unit_l0: "EMEA"
+  business_unit_l1: "Enterprise"
+  business_unit_l2: "Financial Services"
+  business_unit_l3: ""
+  account_executive: "Jane Smith"
+  solutions_architect: "Bob Johnson"
+  delivery_solutions_architect: ""
+  region: "EU-WEST"
+  industry: "Financial Services"
+
+contracts:
+  # Example contract 1
+  - contract_id: "EXAMPLE-CONTRACT-001"
+    cloud_provider: "auto"              # Auto-detect (AWS/Azure/GCP)
+    start_date: "2025-01-01"
+    end_date: "2025-12-31"
+    total_value: 100000.00
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "ACTIVE"
+    notes: "Example annual contract - replace with real values"
+
+  # Example contract 2 (multi-year)
+  - contract_id: "EXAMPLE-CONTRACT-002"
+    cloud_provider: "AWS"
+    start_date: "2025-07-01"
+    end_date: "2027-06-30"
+    total_value: 500000.00
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "PENDING"
+    notes: "Example 2-year enterprise contract"
