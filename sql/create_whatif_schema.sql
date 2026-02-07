@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.discount_tiers (
   effective_date DATE COMMENT 'When this tier becomes effective',
   expiration_date DATE COMMENT 'When this tier expires',
   notes STRING COMMENT 'Additional notes about this tier',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  created_at TIMESTAMP COMMENT 'When this tier was created',
   CONSTRAINT pk_discount_tiers PRIMARY KEY (tier_id)
 )
 USING DELTA
@@ -37,18 +37,18 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.discount_scenarios (
   description STRING COMMENT 'Detailed description of scenario',
   -- Discount parameters
   discount_pct DECIMAL(5,2) NOT NULL COMMENT 'Overall discount percentage (0-100)',
-  discount_type STRING DEFAULT 'overall' COMMENT 'Type: overall, sku_specific, tier_based',
+  discount_type STRING COMMENT 'Type: overall, sku_specific, tier_based',
   -- Contract variations
   adjusted_total_value DECIMAL(18,2) COMMENT 'Modified contract value (NULL = use base)',
   adjusted_start_date DATE COMMENT 'Modified start date (NULL = use base)',
   adjusted_end_date DATE COMMENT 'Modified end date (NULL = use base)',
   -- Scenario metadata
-  is_baseline BOOLEAN DEFAULT FALSE COMMENT 'True if this is the baseline (0% discount)',
-  is_recommended BOOLEAN DEFAULT FALSE COMMENT 'True if this is the recommended scenario',
-  status STRING DEFAULT 'ACTIVE' COMMENT 'Status: DRAFT, ACTIVE, ARCHIVED',
+  is_baseline BOOLEAN COMMENT 'True if this is the baseline (0% discount)',
+  is_recommended BOOLEAN COMMENT 'True if this is the recommended scenario',
+  status STRING COMMENT 'Status: DRAFT, ACTIVE, ARCHIVED',
   created_by STRING COMMENT 'User who created scenario',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-  updated_at TIMESTAMP,
+  created_at TIMESTAMP COMMENT 'When scenario was created',
+  updated_at TIMESTAMP COMMENT 'When scenario was last updated',
   CONSTRAINT pk_scenarios PRIMARY KEY (scenario_id)
 )
 USING DELTA
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_burndown (
   daily_savings DECIMAL(18,2) COMMENT 'Savings on this day',
   cumulative_savings DECIMAL(18,2) COMMENT 'Total savings to date',
   -- Metadata
-  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  calculated_at TIMESTAMP COMMENT 'When this row was calculated',
   CONSTRAINT pk_scenario_burndown PRIMARY KEY (scenario_id, usage_date)
 )
 USING DELTA
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_forecast (
   savings_at_exhaustion DECIMAL(18,2) COMMENT 'Total savings when baseline exhausts',
   -- Model info
   model_version STRING COMMENT 'prophet or linear_fallback',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  created_at TIMESTAMP COMMENT 'When this forecast was created',
   CONSTRAINT pk_scenario_forecast PRIMARY KEY (scenario_id, forecast_date)
 )
 USING DELTA
@@ -155,9 +155,9 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_summary (
   -- Status indicators
   exhaustion_status STRING COMMENT 'EARLY_EXHAUSTION, ON_TRACK, EXTENDED',
   pct_savings DECIMAL(5,2) COMMENT 'Savings as % of base',
-  is_sweet_spot BOOLEAN DEFAULT FALSE COMMENT 'True if this is optimal scenario',
+  is_sweet_spot BOOLEAN COMMENT 'True if this is optimal scenario',
   -- Timestamps
-  last_calculated TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  last_calculated TIMESTAMP COMMENT 'When summary was last calculated',
   CONSTRAINT pk_scenario_summary PRIMARY KEY (scenario_id)
 )
 USING DELTA

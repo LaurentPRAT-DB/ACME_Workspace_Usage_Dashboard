@@ -24,6 +24,7 @@
 # COMMAND ----------
 
 import datetime as dt
+import traceback
 
 DEBUG_LOG = []
 
@@ -33,6 +34,28 @@ def log_debug(message):
     log_entry = f"[{timestamp}] {message}"
     DEBUG_LOG.append(log_entry)
     print(log_entry)
+
+def save_debug_log():
+    """Save debug log to a Delta table for retrieval"""
+    try:
+        log_text = "\n".join(DEBUG_LOG)
+        spark.sql(f"""
+            CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.whatif_debug_log (
+                run_id STRING,
+                timestamp TIMESTAMP,
+                log_text STRING
+            ) USING DELTA
+        """)
+        run_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Escape single quotes in log text
+        escaped_log = log_text.replace("'", "''")
+        spark.sql(f"""
+            INSERT INTO main.account_monitoring_dev.whatif_debug_log
+            VALUES ('{run_id}', CURRENT_TIMESTAMP(), '{escaped_log}')
+        """)
+        print(f"Debug log saved with run_id: {run_id}")
+    except Exception as e:
+        print(f"Failed to save debug log: {str(e)}")
 
 log_debug("=== WHAT-IF SIMULATOR STARTED ===")
 
@@ -127,6 +150,20 @@ def load_contract_forecasts():
     """
     return spark.sql(query).toPandas()
 
+def is_null_or_nat(val):
+    """Check if value is None, NaN, or NaT (pandas null types)."""
+    if val is None:
+        return True
+    if pd.isna(val):
+        return True
+    return False
+
+def safe_date_str(val):
+    """Convert date to SQL-safe string or NULL."""
+    if is_null_or_nat(val):
+        return 'NULL'
+    return f"'{val}'"
+
 def load_discount_tiers():
     """Load discount tier configuration."""
     query = f"""
@@ -194,21 +231,49 @@ def calculate_contract_duration_years(start_date, end_date):
     return max(1, min(years, 3))  # Clamp to 1-3 years
 
 # Load data
-log_debug("Loading contracts...")
-contracts_df = load_active_contracts()
-log_debug(f"Loaded {len(contracts_df)} active contracts")
+try:
+    log_debug("Loading contracts...")
+    contracts_df = load_active_contracts()
+    log_debug(f"Loaded {len(contracts_df)} active contracts")
+except Exception as e:
+    log_debug(f"ERROR loading contracts: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
 
-log_debug("Loading burndown data...")
-burndown_df = load_contract_burndown()
-log_debug(f"Loaded {len(burndown_df)} burndown records")
+try:
+    log_debug("Loading burndown data...")
+    burndown_df = load_contract_burndown()
+    log_debug(f"Loaded {len(burndown_df)} burndown records")
+except Exception as e:
+    log_debug(f"ERROR loading burndown: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
 
-log_debug("Loading forecast data...")
-forecast_df = load_contract_forecasts()
-log_debug(f"Loaded {len(forecast_df)} forecast records")
+try:
+    log_debug("Loading forecast data...")
+    forecast_df = load_contract_forecasts()
+    log_debug(f"Loaded {len(forecast_df)} forecast records")
+except Exception as e:
+    log_debug(f"ERROR loading forecasts: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
 
-log_debug("Loading discount tiers...")
-tiers_df = load_discount_tiers()
-log_debug(f"Loaded {len(tiers_df)} discount tiers")
+try:
+    log_debug("Loading discount tiers...")
+    tiers_df = load_discount_tiers()
+    log_debug(f"Loaded {len(tiers_df)} discount tiers")
+except Exception as e:
+    log_debug(f"ERROR loading tiers: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
+
+# Save debug log after data loading
+log_debug("Data loading complete - saving checkpoint log")
+save_debug_log()
 
 # COMMAND ----------
 
@@ -525,7 +590,9 @@ for _, contract in contracts_df.iterrows():
     contract_id = contract['contract_id']
     contract_forecast = forecast_df[forecast_df['contract_id'] == contract_id]
     if not contract_forecast.empty:
-        baseline_exhaustion[contract_id] = contract_forecast['exhaustion_date_p50'].iloc[0]
+        ex_date = contract_forecast['exhaustion_date_p50'].iloc[0]
+        # Handle NaT (Not a Time) values
+        baseline_exhaustion[contract_id] = None if is_null_or_nat(ex_date) else ex_date
     else:
         baseline_exhaustion[contract_id] = None
 
@@ -738,6 +805,10 @@ def save_scenarios(scenarios):
         is_baseline = 'TRUE' if s['is_baseline'] else 'FALSE'
         is_recommended = 'TRUE' if s['is_recommended'] else 'FALSE'
 
+        # Escape single quotes in text fields
+        escaped_name = s['scenario_name'].replace("'", "''") if s.get('scenario_name') else ''
+        escaped_desc = s['description'].replace("'", "''") if s.get('description') else ''
+
         spark.sql(f"""
             INSERT INTO {CATALOG}.{SCHEMA}.discount_scenarios
             (scenario_id, contract_id, scenario_name, description, discount_pct, discount_type,
@@ -745,8 +816,8 @@ def save_scenarios(scenarios):
             VALUES (
                 '{s['scenario_id']}',
                 '{s['contract_id']}',
-                '{s['scenario_name']}',
-                '{s['description']}',
+                '{escaped_name}',
+                '{escaped_desc}',
                 {s['discount_pct']},
                 '{s['discount_type']}',
                 {s['adjusted_total_value']},
@@ -819,18 +890,18 @@ def save_forecasts(forecast_records):
         batch = forecast_records[i:i+batch_size]
         values = []
         for r in batch:
-            # Handle nullable fields
-            pred_daily = round(r['predicted_daily_cost'], 2) if r.get('predicted_daily_cost') is not None else 'NULL'
-            pred_cum = round(r['predicted_cumulative'], 2) if r.get('predicted_cumulative') is not None else 'NULL'
-            lower = round(r['lower_bound'], 2) if r.get('lower_bound') is not None else 'NULL'
-            upper = round(r['upper_bound'], 2) if r.get('upper_bound') is not None else 'NULL'
-            ex_p10 = f"'{r['exhaustion_date_p10']}'" if r.get('exhaustion_date_p10') is not None else 'NULL'
-            ex_p50 = f"'{r['exhaustion_date_p50']}'" if r.get('exhaustion_date_p50') is not None else 'NULL'
-            ex_p90 = f"'{r['exhaustion_date_p90']}'" if r.get('exhaustion_date_p90') is not None else 'NULL'
-            days_ex = int(r['days_to_exhaustion']) if r.get('days_to_exhaustion') is not None else 'NULL'
-            baseline_ex = f"'{r['baseline_exhaustion_date']}'" if r.get('baseline_exhaustion_date') is not None else 'NULL'
-            days_ext = int(r['days_extended']) if r.get('days_extended') is not None else 'NULL'
-            savings_ex = round(r['savings_at_exhaustion'], 2) if r.get('savings_at_exhaustion') is not None else 'NULL'
+            # Handle nullable fields (check for None, NaN, and NaT)
+            pred_daily = round(r['predicted_daily_cost'], 2) if not is_null_or_nat(r.get('predicted_daily_cost')) else 'NULL'
+            pred_cum = round(r['predicted_cumulative'], 2) if not is_null_or_nat(r.get('predicted_cumulative')) else 'NULL'
+            lower = round(r['lower_bound'], 2) if not is_null_or_nat(r.get('lower_bound')) else 'NULL'
+            upper = round(r['upper_bound'], 2) if not is_null_or_nat(r.get('upper_bound')) else 'NULL'
+            ex_p10 = safe_date_str(r.get('exhaustion_date_p10'))
+            ex_p50 = safe_date_str(r.get('exhaustion_date_p50'))
+            ex_p90 = safe_date_str(r.get('exhaustion_date_p90'))
+            days_ex = int(r['days_to_exhaustion']) if not is_null_or_nat(r.get('days_to_exhaustion')) else 'NULL'
+            baseline_ex = safe_date_str(r.get('baseline_exhaustion_date'))
+            days_ext = int(r['days_extended']) if not is_null_or_nat(r.get('days_extended')) else 'NULL'
+            savings_ex = round(r['savings_at_exhaustion'], 2) if not is_null_or_nat(r.get('savings_at_exhaustion')) else 'NULL'
             model_ver = r.get('model_version', 'prophet') or 'prophet'
 
             values.append(f"""(
@@ -875,11 +946,18 @@ def save_summaries(summaries):
     spark.sql(f"DELETE FROM {CATALOG}.{SCHEMA}.scenario_summary WHERE 1=1")
 
     for s in summaries:
-        # Handle nullable fields
-        baseline_ex = f"'{s['baseline_exhaustion_date']}'" if s.get('baseline_exhaustion_date') is not None else 'NULL'
-        scenario_ex = f"'{s['scenario_exhaustion_date']}'" if s.get('scenario_exhaustion_date') is not None else 'NULL'
-        days_ext = int(s['days_extended']) if s.get('days_extended') is not None else 'NULL'
+        # Handle nullable fields (check for None, NaN, and NaT)
+        baseline_ex = safe_date_str(s.get('baseline_exhaustion_date'))
+        scenario_ex = safe_date_str(s.get('scenario_exhaustion_date'))
+        days_ext = int(s['days_extended']) if not is_null_or_nat(s.get('days_extended')) else 'NULL'
         is_sweet = 'TRUE' if s.get('is_sweet_spot') else 'FALSE'
+
+        # Handle contract dates - use safe_date_str for proper NULL handling
+        contract_start = safe_date_str(str(s['contract_start'])[:10] if not is_null_or_nat(s.get('contract_start')) else None)
+        contract_end = safe_date_str(str(s['contract_end'])[:10] if not is_null_or_nat(s.get('contract_end')) else None)
+
+        # Escape single quotes in scenario_name
+        escaped_name = s['scenario_name'].replace("'", "''") if s.get('scenario_name') else ''
 
         spark.sql(f"""
             INSERT INTO {CATALOG}.{SCHEMA}.scenario_summary
@@ -890,12 +968,12 @@ def save_summaries(summaries):
             VALUES (
                 '{s['scenario_id']}',
                 '{s['contract_id']}',
-                '{s['scenario_name']}',
+                '{escaped_name}',
                 {s['discount_pct']},
                 {s['base_commitment']},
                 {s['scenario_commitment']},
-                '{s['contract_start']}',
-                '{s['contract_end']}',
+                {contract_start},
+                {contract_end},
                 {round(s['actual_cumulative'], 2)},
                 {round(s['simulated_cumulative'], 2)},
                 {round(s['cumulative_savings'], 2)},
@@ -921,10 +999,37 @@ log_debug("="*60)
 log_debug("SAVING RESULTS")
 log_debug("="*60)
 
-save_scenarios(all_scenarios)
-save_burndown(all_burndown)
-save_forecasts(all_forecasts)
-save_summaries(all_summaries)
+try:
+    save_scenarios(all_scenarios)
+except Exception as e:
+    log_debug(f"ERROR in save_scenarios: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
+
+try:
+    save_burndown(all_burndown)
+except Exception as e:
+    log_debug(f"ERROR in save_burndown: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
+
+try:
+    save_forecasts(all_forecasts)
+except Exception as e:
+    log_debug(f"ERROR in save_forecasts: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
+
+try:
+    save_summaries(all_summaries)
+except Exception as e:
+    log_debug(f"ERROR in save_summaries: {str(e)}")
+    log_debug(f"Stack trace: {traceback.format_exc()}")
+    save_debug_log()
+    raise
 
 log_debug("="*60)
 log_debug("WHAT-IF SIMULATION COMPLETE")
@@ -1019,6 +1124,10 @@ result = {
     "forecast_records": len(all_forecasts),
     "status": "SUCCESS"
 }
+
+log_debug(f"Result: {result}")
+log_debug("=== WHAT-IF SIMULATOR COMPLETED SUCCESSFULLY ===")
+save_debug_log()
 
 print(f"\nResult: {result}")
 dbutils.notebook.exit(str(result))
