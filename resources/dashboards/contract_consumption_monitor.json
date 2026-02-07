@@ -18,14 +18,14 @@
       "name": "ds_combined_burndown",
       "displayName": "Combined Burndown",
       "queryLines": [
-        "SELECT usage_date, SUM(cumulative_cost) as total_actual, SUM(projected_linear_burn) as total_ideal, SUM(commitment) as total_commitment FROM main.account_monitoring_dev.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY usage_date ORDER BY usage_date"
+        "WITH daily_data AS (SELECT usage_date, SUM(cumulative_cost) as total_actual, SUM(commitment) as total_commitment FROM main.account_monitoring_dev.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY usage_date), actuals AS (SELECT usage_date as date, total_actual as value, 'Actual Consumption' as series_type FROM daily_data), commitment AS (SELECT usage_date as date, total_commitment as value, 'Contract Commitment' as series_type FROM daily_data) SELECT * FROM actuals UNION ALL SELECT * FROM commitment ORDER BY date, series_type"
       ]
     },
     {
       "name": "ds_contract_burndown",
       "displayName": "Contract Burndown",
       "queryLines": [
-        "SELECT contract_id, CONCAT(contract_id, ' (USD ', FORMAT_NUMBER(commitment, 0), ')') as contract_label, usage_date, ROUND(cumulative_cost, 2) as actual_consumption, ROUND(projected_linear_burn, 2) as ideal_consumption, ROUND(commitment, 2) as contract_value, ROUND(budget_pct_consumed, 1) as pct_consumed FROM main.account_monitoring_dev.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180) ORDER BY contract_id, usage_date"
+        "WITH base_data AS (SELECT contract_id, usage_date, ROUND(cumulative_cost, 2) as actual_consumption, ROUND(commitment, 2) as contract_value FROM main.account_monitoring_dev.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)), actuals AS (SELECT contract_id, usage_date as date, actual_consumption as value, CONCAT(contract_id, ' - Actual') as series_type FROM base_data), commitment AS (SELECT contract_id, usage_date as date, contract_value as value, CONCAT(contract_id, ' - Commitment') as series_type FROM base_data) SELECT * FROM actuals UNION ALL SELECT * FROM commitment ORDER BY contract_id, date, series_type"
       ]
     },
     {
@@ -337,20 +337,16 @@
                   "datasetName": "ds_combined_burndown",
                   "fields": [
                     {
-                      "name": "usage_date",
-                      "expression": "`usage_date`"
+                      "name": "date",
+                      "expression": "`date`"
                     },
                     {
-                      "name": "total_actual",
-                      "expression": "`total_actual`"
+                      "name": "value",
+                      "expression": "`value`"
                     },
                     {
-                      "name": "total_ideal",
-                      "expression": "`total_ideal`"
-                    },
-                    {
-                      "name": "total_commitment",
-                      "expression": "`total_commitment`"
+                      "name": "series_type",
+                      "expression": "`series_type`"
                     }
                   ],
                   "disaggregated": true
@@ -362,18 +358,35 @@
               "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "usage_date",
+                  "fieldName": "date",
                   "scale": {
                     "type": "temporal"
                   },
                   "displayName": "Date"
                 },
                 "y": {
-                  "fieldName": "total_actual",
+                  "fieldName": "value",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Total Consumption (USD)"
+                  "displayName": "Total (USD)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Actual Consumption",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "Contract Commitment",
+                        "color": "#00008B"
+                      }
+                    ]
+                  },
+                  "displayName": "Series"
                 }
               },
               "frame": {
@@ -468,16 +481,16 @@
                   "datasetName": "ds_contract_burndown",
                   "fields": [
                     {
-                      "name": "usage_date",
-                      "expression": "`usage_date`"
+                      "name": "date",
+                      "expression": "`date`"
                     },
                     {
-                      "name": "actual_consumption",
-                      "expression": "`actual_consumption`"
+                      "name": "value",
+                      "expression": "`value`"
                     },
                     {
-                      "name": "contract_label",
-                      "expression": "`contract_label`"
+                      "name": "series_type",
+                      "expression": "`series_type`"
                     }
                   ],
                   "disaggregated": true
@@ -489,30 +502,30 @@
               "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "usage_date",
+                  "fieldName": "date",
                   "scale": {
                     "type": "temporal"
                   },
                   "displayName": "Date"
                 },
                 "y": {
-                  "fieldName": "actual_consumption",
+                  "fieldName": "value",
                   "scale": {
                     "type": "quantitative"
                   },
                   "displayName": "Cumulative Cost (USD)"
                 },
                 "color": {
-                  "fieldName": "contract_label",
+                  "fieldName": "series_type",
                   "scale": {
                     "type": "categorical"
                   },
-                  "displayName": "Contract"
+                  "displayName": "Series"
                 }
               },
               "frame": {
                 "showTitle": true,
-                "title": "Contract Burndown - Actual Consumption Over Time"
+                "title": "Contract Burndown - Actual vs Commitment"
               }
             }
           },
