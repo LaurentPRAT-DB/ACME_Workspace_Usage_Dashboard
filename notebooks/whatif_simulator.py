@@ -750,35 +750,52 @@ log_debug(f"Total summaries: {len(all_summaries)}")
 # COMMAND ----------
 
 # Sweet spot detection
+# Strategy: Commit contract amount is a sunk cost - you pay it regardless.
+# Optimal strategy = maximize discount while ensuring 100% utilization (full burn)
+# Any unutilized commitment at contract end is LOST money.
 log_debug("Detecting sweet spot scenarios...")
 
 for contract_id in contracts_df['contract_id'].unique():
     contract_summaries = [s for s in all_summaries if s['contract_id'] == contract_id]
+    current_scenarios = [s for s in contract_summaries if not s.get('is_longer_duration_scenario', False)]
 
-    # Filter for viable scenarios:
-    # - Must have utilization >= threshold OR be baseline
-    # - Must NOT be a "longer duration" scenario (those are hypothetical)
-    viable = [
-        s for s in contract_summaries
-        if (s['utilization_pct'] >= SWEET_SPOT_MIN_UTILIZATION or s['discount_pct'] == 0)
-        and not s.get('is_longer_duration_scenario', False)
+    # Filter for scenarios that WILL EXHAUST the contract by end date
+    # EARLY_EXHAUSTION = exhausts before end (good - can renew with new discount)
+    # ON_TRACK = exhausts around end date (good - full utilization)
+    # EXTENDED = won't exhaust by end (bad - money lost)
+    will_exhaust = [
+        s for s in current_scenarios
+        if s['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']
     ]
 
-    if viable:
-        # Find max savings among viable scenarios
-        best = max(viable, key=lambda x: x['cumulative_savings'])
+    if will_exhaust:
+        # Among scenarios that exhaust, pick the HIGHEST DISCOUNT
+        # (not highest savings - we want max discount that still exhausts)
+        best = max(will_exhaust, key=lambda x: x['discount_pct'])
+        log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
+        log_debug(f"    Will exhaust by contract end with {best['exhaustion_status']}")
+    else:
+        # NO scenario exhausts the contract - UNDER-CONSUMPTION RISK
+        # All discount scenarios result in money lost at contract end
+        # Recommend baseline (0%) as lowest loss, but warn user
+        best = next((s for s in current_scenarios if s['discount_pct'] == 0), current_scenarios[0] if current_scenarios else None)
+        if best:
+            log_debug(f"  Contract {contract_id}: WARNING - Under-consumption risk!")
+            log_debug(f"    No discount scenario will exhaust contract by end date")
+            log_debug(f"    Recommending baseline (0%) to minimize loss")
+            log_debug(f"    Consider: increase consumption, reduce commitment, or extend duration")
 
-        # Mark as sweet spot
+    # Mark as sweet spot
+    if best:
         for summary in all_summaries:
             if summary['scenario_id'] == best['scenario_id']:
                 summary['is_sweet_spot'] = True
-                log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
                 break
 
-    # Also log what could be achieved with longer duration
+    # Log what could be achieved with longer duration
     longer_scenarios = [s for s in contract_summaries if s.get('is_longer_duration_scenario', False)]
     for ls in longer_scenarios:
-        potential_extra = ls['cumulative_savings'] - (best['cumulative_savings'] if viable else 0)
+        potential_extra = ls['cumulative_savings'] - (best['cumulative_savings'] if best else 0)
         log_debug(f"    Potential with {ls.get('potential_duration_years')}yr: +${potential_extra:,.0f} more savings")
 
 # Also update scenarios with is_recommended flag
