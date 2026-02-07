@@ -93,6 +93,7 @@ sync:
     - "sql/create_whatif_schema.sql"
     - "sql/populate_discount_tiers.sql"
     - "sql/refresh_whatif_scenarios.sql"
+    - "sql/cleanup_schema.sql"
     # Config files read by notebooks
     - "config/contracts.yml"
     - "config/discount_tiers.yml"

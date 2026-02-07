@@ -762,6 +762,53 @@ databricks runs get --run-id <RUN_ID> --profile YOUR_PROFILE
 
 ---
 
+## Cleanup / Start Fresh
+
+To completely reset and start from scratch, you have several options:
+
+### Option 1: Drop Data Only (Keep Jobs & Dashboard)
+
+Run the cleanup job to drop all tables and views while keeping the deployed resources:
+
+```bash
+databricks bundle run account_monitor_cleanup --profile YOUR_PROFILE
+```
+
+Then re-run the first install to recreate everything:
+
+```bash
+databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
+```
+
+### Option 2: Full Reset (Remove Everything)
+
+To completely remove all deployed resources AND data:
+
+```bash
+# Step 1: Drop all tables and views
+databricks bundle run account_monitor_cleanup --profile YOUR_PROFILE
+
+# Step 2: Destroy all DAB-managed resources (jobs, dashboard, workspace files)
+databricks bundle destroy --auto-approve --profile YOUR_PROFILE
+```
+
+To redeploy after a full reset:
+
+```bash
+databricks bundle deploy --profile YOUR_PROFILE
+databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
+```
+
+### What Gets Removed
+
+| Command | Tables | Views | Jobs | Dashboard | Notebooks |
+|---------|--------|-------|------|-----------|-----------|
+| `account_monitor_cleanup` | Yes | Yes | No | No | No |
+| `bundle destroy` | No | No | Yes | Yes | Yes |
+| Both commands | Yes | Yes | Yes | Yes | Yes |
+
+---
+
 ## File Structure
 
 ```mermaid
@@ -821,6 +868,7 @@ databricks_conso_reports/
 │   ├── create_whatif_schema.sql       # What-If simulation tables
 │   ├── populate_discount_tiers.sql    # Default discount tier config
 │   ├── refresh_whatif_scenarios.sql   # Refresh scenario calculations
+│   ├── cleanup_schema.sql             # Drop all tables/views (reset)
 │   └── validate_first_install.sql     # Installation validation
 ├── resources/
 │   └── jobs.yml                       # Job definitions (includes first_install)

@@ -442,3 +442,29 @@ resources:
         environment: ${bundle.target}
         schedule: weekly
         ml: forecasting
+
+    # ==========================================================================
+    # CLEANUP JOB - Run this to wipe all data and start fresh
+    # ==========================================================================
+    account_monitor_cleanup:
+      name: "[${bundle.target}] Account Monitor - Cleanup"
+      description: "Drop all tables and views to start from scratch. WARNING: Deletes all data!"
+
+      tasks:
+        - task_key: cleanup_schema
+          description: "Drop all Account Monitor tables and views"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/cleanup_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      # No schedule - manual run only
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        type: cleanup
