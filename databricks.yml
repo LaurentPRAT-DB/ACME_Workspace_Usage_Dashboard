@@ -34,11 +34,18 @@ variables:
     description: Path to discount tiers configuration file
     default: "config/discount_tiers.yml"
 
+  state_suffix:
+    description: Suffix for state path to avoid lineage conflicts (e.g., profile name or machine name)
+    default: "default"
+
 # Include configuration files
 include:
   - resources/*.yml
 
 # Deployment targets
+# Note: state_path uses state_suffix variable to avoid lineage conflicts across machines
+# Override state_suffix when deploying from different machines:
+#   databricks bundle deploy --var state_suffix=my_laptop
 targets:
   # Development environment
   dev:
@@ -46,6 +53,7 @@ targets:
     default: true
     workspace:
       root_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor
+      state_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor/.bundle/dev/state_${var.state_suffix}
     variables:
       catalog: main
       schema: account_monitoring_dev
@@ -55,6 +63,7 @@ targets:
     mode: production
     workspace:
       root_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor
+      state_path: /Workspace/Users/${workspace.current_user.userName}/account_monitor/.bundle/prod/state_${var.state_suffix}
     variables:
       catalog: main
       schema: account_monitoring
