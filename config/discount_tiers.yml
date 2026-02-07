@@ -1,0 +1,169 @@
+# Discount Tier Configuration
+# Defines the discount rates available for different commitment levels and durations
+#
+# Usage:
+# - Edit this file to customize discount tiers for your organization
+# - Run the setup job to load the tiers into the database
+#
+# Fields:
+# - tier_id: Unique identifier for the tier (required)
+# - tier_name: Human-readable name (required)
+# - min_commitment: Minimum contract value for this tier (required)
+# - max_commitment: Maximum contract value (null = unlimited)
+# - duration_years: Contract duration in years (1, 2, or 3)
+# - discount_rate: Discount as decimal (0.15 = 15%)
+# - cloud_provider: Restrict to specific cloud (null = all)
+# - effective_date: When this tier becomes active (null = immediately)
+# - expiration_date: When this tier expires (null = never)
+# - notes: Optional description
+
+discount_tiers:
+  # Entry Tier: $50K - $100K
+  - tier_id: "TIER_50K_1Y"
+    tier_name: "Entry - 1 Year"
+    min_commitment: 50000
+    max_commitment: 99999
+    duration_years: 1
+    discount_rate: 0.05
+    notes: "Entry level commit, 1 year term"
+
+  - tier_id: "TIER_50K_2Y"
+    tier_name: "Entry - 2 Year"
+    min_commitment: 50000
+    max_commitment: 99999
+    duration_years: 2
+    discount_rate: 0.08
+    notes: "Entry level commit, 2 year term"
+
+  - tier_id: "TIER_50K_3Y"
+    tier_name: "Entry - 3 Year"
+    min_commitment: 50000
+    max_commitment: 99999
+    duration_years: 3
+    discount_rate: 0.10
+    notes: "Entry level commit, 3 year term"
+
+  # Standard Tier: $100K - $250K
+  - tier_id: "TIER_100K_1Y"
+    tier_name: "Standard - 1 Year"
+    min_commitment: 100000
+    max_commitment: 249999
+    duration_years: 1
+    discount_rate: 0.10
+    notes: "Standard commit, 1 year term"
+
+  - tier_id: "TIER_100K_2Y"
+    tier_name: "Standard - 2 Year"
+    min_commitment: 100000
+    max_commitment: 249999
+    duration_years: 2
+    discount_rate: 0.15
+    notes: "Standard commit, 2 year term"
+
+  - tier_id: "TIER_100K_3Y"
+    tier_name: "Standard - 3 Year"
+    min_commitment: 100000
+    max_commitment: 249999
+    duration_years: 3
+    discount_rate: 0.18
+    notes: "Standard commit, 3 year term"
+
+  # Growth Tier: $250K - $500K
+  - tier_id: "TIER_250K_1Y"
+    tier_name: "Growth - 1 Year"
+    min_commitment: 250000
+    max_commitment: 499999
+    duration_years: 1
+    discount_rate: 0.15
+    notes: "Growth commit, 1 year term"
+
+  - tier_id: "TIER_250K_2Y"
+    tier_name: "Growth - 2 Year"
+    min_commitment: 250000
+    max_commitment: 499999
+    duration_years: 2
+    discount_rate: 0.20
+    notes: "Growth commit, 2 year term"
+
+  - tier_id: "TIER_250K_3Y"
+    tier_name: "Growth - 3 Year"
+    min_commitment: 250000
+    max_commitment: 499999
+    duration_years: 3
+    discount_rate: 0.25
+    notes: "Growth commit, 3 year term"
+
+  # Scale Tier: $500K - $1M
+  - tier_id: "TIER_500K_1Y"
+    tier_name: "Scale - 1 Year"
+    min_commitment: 500000
+    max_commitment: 999999
+    duration_years: 1
+    discount_rate: 0.20
+    notes: "Scale commit, 1 year term"
+
+  - tier_id: "TIER_500K_2Y"
+    tier_name: "Scale - 2 Year"
+    min_commitment: 500000
+    max_commitment: 999999
+    duration_years: 2
+    discount_rate: 0.25
+    notes: "Scale commit, 2 year term"
+
+  - tier_id: "TIER_500K_3Y"
+    tier_name: "Scale - 3 Year"
+    min_commitment: 500000
+    max_commitment: 999999
+    duration_years: 3
+    discount_rate: 0.30
+    notes: "Scale commit, 3 year term"
+
+  # Enterprise Tier: $1M - $5M
+  - tier_id: "TIER_1M_1Y"
+    tier_name: "Enterprise - 1 Year"
+    min_commitment: 1000000
+    max_commitment: 4999999
+    duration_years: 1
+    discount_rate: 0.25
+    notes: "Enterprise commit, 1 year term"
+
+  - tier_id: "TIER_1M_2Y"
+    tier_name: "Enterprise - 2 Year"
+    min_commitment: 1000000
+    max_commitment: 4999999
+    duration_years: 2
+    discount_rate: 0.30
+    notes: "Enterprise commit, 2 year term"
+
+  - tier_id: "TIER_1M_3Y"
+    tier_name: "Enterprise - 3 Year"
+    min_commitment: 1000000
+    max_commitment: 4999999
+    duration_years: 3
+    discount_rate: 0.35
+    notes: "Enterprise commit, 3 year term"
+
+  # Strategic Tier: $5M+
+  - tier_id: "TIER_5M_1Y"
+    tier_name: "Strategic - 1 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 1
+    discount_rate: 0.30
+    notes: "Strategic commit, 1 year term"
+
+  - tier_id: "TIER_5M_2Y"
+    tier_name: "Strategic - 2 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 2
+    discount_rate: 0.35
+    notes: "Strategic commit, 2 year term"
+
+  - tier_id: "TIER_5M_3Y"
+    tier_name: "Strategic - 3 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 3
+    discount_rate: 0.40
+    notes: "Strategic commit, 3 year term"

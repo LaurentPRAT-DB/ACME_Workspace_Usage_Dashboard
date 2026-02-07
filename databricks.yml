@@ -30,6 +30,10 @@ variables:
     description: Comma-separated list of contract config files to load
     default: "config/contracts.yml"
 
+  discount_tiers_file:
+    description: Path to discount tiers configuration file
+    default: "config/discount_tiers.yml"
+
 # Include configuration files
 include:
   - resources/*.yml
@@ -91,6 +95,7 @@ sync:
     - "sql/refresh_whatif_scenarios.sql"
     # Config files read by notebooks
     - "config/contracts.yml"
+    - "config/discount_tiers.yml"
 
   # Exclude these patterns
   exclude:

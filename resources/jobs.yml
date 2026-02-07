@@ -46,27 +46,16 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
 
-        - task_key: populate_discount_tiers
-          description: "Populate default discount tiers"
+        # Phase 2: Load Configuration (Contracts + Discount Tiers)
+        - task_key: load_contract_config
+          description: "Load contracts and discount tiers from config files"
           depends_on:
             - task_key: create_whatif_schema
-          sql_task:
-            warehouse_id: ${var.warehouse_id}
-            file:
-              path: ../sql/populate_discount_tiers.sql
-            parameters:
-              catalog: ${var.catalog}
-              schema: ${var.schema}
-
-        # Phase 2: Load Contract Configuration
-        - task_key: load_contract_config
-          description: "Load contracts from config files"
-          depends_on:
-            - task_key: populate_discount_tiers
           notebook_task:
             notebook_path: ../notebooks/setup_contracts.py
             base_parameters:
               config_files: ${var.config_files}
+              discount_tiers_file: ${var.discount_tiers_file}
             source: WORKSPACE
 
         # Phase 3: Populate Data from System Tables

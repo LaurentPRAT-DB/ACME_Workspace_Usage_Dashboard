@@ -1,16 +1,17 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Contract Setup from Configuration
+# MAGIC # Contract & Discount Tier Setup from Configuration
 # MAGIC
-# MAGIC This notebook loads contract data from YAML configuration files and inserts it into the database.
+# MAGIC This notebook loads contract data and discount tiers from YAML configuration files.
 # MAGIC
 # MAGIC **Usage:**
 # MAGIC - Edit `config/contracts.yml` to define your contracts
+# MAGIC - Edit `config/discount_tiers.yml` to customize discount rates
 # MAGIC - Run this notebook (or the setup job) to load the data
 # MAGIC
 # MAGIC **Parameters:**
-# MAGIC - `config_files`: Comma-separated list of config files to load (default: `config/contracts.yml`)
-# MAGIC - Example: `config/contracts.yml,config/contracts_customer_b.yml`
+# MAGIC - `config_files`: Comma-separated list of contract config files (default: `config/contracts.yml`)
+# MAGIC - `discount_tiers_file`: Path to discount tiers config (default: `config/discount_tiers.yml`)
 
 # COMMAND ----------
 
@@ -25,16 +26,19 @@ from pyspark.sql import functions as F
 
 # Get parameters with defaults
 dbutils.widgets.text("config_files", "config/contracts.yml", "Config Files (comma-separated)")
+dbutils.widgets.text("discount_tiers_file", "config/discount_tiers.yml", "Discount Tiers Config")
 
 # Configuration
 CATALOG = "main"
 SCHEMA = "account_monitoring_dev"
 CONFIG_FILES = dbutils.widgets.get("config_files").split(",")
 CONFIG_FILES = [f.strip() for f in CONFIG_FILES if f.strip()]  # Clean up whitespace
+DISCOUNT_TIERS_FILE = dbutils.widgets.get("discount_tiers_file").strip()
 
-print(f"Contract Setup v2.0")
+print(f"Contract & Discount Tier Setup v3.0")
 print(f"Target: {CATALOG}.{SCHEMA}")
-print(f"Config files to process: {CONFIG_FILES}")
+print(f"Contract config files: {CONFIG_FILES}")
+print(f"Discount tiers file: {DISCOUNT_TIERS_FILE}")
 
 # COMMAND ----------
 
@@ -299,7 +303,93 @@ for contract in contracts:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 6. Verify Data
+# MAGIC ## 6. Load Discount Tiers
+
+# COMMAND ----------
+
+def get_default_discount_tiers():
+    """Return default discount tiers when no config file is found."""
+    return {
+        "discount_tiers": [
+            {"tier_id": "DEFAULT_1Y", "tier_name": "Default - 1 Year", "min_commitment": 0, "max_commitment": None, "duration_years": 1, "discount_rate": 0.05, "notes": "Default tier"},
+            {"tier_id": "DEFAULT_2Y", "tier_name": "Default - 2 Year", "min_commitment": 0, "max_commitment": None, "duration_years": 2, "discount_rate": 0.10, "notes": "Default tier"},
+            {"tier_id": "DEFAULT_3Y", "tier_name": "Default - 3 Year", "min_commitment": 0, "max_commitment": None, "duration_years": 3, "discount_rate": 0.15, "notes": "Default tier"},
+        ]
+    }
+
+# Load discount tiers configuration
+print(f"\nLoading discount tiers from: {DISCOUNT_TIERS_FILE}")
+try:
+    discount_config = load_config(DISCOUNT_TIERS_FILE)
+except Exception as e:
+    print(f"  ✗ Could not load discount tiers config: {e}")
+    print("  Using default discount tiers...")
+    discount_config = get_default_discount_tiers()
+
+discount_tiers = discount_config.get('discount_tiers', [])
+print(f"  Found {len(discount_tiers)} discount tier(s)")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 7. Insert Discount Tiers
+
+# COMMAND ----------
+
+# Clear existing tiers that were loaded from config (keep manually added ones)
+spark.sql(f"""
+    DELETE FROM {CATALOG}.{SCHEMA}.discount_tiers
+    WHERE tier_id LIKE 'TIER_%' OR tier_id LIKE 'DEFAULT_%'
+""")
+print(f"Cleared existing config-based discount tiers")
+
+print(f"\nProcessing {len(discount_tiers)} discount tier(s)...")
+
+for tier in discount_tiers:
+    tier_id = tier.get('tier_id')
+    tier_name = tier.get('tier_name', '').replace("'", "''")
+    min_commitment = tier.get('min_commitment', 0)
+    max_commitment = tier.get('max_commitment')
+    duration_years = tier.get('duration_years', 1)
+    discount_rate = tier.get('discount_rate', 0.05)
+    cloud_provider = tier.get('cloud_provider')
+    effective_date = tier.get('effective_date', '2024-01-01')
+    expiration_date = tier.get('expiration_date')
+    notes = tier.get('notes', '').replace("'", "''") if tier.get('notes') else ''
+
+    # Handle NULL values for SQL
+    max_commitment_sql = 'NULL' if max_commitment is None else str(max_commitment)
+    cloud_provider_sql = 'NULL' if cloud_provider is None else f"'{cloud_provider}'"
+    effective_date_sql = 'NULL' if effective_date is None else f"'{effective_date}'"
+    expiration_date_sql = 'NULL' if expiration_date is None else f"'{expiration_date}'"
+
+    insert_sql = f"""
+    INSERT INTO {CATALOG}.{SCHEMA}.discount_tiers
+    (tier_id, tier_name, min_commitment, max_commitment, duration_years,
+     discount_rate, cloud_provider, effective_date, expiration_date, notes, created_at)
+    VALUES (
+        '{tier_id}',
+        '{tier_name}',
+        {min_commitment},
+        {max_commitment_sql},
+        {duration_years},
+        {discount_rate},
+        {cloud_provider_sql},
+        {effective_date_sql},
+        {expiration_date_sql},
+        '{notes}',
+        CURRENT_TIMESTAMP()
+    )
+    """
+
+    spark.sql(insert_sql)
+    discount_pct = int(discount_rate * 100)
+    print(f"✓ Tier {tier_id}: {discount_pct}% for ${min_commitment:,.0f}+ / {duration_years}yr")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 8. Verify Data
 
 # COMMAND ----------
 
@@ -315,11 +405,26 @@ display(spark.sql(f"SELECT * FROM {CATALOG}.{SCHEMA}.account_metadata"))
 print("\n📄 Contracts:")
 display(spark.sql(f"SELECT contract_id, cloud_provider, start_date, end_date, total_value, status, notes FROM {CATALOG}.{SCHEMA}.contracts ORDER BY contract_id"))
 
+# Show discount tiers
+print("\n💰 Discount Tiers:")
+display(spark.sql(f"""
+    SELECT
+        tier_name,
+        CONCAT('$', FORMAT_NUMBER(min_commitment, 0), ' - ',
+               COALESCE(CONCAT('$', FORMAT_NUMBER(max_commitment, 0)), 'Unlimited')) as commitment_range,
+        duration_years as years,
+        CONCAT(CAST(discount_rate * 100 AS INT), '%') as discount
+    FROM {CATALOG}.{SCHEMA}.discount_tiers
+    ORDER BY min_commitment, duration_years
+"""))
+
 # Summary
 account_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.account_metadata").collect()[0]['cnt']
 contract_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.contracts").collect()[0]['cnt']
+tier_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.discount_tiers").collect()[0]['cnt']
 
 print(f"\n✅ Summary:")
 print(f"   Accounts: {account_count}")
 print(f"   Contracts: {contract_count}")
+print(f"   Discount Tiers: {tier_count}")
 print("=" * 60)

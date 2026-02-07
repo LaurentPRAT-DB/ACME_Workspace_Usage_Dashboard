@@ -564,17 +564,50 @@ Default discount tiers are based on commitment level and contract duration:
 
 **Customizing Tiers:**
 
-Edit or replace the discount tiers in `sql/populate_discount_tiers.sql`:
+Edit `config/discount_tiers.yml` to customize discount rates for your organization:
 
-```sql
--- Example: Add a custom tier for your organization
-INSERT INTO main.account_monitoring_dev.discount_tiers
-  (tier_id, tier_name, min_commitment, max_commitment, duration_years, discount_rate, notes, effective_date)
-VALUES
-  ('CUSTOM_1Y', 'Custom - 1 Year', 150000, 200000, 1, 0.12, 'Negotiated rate', '2026-01-01');
+```yaml
+# config/discount_tiers.yml
+discount_tiers:
+  # Custom tier example
+  - tier_id: "CUSTOM_150K_1Y"
+    tier_name: "Custom - 1 Year"
+    min_commitment: 150000
+    max_commitment: 200000
+    duration_years: 1
+    discount_rate: 0.12          # 12% discount
+    notes: "Negotiated rate for strategic accounts"
+
+  # Add more tiers as needed...
+  - tier_id: "CUSTOM_150K_2Y"
+    tier_name: "Custom - 2 Year"
+    min_commitment: 150000
+    max_commitment: 200000
+    duration_years: 2
+    discount_rate: 0.18
+    notes: "2-year commitment bonus"
 ```
 
-Then redeploy and rerun the setup job.
+**Tier Fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `tier_id` | Yes | Unique identifier (e.g., "TIER_100K_2Y") |
+| `tier_name` | Yes | Human-readable name |
+| `min_commitment` | Yes | Minimum contract value for this tier |
+| `max_commitment` | No | Maximum contract value (null = unlimited) |
+| `duration_years` | Yes | Contract duration (1, 2, or 3) |
+| `discount_rate` | Yes | Discount as decimal (0.15 = 15%) |
+| `cloud_provider` | No | Restrict to specific cloud (null = all) |
+| `effective_date` | No | When tier becomes active |
+| `expiration_date` | No | When tier expires |
+| `notes` | No | Optional description |
+
+After editing, redeploy and rerun the setup job:
+
+```bash
+databricks bundle deploy --profile YOUR_PROFILE
+databricks bundle run account_monitor_setup --profile YOUR_PROFILE
+```
 
 ### Example What-If Results
 
@@ -740,6 +773,7 @@ flowchart LR
 
     subgraph configdir["📝 config/"]
         contracts["contracts.yml"]
+        tiers["discount_tiers.yml"]
     end
 
     subgraph notebooks["📓 notebooks/"]
@@ -770,7 +804,8 @@ databricks_conso_reports/
 ├── databricks.yml              # Bundle configuration
 ├── README.md                   # This file
 ├── config/
-│   └── contracts.yml           # 📝 YOUR CONTRACT CONFIGURATION
+│   ├── contracts.yml           # 📝 YOUR CONTRACT CONFIGURATION
+│   └── discount_tiers.yml      # 💰 DISCOUNT TIER CONFIGURATION
 ├── notebooks/
 │   ├── account_monitor_notebook.py    # Main dashboard
 │   ├── contract_management_crud.py    # CRUD operations
