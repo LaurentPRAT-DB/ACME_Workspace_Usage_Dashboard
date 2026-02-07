@@ -750,53 +750,84 @@ log_debug(f"Total summaries: {len(all_summaries)}")
 # COMMAND ----------
 
 # Sweet spot detection
-# Strategy: Commit contract amount is a sunk cost - you pay it regardless.
-# Optimal strategy = maximize discount while ensuring 100% utilization (full burn)
-# Any unutilized commitment at contract end is LOST money.
+# Strategy Principles:
+# 1. Commit contract is a sunk cost - you pay it regardless
+# 2. Any unutilized commitment at contract end is LOST money
+# 3. EARLY_EXHAUSTION = missed opportunity - longer contract would give more discount
+# 4. 3-year contracts are safer: more discount + less risk of overpaying
+# 5. Fast consumers (30%+ in year 1) should definitely get longer contracts
 log_debug("Detecting sweet spot scenarios...")
 
 for contract_id in contracts_df['contract_id'].unique():
     contract_summaries = [s for s in all_summaries if s['contract_id'] == contract_id]
     current_scenarios = [s for s in contract_summaries if not s.get('is_longer_duration_scenario', False)]
+    longer_scenarios = [s for s in contract_summaries if s.get('is_longer_duration_scenario', False)]
 
-    # Filter for scenarios that WILL EXHAUST the contract by end date
-    # EARLY_EXHAUSTION = exhausts before end (good - can renew with new discount)
-    # ON_TRACK = exhausts around end date (good - full utilization)
-    # EXTENDED = won't exhaust by end (bad - money lost)
-    will_exhaust = [
-        s for s in current_scenarios
-        if s['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']
-    ]
+    # Get contract duration
+    contract_duration = current_scenarios[0].get('contract_duration_years', 1) if current_scenarios else 1
 
-    if will_exhaust:
-        # Among scenarios that exhaust, pick the HIGHEST DISCOUNT
-        # (not highest savings - we want max discount that still exhausts)
-        best = max(will_exhaust, key=lambda x: x['discount_pct'])
+    # Categorize scenarios by exhaustion status
+    early_exhaust = [s for s in current_scenarios if s['exhaustion_status'] == 'EARLY_EXHAUSTION']
+    on_track = [s for s in current_scenarios if s['exhaustion_status'] == 'ON_TRACK']
+    extended = [s for s in current_scenarios if s['exhaustion_status'] == 'EXTENDED']
+
+    best = None
+    strategy_note = ""
+
+    # Decision logic based on exhaustion patterns
+    if on_track:
+        # ON_TRACK is optimal - contract is well-sized for consumption
+        best = max(on_track, key=lambda x: x['discount_pct'])
+        strategy_note = "OPTIMAL - Contract well-sized, max discount with full burn"
         log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
-        log_debug(f"    Will exhaust by contract end with {best['exhaustion_status']}")
-    else:
-        # NO scenario exhausts the contract - UNDER-CONSUMPTION RISK
-        # All discount scenarios result in money lost at contract end
-        # Recommend baseline (0%) as lowest loss, but warn user
+        log_debug(f"    {strategy_note}")
+
+    elif early_exhaust:
+        # EARLY_EXHAUSTION - will burn but could get better discount with longer contract
+        best = max(early_exhaust, key=lambda x: x['discount_pct'])
+
+        if contract_duration < 3:
+            # Not at max duration - recommend longer contract
+            strategy_note = f"SUBOPTIMAL - Exhausts early, consider longer duration for more discount"
+            log_debug(f"  Contract {contract_id}: Current best = {best['scenario_name']} ({best['discount_pct']}%)")
+            log_debug(f"    WARNING: {strategy_note}")
+            log_debug(f"    Current duration: {contract_duration}yr - Contract will exhaust before end")
+
+            # Show what longer duration would yield
+            for ls in longer_scenarios:
+                extra_discount = ls['discount_pct'] - best['discount_pct']
+                potential_duration = ls.get('potential_duration_years', contract_duration + 1)
+                if extra_discount > 0:
+                    log_debug(f"    RECOMMEND: {potential_duration}yr contract → {ls['discount_pct']}% discount (+{extra_discount}% more)")
+        else:
+            # Already at 3yr max duration - this is the best we can do
+            strategy_note = "GOOD - Max duration (3yr), will exhaust with best available discount"
+            log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
+            log_debug(f"    {strategy_note}")
+
+    elif extended:
+        # EXTENDED - won't exhaust, money will be lost
         best = next((s for s in current_scenarios if s['discount_pct'] == 0), current_scenarios[0] if current_scenarios else None)
-        if best:
-            log_debug(f"  Contract {contract_id}: WARNING - Under-consumption risk!")
-            log_debug(f"    No discount scenario will exhaust contract by end date")
-            log_debug(f"    Recommending baseline (0%) to minimize loss")
-            log_debug(f"    Consider: increase consumption, reduce commitment, or extend duration")
+        strategy_note = "RISK - Under-consumption, commitment will not be fully utilized"
+        log_debug(f"  Contract {contract_id}: WARNING - Under-consumption risk!")
+        log_debug(f"    No discount scenario will exhaust contract by end date")
+        log_debug(f"    Money will be LOST at contract termination")
+        log_debug(f"    Consider: increase consumption OR reduce commitment amount")
+
+        # Check if longer duration helps (more time to consume)
+        longer_that_exhaust = [ls for ls in longer_scenarios if ls['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']]
+        if longer_that_exhaust:
+            best_longer = max(longer_that_exhaust, key=lambda x: x['discount_pct'])
+            log_debug(f"    ALTERNATIVE: Extend to {best_longer.get('potential_duration_years')}yr to allow full consumption")
 
     # Mark as sweet spot
     if best:
         for summary in all_summaries:
             if summary['scenario_id'] == best['scenario_id']:
                 summary['is_sweet_spot'] = True
+                # Store the strategy note for dashboard display
+                summary['strategy_recommendation'] = strategy_note
                 break
-
-    # Log what could be achieved with longer duration
-    longer_scenarios = [s for s in contract_summaries if s.get('is_longer_duration_scenario', False)]
-    for ls in longer_scenarios:
-        potential_extra = ls['cumulative_savings'] - (best['cumulative_savings'] if best else 0)
-        log_debug(f"    Potential with {ls.get('potential_duration_years')}yr: +${potential_extra:,.0f} more savings")
 
 # Also update scenarios with is_recommended flag
 for scenario in all_scenarios:
