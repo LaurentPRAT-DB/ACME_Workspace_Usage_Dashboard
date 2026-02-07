@@ -84,6 +84,7 @@ sync:
     # What-If simulation SQL files
     - "sql/create_whatif_schema.sql"
     - "sql/populate_discount_tiers.sql"
+    - "sql/refresh_whatif_scenarios.sql"
     # Config files read by notebooks
     - "config/contracts.yml"
 
