@@ -285,17 +285,15 @@ ON target.scenario_id = source.scenario_id
 WHEN MATCHED THEN UPDATE SET
   is_sweet_spot = TRUE;
 
--- Also update discount_scenarios is_recommended flag
-UPDATE main.account_monitoring_dev.discount_scenarios ds
-SET is_recommended = (
-  SELECT COALESCE(ss.is_sweet_spot, FALSE)
-  FROM main.account_monitoring_dev.scenario_summary ss
-  WHERE ss.scenario_id = ds.scenario_id
-)
-WHERE EXISTS (
-  SELECT 1 FROM main.account_monitoring_dev.scenario_summary ss
-  WHERE ss.scenario_id = ds.scenario_id
-);
+-- Also update discount_scenarios is_recommended flag using MERGE
+MERGE INTO main.account_monitoring_dev.discount_scenarios AS target
+USING (
+  SELECT scenario_id, is_sweet_spot
+  FROM main.account_monitoring_dev.scenario_summary
+) AS source
+ON target.scenario_id = source.scenario_id
+WHEN MATCHED THEN UPDATE SET
+  is_recommended = COALESCE(source.is_sweet_spot, FALSE);
 
 -- ============================================================================
 -- Verification

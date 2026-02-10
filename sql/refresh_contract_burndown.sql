@@ -74,7 +74,8 @@ WITH latest_burndown AS (
     currency,
     MAX(usage_date) as last_usage_date,
     MAX(cumulative_cost) as total_consumed,
-    MAX(remaining_budget) as budget_remaining,
+    -- BUG FIX: remaining_budget decreases over time, so MAX() returns earliest value
+    -- Instead, calculate from commitment - total_consumed
     MAX(days_elapsed) as days_into_contract,
     MAX(total_contract_days) as contract_duration,
     MAX(budget_pct_consumed) as pct_consumed
@@ -88,7 +89,8 @@ SELECT
   end_date,
   commitment,
   total_consumed,
-  budget_remaining,
+  -- Calculate remaining budget correctly: commitment - consumed
+  GREATEST(commitment - total_consumed, 0) as budget_remaining,
   ROUND(total_consumed * 100.0 / commitment, 2) as consumed_pct,
   days_into_contract,
   DATEDIFF(end_date, CURRENT_DATE()) as days_remaining,
