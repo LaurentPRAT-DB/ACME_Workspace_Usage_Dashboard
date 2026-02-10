@@ -4,7 +4,7 @@
       "name": "ds_executive_summary",
       "displayName": "Executive Summary",
       "queryLines": [
-        "SELECT SUM(commitment) as total_contract_value, SUM(total_consumed) as total_consumed, SUM(budget_remaining) as remaining_budget, COUNT(*) as contract_count FROM main.account_monitoring_dev.contract_burndown_summary"
+        "WITH unique_consumption AS (SELECT COALESCE(SUM(actual_cost), 0) as total_unique_consumed FROM main.account_monitoring_dev.dashboard_data), contract_totals AS (SELECT SUM(commitment) as total_contract_value, COUNT(*) as contract_count FROM main.account_monitoring_dev.contract_burndown_summary) SELECT ct.total_contract_value, uc.total_unique_consumed as total_consumed, GREATEST(ct.total_contract_value - uc.total_unique_consumed, 0) as remaining_budget, ct.contract_count FROM contract_totals ct, unique_consumption uc"
       ]
     },
     {
