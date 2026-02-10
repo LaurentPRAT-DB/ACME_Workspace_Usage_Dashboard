@@ -20,7 +20,7 @@ variables:
 
   warehouse_id:
     description: SQL Warehouse ID (serverless or provisioned)
-    default: "58d41113cb262dce"  # Serverless Starter Warehouse
+    default: "4b9b953939869799"  # Shared Unity Catalog Serverless
 
   max_projected_end_date:
     description: Maximum projected end date for contract burndown calculations
