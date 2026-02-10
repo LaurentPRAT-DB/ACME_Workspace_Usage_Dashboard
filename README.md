@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.10.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.11.0-green)](CHANGELOG.md)
 
 ---
 
@@ -762,6 +762,392 @@ databricks runs get --run-id <RUN_ID> --profile YOUR_PROFILE
 
 ---
 
+## Administrator Operations Guide
+
+This section is for administrators responsible for maintaining the Account Monitor system in production.
+
+### System Health Overview
+
+```mermaid
+flowchart TB
+    subgraph monitoring["📊 Health Monitoring"]
+        jobs["Job Status"]
+        data["Data Freshness"]
+        forecast["Forecast Validity"]
+    end
+
+    subgraph daily["⏰ Daily Checks"]
+        d1["Check job runs"]
+        d2["Verify data freshness"]
+        d3["Review anomalies"]
+    end
+
+    subgraph weekly["📅 Weekly Tasks"]
+        w1["Retrain ML model"]
+        w2["Review forecast accuracy"]
+        w3["Update contracts"]
+    end
+
+    subgraph monthly["📆 Monthly Tasks"]
+        m1["Archive old data"]
+        m2["Optimize tables"]
+        m3["Review access"]
+    end
+
+    monitoring --> daily
+    daily --> weekly
+    weekly --> monthly
+```
+
+### Daily Operations Checklist
+
+| Task | Command / Query | Expected Result |
+|------|-----------------|-----------------|
+| Verify daily job ran | `databricks runs list --job-id <job_id> --limit 1` | Completed status |
+| Check data freshness | See query below | ≤ 2 days behind |
+| Review consumption anomalies | Dashboard Executive Summary | No unexpected spikes |
+
+**Data Freshness Check:**
+```sql
+-- Run this daily to verify data pipeline health
+SELECT
+  'contract_burndown' as table_name,
+  MAX(usage_date) as latest_data,
+  DATEDIFF(CURRENT_DATE(), MAX(usage_date)) as days_stale,
+  CASE
+    WHEN DATEDIFF(CURRENT_DATE(), MAX(usage_date)) <= 2 THEN 'OK'
+    WHEN DATEDIFF(CURRENT_DATE(), MAX(usage_date)) <= 5 THEN 'WARNING'
+    ELSE 'CRITICAL'
+  END as status
+FROM main.account_monitoring_dev.contract_burndown
+
+UNION ALL
+
+SELECT
+  'contract_forecast' as table_name,
+  MAX(forecast_date) as latest_data,
+  DATEDIFF(CURRENT_DATE(), MAX(created_at)) as days_stale,
+  CASE
+    WHEN DATEDIFF(CURRENT_DATE(), MAX(created_at)) <= 7 THEN 'OK'
+    WHEN DATEDIFF(CURRENT_DATE(), MAX(created_at)) <= 14 THEN 'WARNING'
+    ELSE 'CRITICAL - Retrain needed'
+  END as status
+FROM main.account_monitoring_dev.contract_forecast
+
+UNION ALL
+
+SELECT
+  'scenario_summary' as table_name,
+  MAX(last_calculated) as latest_data,
+  DATEDIFF(CURRENT_DATE(), MAX(last_calculated)) as days_stale,
+  CASE
+    WHEN DATEDIFF(CURRENT_DATE(), MAX(last_calculated)) <= 7 THEN 'OK'
+    ELSE 'WARNING - Re-run What-If'
+  END as status
+FROM main.account_monitoring_dev.scenario_summary;
+```
+
+### Weekly Operations Checklist
+
+| Task | When | Command |
+|------|------|---------|
+| Retrain Prophet model | Sunday 3 AM (auto) | `databricks bundle run account_monitor_weekly_training` |
+| Verify forecast accuracy | Monday morning | Check dashboard predictions vs actuals |
+| Review contract pace | Monday morning | Dashboard Contract Burndown page |
+| Check expiring contracts | Any day | See query below |
+
+**Contracts Expiring Soon:**
+```sql
+SELECT
+  contract_id,
+  total_value,
+  end_date,
+  DATEDIFF(end_date, CURRENT_DATE()) as days_remaining,
+  CASE
+    WHEN DATEDIFF(end_date, CURRENT_DATE()) <= 30 THEN 'URGENT'
+    WHEN DATEDIFF(end_date, CURRENT_DATE()) <= 60 THEN 'SOON'
+    WHEN DATEDIFF(end_date, CURRENT_DATE()) <= 90 THEN 'UPCOMING'
+    ELSE 'OK'
+  END as urgency
+FROM main.account_monitoring_dev.contracts
+WHERE status = 'ACTIVE'
+  AND DATEDIFF(end_date, CURRENT_DATE()) <= 90
+ORDER BY end_date;
+```
+
+### Monthly Operations Checklist
+
+| Task | When | Purpose |
+|------|------|---------|
+| Optimize Delta tables | 1st of month | Improve query performance |
+| Archive old data | 1st of month | Manage storage costs |
+| Review discount tiers | 1st of month | Update if rates changed |
+| Validate ML model drift | 1st of month | Ensure forecasts are accurate |
+
+**Table Optimization:**
+```sql
+-- Run monthly to maintain performance
+OPTIMIZE main.account_monitoring_dev.contract_burndown ZORDER BY (contract_id, usage_date);
+OPTIMIZE main.account_monitoring_dev.dashboard_data ZORDER BY (usage_date, workspace_id);
+OPTIMIZE main.account_monitoring_dev.contract_forecast ZORDER BY (contract_id, forecast_date);
+
+-- Vacuum old versions (after 7 days retention)
+VACUUM main.account_monitoring_dev.contract_burndown RETAIN 168 HOURS;
+VACUUM main.account_monitoring_dev.dashboard_data RETAIN 168 HOURS;
+```
+
+### Job Monitoring
+
+**Check Job Run History:**
+```bash
+# List recent job runs
+databricks runs list --job-id <job_id> --limit 10 --profile YOUR_PROFILE
+
+# Get details of a specific run
+databricks runs get --run-id <run_id> --profile YOUR_PROFILE
+
+# List all account monitor jobs
+databricks jobs list --profile YOUR_PROFILE | grep account_monitor
+```
+
+**Job Health Query:**
+```sql
+-- Check if scheduled jobs are running on time
+-- (Requires access to system.workflow.job_runs if available)
+SELECT
+  job_id,
+  run_name,
+  result_state,
+  start_time,
+  end_time,
+  TIMESTAMPDIFF(MINUTE, start_time, end_time) as duration_minutes
+FROM system.workflow.job_runs
+WHERE run_name LIKE '%account_monitor%'
+ORDER BY start_time DESC
+LIMIT 20;
+```
+
+### Data Quality Validation
+
+**Completeness Check:**
+```sql
+-- Verify no gaps in daily data
+WITH date_range AS (
+  SELECT EXPLODE(SEQUENCE(
+    (SELECT MIN(usage_date) FROM main.account_monitoring_dev.contract_burndown),
+    CURRENT_DATE() - 1,
+    INTERVAL 1 DAY
+  )) as expected_date
+),
+actual_dates AS (
+  SELECT DISTINCT usage_date
+  FROM main.account_monitoring_dev.contract_burndown
+)
+SELECT
+  dr.expected_date as missing_date,
+  'Gap in burndown data' as issue
+FROM date_range dr
+LEFT JOIN actual_dates ad ON dr.expected_date = ad.usage_date
+WHERE ad.usage_date IS NULL
+  AND dr.expected_date >= DATE_SUB(CURRENT_DATE(), 90);
+```
+
+**Consistency Check:**
+```sql
+-- Verify burndown cumulative totals are consistent
+SELECT
+  contract_id,
+  usage_date,
+  daily_cost,
+  cumulative_cost,
+  SUM(daily_cost) OVER (
+    PARTITION BY contract_id
+    ORDER BY usage_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) as calculated_cumulative,
+  ABS(cumulative_cost - SUM(daily_cost) OVER (
+    PARTITION BY contract_id
+    ORDER BY usage_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  )) as discrepancy
+FROM main.account_monitoring_dev.contract_burndown
+HAVING discrepancy > 0.01
+ORDER BY discrepancy DESC
+LIMIT 10;
+```
+
+### Alerting Setup
+
+Set up SQL alerts in Databricks to monitor system health:
+
+**Alert 1: Data Staleness**
+```sql
+-- Alert if data is more than 3 days old
+SELECT
+  CASE
+    WHEN MAX(days_stale) > 3 THEN 'ALERT: Data pipeline may be failing'
+    ELSE 'OK'
+  END as alert_status,
+  MAX(days_stale) as max_staleness_days
+FROM (
+  SELECT DATEDIFF(CURRENT_DATE(), MAX(usage_date)) as days_stale
+  FROM main.account_monitoring_dev.contract_burndown
+);
+```
+
+**Alert 2: Contract Exhaustion Warning**
+```sql
+-- Alert for contracts exhausting within 30 days
+SELECT
+  contract_id,
+  exhaustion_date_p50 as predicted_exhaustion,
+  DATEDIFF(exhaustion_date_p50, CURRENT_DATE()) as days_until_exhaustion,
+  'ALERT: Contract exhausting soon' as alert_message
+FROM main.account_monitoring_dev.contract_forecast
+WHERE exhaustion_date_p50 IS NOT NULL
+  AND DATEDIFF(exhaustion_date_p50, CURRENT_DATE()) <= 30
+  AND DATEDIFF(exhaustion_date_p50, CURRENT_DATE()) > 0
+GROUP BY contract_id, exhaustion_date_p50;
+```
+
+**Alert 3: Job Failure Detection**
+```bash
+# Set up a webhook or email alert for job failures
+# In Databricks Jobs UI: Edit Job > Add notification > On Failure
+```
+
+### Backup and Recovery
+
+**Backup Critical Tables:**
+```sql
+-- Weekly backup of configuration tables
+CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.contracts_backup_YYYYMMDD
+AS SELECT * FROM main.account_monitoring_dev.contracts;
+
+CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.discount_tiers_backup_YYYYMMDD
+AS SELECT * FROM main.account_monitoring_dev.discount_tiers;
+```
+
+**Recovery from Backup:**
+```sql
+-- Restore contracts from backup
+INSERT OVERWRITE main.account_monitoring_dev.contracts
+SELECT * FROM main.account_monitoring_dev.contracts_backup_YYYYMMDD;
+```
+
+**Delta Time Travel (Point-in-Time Recovery):**
+```sql
+-- View table history
+DESCRIBE HISTORY main.account_monitoring_dev.contracts;
+
+-- Restore to specific version
+RESTORE TABLE main.account_monitoring_dev.contracts TO VERSION AS OF 5;
+
+-- Restore to specific timestamp
+RESTORE TABLE main.account_monitoring_dev.contracts
+TO TIMESTAMP AS OF '2026-02-01 00:00:00';
+```
+
+### Performance Tuning
+
+**Identify Slow Queries:**
+```sql
+-- Check query history for slow dashboard queries
+SELECT
+  query_text,
+  execution_status,
+  duration / 1000 as duration_seconds,
+  rows_produced,
+  start_time
+FROM system.query.history
+WHERE query_text LIKE '%account_monitoring%'
+  AND duration > 30000  -- More than 30 seconds
+ORDER BY start_time DESC
+LIMIT 20;
+```
+
+**Compute Statistics:**
+```sql
+-- Update table statistics for query optimizer
+ANALYZE TABLE main.account_monitoring_dev.contract_burndown COMPUTE STATISTICS;
+ANALYZE TABLE main.account_monitoring_dev.dashboard_data COMPUTE STATISTICS;
+ANALYZE TABLE main.account_monitoring_dev.contract_forecast COMPUTE STATISTICS;
+```
+
+### Access Control
+
+**Review Table Permissions:**
+```sql
+-- Check who has access to the schema
+SHOW GRANTS ON SCHEMA main.account_monitoring_dev;
+
+-- Grant read access to a user or group
+GRANT SELECT ON SCHEMA main.account_monitoring_dev TO `user@company.com`;
+
+-- Grant full access for an admin
+GRANT ALL PRIVILEGES ON SCHEMA main.account_monitoring_dev TO `admin@company.com`;
+```
+
+### Common Issues and Resolutions
+
+| Issue | Symptom | Resolution |
+|-------|---------|------------|
+| **No data in dashboard** | Empty charts | Run `account_monitor_daily_refresh` job |
+| **Forecast not updating** | Old exhaustion dates | Run `account_monitor_weekly_training` job |
+| **What-If scenarios missing** | Empty What-If page | Check `whatif_simulator.py` logs, re-run training |
+| **Slow dashboard** | Long load times | Run OPTIMIZE and ANALYZE on tables |
+| **Job failures** | Red status in Jobs UI | Check logs, verify warehouse is running |
+| **Permission errors** | Access denied messages | Grant SELECT on `system.billing` tables |
+| **Stale data** | Data > 3 days old | Check system tables, verify job schedule |
+
+### Emergency Procedures
+
+**If Dashboard Shows Wrong Data:**
+1. Check data freshness query above
+2. Verify source tables have data: `SELECT COUNT(*) FROM system.billing.usage WHERE usage_date >= CURRENT_DATE() - 7`
+3. Re-run the daily refresh: `databricks bundle run account_monitor_daily_refresh`
+4. Clear dashboard cache by refreshing with Ctrl+Shift+R
+
+**If Jobs Keep Failing:**
+1. Check warehouse status - ensure it's running
+2. Review job logs for specific error
+3. Verify Unity Catalog permissions
+4. Test SQL queries manually in SQL Editor
+5. Re-deploy bundle: `databricks bundle deploy --force`
+
+**If ML Forecasts Are Inaccurate:**
+1. Check if there's enough historical data (minimum 30 days recommended)
+2. Look for anomalies in recent consumption patterns
+3. Re-run training with fresh data: `databricks bundle run account_monitor_weekly_training`
+4. Consider adjusting Prophet parameters in `consumption_forecaster.py`
+
+### Useful Admin Commands
+
+```bash
+# Deploy latest changes
+databricks bundle deploy --profile YOUR_PROFILE --force
+
+# Run first install (full reset)
+databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
+
+# Cleanup all data (start fresh)
+databricks bundle run account_monitor_cleanup --profile YOUR_PROFILE
+
+# Check job status
+databricks jobs list --profile YOUR_PROFILE | grep account_monitor
+
+# View recent job runs
+databricks runs list --limit 10 --profile YOUR_PROFILE
+
+# Get job run logs
+databricks runs get-output --run-id <RUN_ID> --profile YOUR_PROFILE
+
+# Validate deployment
+databricks bundle validate --profile YOUR_PROFILE
+```
+
+---
+
 ## Cleanup / Start Fresh
 
 To completely reset and start from scratch, you have several options:
@@ -874,7 +1260,8 @@ databricks_conso_reports/
 │   └── jobs.yml                       # Job definitions (includes first_install)
 └── docs/
     └── user-guide/
-        └── USER_GUIDE.md              # Detailed documentation
+        ├── USER_GUIDE.md                     # Detailed usage documentation
+        └── CONTRACT_OPTIMIZATION_STRATEGY.md # Business strategy guide
 ```
 
 ---
@@ -883,6 +1270,7 @@ databricks_conso_reports/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.11.0** | 2026-02-08 | Added comprehensive Administrator Operations Guide with health monitoring, data quality checks, and emergency procedures |
 | **1.10.0** | 2026-02-07 | What-If discount simulation with tier-based scenarios and sweet spot detection |
 | **1.9.0** | 2026-02-06 | Simplified dashboard (2 pages), optimized bundle sync config |
 | **1.8.0** | 2026-02-05 | Added Quick Start first-install guide with step-by-step workflow |
@@ -915,4 +1303,12 @@ databricks jobs list --profile YOUR_PROFILE
 
 ---
 
-**Need more details?** See the [Complete User Guide](docs/user-guide/USER_GUIDE.md)
+---
+
+## Additional Resources
+
+| Document | Audience | Description |
+|----------|----------|-------------|
+| [User Guide](docs/user-guide/USER_GUIDE.md) | End Users | Detailed usage instructions |
+| [Contract Optimization Strategy](docs/user-guide/CONTRACT_OPTIMIZATION_STRATEGY.md) | Business Stakeholders | Plain-English explanation of optimization strategy |
+| [Operations Guide](docs/OPERATIONS_GUIDE.md) | Administrators | Detailed SQL queries and maintenance procedures |
