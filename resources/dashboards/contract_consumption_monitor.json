@@ -120,13 +120,6 @@
       ]
     },
     {
-      "name": "ds_whatif_summary",
-      "displayName": "What-If Summary",
-      "queryLines": [
-        "SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ROUND(ss.cumulative_savings, 0) as savings_to_date, COALESCE(CAST(ss.scenario_exhaustion_date AS STRING), 'No exhaustion') as scenario_exhaustion_date, COALESCE(CAST(ss.days_extended AS STRING), '-') as days_extended, CASE WHEN ss.is_sweet_spot THEN 'RECOMMENDED' WHEN ds.scenario_name LIKE 'Extend to%' THEN 'EXTENSION' ELSE ss.exhaustion_status END as recommendation FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND COALESCE(ds.description, '') NOT LIKE '%Potential discount if contract extended%' ORDER BY ss.contract_id, ss.discount_pct"
-      ]
-    },
-    {
       "name": "ds_whatif_longer_duration",
       "displayName": "Longer Duration Opportunities",
       "queryLines": [
@@ -138,13 +131,6 @@
       "displayName": "Sweet Spot Recommendations",
       "queryLines": [
         "SELECT contract_id, scenario_name, discount_pct as best_discount, ROUND(cumulative_savings, 0) as savings, days_extended, ROUND(utilization_pct, 1) as utilization_pct FROM main.account_monitoring_dev.scenario_summary WHERE is_sweet_spot = TRUE"
-      ]
-    },
-    {
-      "name": "ds_discount_tiers",
-      "displayName": "Discount Tiers Reference",
-      "queryLines": [
-        "SELECT tier_name, CONCAT('$', FORMAT_NUMBER(min_commitment, 0), ' - ', COALESCE(CONCAT('$', FORMAT_NUMBER(max_commitment, 0)), 'Unlimited')) as commitment_range, duration_years as years, CONCAT(CAST(discount_rate * 100 AS INT), '%') as max_discount FROM main.account_monitoring_dev.discount_tiers ORDER BY min_commitment, duration_years"
       ]
     },
     {
@@ -1203,175 +1189,6 @@
           "position": {
             "x": 0,
             "y": 6,
-            "width": 6,
-            "height": 4
-          }
-        },
-        {
-          "widget": {
-            "name": "w_whatif_table",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "ds_whatif_summary",
-                  "fields": [
-                    {
-                      "name": "contract_id",
-                      "expression": "`contract_id`"
-                    },
-                    {
-                      "name": "scenario_name",
-                      "expression": "`scenario_name`"
-                    },
-                    {
-                      "name": "discount_pct",
-                      "expression": "`discount_pct`"
-                    },
-                    {
-                      "name": "savings_to_date",
-                      "expression": "`savings_to_date`"
-                    },
-                    {
-                      "name": "scenario_exhaustion_date",
-                      "expression": "`scenario_exhaustion_date`"
-                    },
-                    {
-                      "name": "days_extended",
-                      "expression": "`days_extended`"
-                    },
-                    {
-                      "name": "recommendation",
-                      "expression": "`recommendation`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "contract_id",
-                    "displayName": "Contract",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "scenario_name",
-                    "displayName": "Scenario",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "discount_pct",
-                    "displayName": "Discount %",
-                    "type": "number",
-                    "numberFormat": "0"
-                  },
-                  {
-                    "fieldName": "savings_to_date",
-                    "displayName": "Savings ($)",
-                    "type": "number",
-                    "numberFormat": "#,##0"
-                  },
-                  {
-                    "fieldName": "scenario_exhaustion_date",
-                    "displayName": "Exhaustion Date",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "days_extended",
-                    "displayName": "Days Extended",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "recommendation",
-                    "displayName": "Status",
-                    "type": "string"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "All Discount Scenarios Comparison"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 10,
-            "width": 6,
-            "height": 5
-          }
-        },
-        {
-          "widget": {
-            "name": "w_discount_tiers",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "ds_discount_tiers",
-                  "fields": [
-                    {
-                      "name": "tier_name",
-                      "expression": "`tier_name`"
-                    },
-                    {
-                      "name": "commitment_range",
-                      "expression": "`commitment_range`"
-                    },
-                    {
-                      "name": "years",
-                      "expression": "`years`"
-                    },
-                    {
-                      "name": "max_discount",
-                      "expression": "`max_discount`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "tier_name",
-                    "displayName": "Tier",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "commitment_range",
-                    "displayName": "Commitment Range",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "years",
-                    "displayName": "Years",
-                    "type": "number"
-                  },
-                  {
-                    "fieldName": "max_discount",
-                    "displayName": "Max Discount",
-                    "type": "string"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Discount Tier Reference (Longer Duration = Higher Discount)"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 15,
             "width": 6,
             "height": 4
           }
