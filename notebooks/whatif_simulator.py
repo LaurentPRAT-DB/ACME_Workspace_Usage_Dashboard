@@ -761,11 +761,14 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
                 break
         # If not exhausted within extended period, leave scenario_exhaustion_date as None
         # This will correctly mark it as EXTENDED (won't exhaust)
-        # Calculate days extended vs baseline
-        if scenario_exhaustion_date and baseline_exhaustion_date:
-            scenario_ex_dt = pd.to_datetime(scenario_exhaustion_date)
-            baseline_dt = pd.to_datetime(baseline_exhaustion_date)
-            days_extended = (scenario_ex_dt - baseline_dt).days
+
+        # For extension scenarios, calculate days_extended as days added to contract
+        # (difference between new end date and original end date)
+        original_end = scenario.get('original_end_date')
+        if adjusted_end_date and original_end:
+            adj_dt = pd.to_datetime(adjusted_end_date)
+            orig_dt = pd.to_datetime(original_end)
+            days_extended = (adj_dt - orig_dt).days
     elif forecast_records:
         scenario_exhaustion_date = forecast_records[0].get('exhaustion_date_p50')
         days_extended = forecast_records[0].get('days_extended')
