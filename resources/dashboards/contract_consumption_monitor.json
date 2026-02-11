@@ -116,14 +116,14 @@
       "name": "ds_whatif_scenarios",
       "displayName": "What-If Discount Scenarios",
       "queryLines": [
-        "WITH sweet_spots AS (SELECT scenario_id FROM main.account_monitoring_dev.scenario_summary WHERE is_sweet_spot = TRUE), scenario_data AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, CASE WHEN ds.is_baseline THEN 'Baseline (No Discount)' ELSE CONCAT(ds.scenario_name, ' (Recommended)') END as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.description NOT LIKE '%extended to%' AND (ds.is_baseline = TRUE OR sb.scenario_id IN (SELECT scenario_id FROM sweet_spots))), commitment_line AS (SELECT DISTINCT sb.contract_id, sb.usage_date as date, sb.scenario_commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE AND ds.status = 'ACTIVE') SELECT * FROM scenario_data UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date"
+        "WITH extension_scenarios AS (SELECT scenario_id FROM main.account_monitoring_dev.discount_scenarios WHERE status = 'ACTIVE' AND scenario_name LIKE 'Extend to%'), baseline_burndown AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, 'Baseline (No Discount)' as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.is_baseline = TRUE), baseline_forecast AS (SELECT sf.contract_id, sf.forecast_date as date, sf.predicted_cumulative + (SELECT MAX(simulated_cumulative) FROM main.account_monitoring_dev.scenario_burndown WHERE scenario_id = sf.scenario_id) as value, 'Baseline (No Discount)' as series_type FROM main.account_monitoring_dev.scenario_forecast sf JOIN main.account_monitoring_dev.discount_scenarios ds ON sf.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.is_baseline = TRUE AND sf.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring_dev.scenario_burndown WHERE scenario_id = sf.scenario_id)), baseline_stats AS (SELECT contract_id, MAX(date) as last_date, MAX(value) as last_value, AVG(value / DATEDIFF(date, (SELECT MIN(usage_date) FROM main.account_monitoring_dev.scenario_burndown sb2 JOIN main.account_monitoring_dev.discount_scenarios ds2 ON sb2.scenario_id = ds2.scenario_id WHERE ds2.is_baseline = TRUE AND sb2.contract_id = baseline_forecast.contract_id))) as avg_daily_rate FROM baseline_forecast GROUP BY contract_id), baseline_extended AS (SELECT ext.contract_id, ext.usage_date as date, bs.last_value + (DATEDIFF(ext.usage_date, bs.last_date) * (SELECT AVG(sf.predicted_daily_cost) FROM main.account_monitoring_dev.scenario_forecast sf JOIN main.account_monitoring_dev.discount_scenarios ds ON sf.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE AND sf.contract_id = ext.contract_id)) as value, 'Baseline (No Discount)' as series_type FROM main.account_monitoring_dev.scenario_burndown ext JOIN main.account_monitoring_dev.discount_scenarios ds ON ext.scenario_id = ds.scenario_id CROSS JOIN baseline_stats bs WHERE ds.status = 'ACTIVE' AND ds.scenario_name LIKE 'Extend to%' AND ext.usage_date > bs.last_date AND ext.contract_id = bs.contract_id), extension_data AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, ds.scenario_name as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND sb.scenario_id IN (SELECT scenario_id FROM extension_scenarios)), all_dates AS (SELECT contract_id, date FROM baseline_burndown UNION SELECT contract_id, date FROM baseline_forecast UNION SELECT contract_id, date FROM baseline_extended UNION SELECT contract_id, date FROM extension_data), commitment_line AS (SELECT ad.contract_id, ad.date, c.total_value as value, 'Contract Commitment' as series_type FROM all_dates ad JOIN main.account_monitoring_dev.contracts c ON ad.contract_id = c.contract_id) SELECT * FROM baseline_burndown UNION ALL SELECT * FROM baseline_forecast UNION ALL SELECT * FROM baseline_extended UNION ALL SELECT * FROM extension_data UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date"
       ]
     },
     {
       "name": "ds_whatif_summary",
       "displayName": "What-If Summary",
       "queryLines": [
-        "SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ROUND(ss.cumulative_savings, 0) as savings_to_date, ss.scenario_exhaustion_date, ss.days_extended, ROUND(ss.utilization_pct, 1) as utilization_pct, ss.exhaustion_status, CASE WHEN ss.is_sweet_spot THEN 'RECOMMENDED' ELSE '' END as recommendation FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND COALESCE(ds.description, '') NOT LIKE '%extended to%' ORDER BY ss.contract_id, ss.discount_pct"
+        "SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ROUND(ss.cumulative_savings, 0) as savings_to_date, ss.scenario_exhaustion_date, ss.days_extended, ROUND(ss.utilization_pct, 1) as utilization_pct, ss.exhaustion_status, CASE WHEN ss.is_sweet_spot THEN 'RECOMMENDED' WHEN ds.scenario_name LIKE 'Extend to%' THEN 'EXTENSION' ELSE '' END as recommendation FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND COALESCE(ds.description, '') NOT LIKE '%Potential discount if contract extended%' ORDER BY ss.contract_id, ss.discount_pct"
       ]
     },
     {
@@ -986,17 +986,7 @@
                 "color": {
                   "fieldName": "series_type",
                   "scale": {
-                    "type": "categorical",
-                    "mappings": [
-                      {
-                        "value": "Baseline (No Discount)",
-                        "color": "#FF4444"
-                      },
-                      {
-                        "value": "Contract Commitment",
-                        "color": "#666666"
-                      }
-                    ]
+                    "type": "categorical"
                   },
                   "displayName": "Scenario"
                 }
