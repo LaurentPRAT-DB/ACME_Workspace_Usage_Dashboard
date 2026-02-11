@@ -3,14 +3,14 @@
 -- These values are illustrative and should be adjusted for actual negotiations
 
 -- Clear existing tiers (for fresh install)
-DELETE FROM {{catalog}}.{{schema}}.discount_tiers WHERE tier_id IS NOT NULL;
+DELETE FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers') WHERE tier_id IS NOT NULL;
 
 -- ============================================================================
 -- Insert Default Discount Tiers
 -- Structure: Commitment Level x Duration = Discount Rate
 -- ============================================================================
 
-INSERT INTO {{catalog}}.{{schema}}.discount_tiers
+INSERT INTO IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers')
   (tier_id, tier_name, min_commitment, max_commitment, duration_years, discount_rate, notes, effective_date)
 VALUES
   -- Entry Tier: $50K - $100K
@@ -72,8 +72,8 @@ SELECT
          COALESCE(CONCAT('$', FORMAT_NUMBER(max_commitment, 0)), 'Unlimited')) as commitment_range,
   duration_years as years,
   CONCAT(CAST(discount_rate * 100 AS INT), '%') as discount
-FROM {{catalog}}.{{schema}}.discount_tiers
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers')
 ORDER BY min_commitment, duration_years;
 
 SELECT CONCAT('Populated ', COUNT(*), ' discount tiers') as status
-FROM {{catalog}}.{{schema}}.discount_tiers;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers');

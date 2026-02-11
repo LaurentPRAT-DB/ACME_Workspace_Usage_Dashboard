@@ -3,7 +3,7 @@
 
 -- Table: contract_forecast
 -- Stores daily forecast predictions and exhaustion dates
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.contract_forecast (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast') (
   contract_id STRING NOT NULL COMMENT 'Contract identifier',
   forecast_date DATE NOT NULL COMMENT 'Date this forecast was generated',
   model_version STRING COMMENT 'Model version/MLflow run ID',
@@ -31,7 +31,7 @@ TBLPROPERTIES (
 
 -- Table: forecast_model_registry
 -- Tracks trained models and their performance
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.forecast_model_registry (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_registry') (
   model_id STRING NOT NULL COMMENT 'Unique model identifier',
   contract_id STRING NOT NULL COMMENT 'Contract this model was trained for',
   trained_at TIMESTAMP COMMENT 'When the model was trained',
@@ -58,25 +58,25 @@ TBLPROPERTIES (
 
 -- View: Latest forecast per contract
 -- Shows most recent forecast for each contract
-CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.contract_forecast_latest AS
+CREATE OR REPLACE VIEW IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast_latest') AS
 SELECT *
-FROM {{catalog}}.{{schema}}.contract_forecast f
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast') f
 WHERE forecast_date = (
   SELECT MAX(forecast_date)
-  FROM {{catalog}}.{{schema}}.contract_forecast
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast')
   WHERE contract_id = f.contract_id
 );
 
 -- View: Active model per contract
 -- Shows the active model for each contract
-CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.forecast_model_active AS
+CREATE OR REPLACE VIEW IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_active') AS
 SELECT *
-FROM {{catalog}}.{{schema}}.forecast_model_registry
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_registry')
 WHERE is_active = TRUE;
 
 -- View: Forecast with contract details
 -- Joins forecast with contract information for dashboard use
-CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.contract_forecast_details AS
+CREATE OR REPLACE VIEW IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast_details') AS
 SELECT
   f.contract_id,
   f.forecast_date,
@@ -100,8 +100,8 @@ SELECT
   END as forecast_status,
   f.model_version,
   f.created_at
-FROM {{catalog}}.{{schema}}.contract_forecast f
-INNER JOIN {{catalog}}.{{schema}}.contracts c
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast') f
+INNER JOIN IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contracts') c
   ON f.contract_id = c.contract_id
 WHERE c.status = 'ACTIVE';
 

@@ -22,19 +22,19 @@
 -- ============================================================================
 
 -- Forecast views
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.contract_forecast_latest;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.forecast_model_active;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.contract_forecast_details;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.forecast_features;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.forecast_feature_summary;
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast_latest');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_active');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast_details');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_features');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_feature_summary');
 
 -- Burndown views
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.contract_burndown_summary;
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_burndown_summary');
 
 -- What-If views
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.scenario_comparison;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.scenario_burndown_chart;
-DROP VIEW IF EXISTS {{catalog}}.{{schema}}.sweet_spot_recommendation;
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_comparison');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_burndown_chart');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.sweet_spot_recommendation');
 
 SELECT 'Views dropped' AS status;
 
@@ -43,26 +43,26 @@ SELECT 'Views dropped' AS status;
 -- ============================================================================
 
 -- What-If simulation tables
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.scenario_summary;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.scenario_forecast;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.scenario_burndown;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.discount_scenarios;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.discount_tiers;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.whatif_debug_log;
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_summary');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_forecast');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_burndown');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_scenarios');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.whatif_debug_log');
 
 -- Forecast tables
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.contract_forecast;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.forecast_model_registry;
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_registry');
 
 -- Burndown and consumption tables
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.contract_burndown;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.daily_summary;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.dashboard_data;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.dashboard_data_archive;
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_burndown');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.daily_summary');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data_archive');
 
 -- Core tables
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.contracts;
-DROP TABLE IF EXISTS {{catalog}}.{{schema}}.account_metadata;
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contracts');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.account_metadata');
 
 SELECT 'Tables dropped' AS status;
 
@@ -71,13 +71,13 @@ SELECT 'Tables dropped' AS status;
 -- ============================================================================
 
 -- WARNING: This removes the schema entirely. Only uncomment if you want a complete reset.
--- DROP SCHEMA IF EXISTS {{catalog}}.{{schema}} CASCADE;
+-- DROP SCHEMA IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}}) CASCADE;
 
 -- ============================================================================
 -- Verification
 -- ============================================================================
 
-SELECT 'Cleanup complete. Schema {{catalog}}.{{schema}} is now empty.' AS status;
+SELECT 'Cleanup complete. Schema is now empty.' AS status;
 
 -- Show remaining objects (should be empty)
-SHOW TABLES IN {{catalog}}.{{schema}};
+SHOW TABLES IN IDENTIFIER({{catalog}} || '.' || {{schema}});

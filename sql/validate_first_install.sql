@@ -13,12 +13,12 @@ SELECT
   'contracts' as table_name,
   COUNT(*) as total_rows,
   SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_rows
-FROM {{catalog}}.{{schema}}.contracts;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contracts');
 
 SELECT
   'account_metadata' as table_name,
   COUNT(*) as total_rows
-FROM {{catalog}}.{{schema}}.account_metadata;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.account_metadata');
 
 SELECT
   'dashboard_data' as table_name,
@@ -26,7 +26,7 @@ SELECT
   COUNT(DISTINCT usage_date) as unique_dates,
   MIN(usage_date) as earliest_date,
   MAX(usage_date) as latest_date
-FROM {{catalog}}.{{schema}}.dashboard_data;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data');
 
 SELECT
   'contract_burndown' as table_name,
@@ -34,13 +34,13 @@ SELECT
   COUNT(DISTINCT contract_id) as contracts_tracked,
   MIN(usage_date) as earliest_date,
   MAX(usage_date) as latest_date
-FROM {{catalog}}.{{schema}}.contract_burndown;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_burndown');
 
 SELECT
   'contract_forecast' as table_name,
   COUNT(*) as total_rows,
   COUNT(DISTINCT contract_id) as contracts_forecasted
-FROM {{catalog}}.{{schema}}.contract_forecast;
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast');
 
 -- Show forecast summary
 SELECT
@@ -48,8 +48,8 @@ SELECT
   exhaustion_date_p50 as predicted_exhaustion_date,
   DATEDIFF(exhaustion_date_p50, CURRENT_DATE()) as days_until_exhaustion,
   model_version
-FROM {{catalog}}.{{schema}}.contract_forecast
-WHERE forecast_date = (SELECT MAX(forecast_date) FROM {{catalog}}.{{schema}}.contract_forecast)
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast')
+WHERE forecast_date = (SELECT MAX(forecast_date) FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast'))
 ORDER BY contract_id;
 
 -- Check Prophet model status
@@ -61,8 +61,8 @@ SELECT
     WHEN model_version = 'linear_fallback' THEN 'WARNING - Using linear fallback (Prophet may have failed)'
     ELSE 'UNKNOWN'
   END as status
-FROM {{catalog}}.{{schema}}.contract_forecast
-WHERE forecast_date = (SELECT MAX(forecast_date) FROM {{catalog}}.{{schema}}.contract_forecast)
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast')
+WHERE forecast_date = (SELECT MAX(forecast_date) FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast'))
 LIMIT 1;
 
 -- Final status

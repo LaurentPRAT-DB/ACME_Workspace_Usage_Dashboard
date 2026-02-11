@@ -13,7 +13,7 @@ WITH daily_costs AS (
       PARTITION BY cloud_provider, workspace_id
       ORDER BY usage_date
     ) as prev_day_cost
-  FROM {{catalog}}.{{schema}}.dashboard_data
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
   WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
   GROUP BY usage_date, cloud_provider, workspace_id
 )
@@ -38,7 +38,7 @@ SELECT
   workspace_id,
   cloud_provider,
   ROUND(SUM(actual_cost), 2) as cost
-FROM {{catalog}}.{{schema}}.dashboard_data
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
   AND DAYOFWEEK(usage_date) IN (1, 7)  -- Sunday or Saturday
   AND actual_cost > 100  -- Threshold
@@ -52,7 +52,7 @@ WITH first_usage AS (
     workspace_id,
     cloud_provider,
     MIN(usage_date) as first_seen
-  FROM {{catalog}}.{{schema}}.dashboard_data
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
   GROUP BY workspace_id, cloud_provider
 )
 SELECT
@@ -63,7 +63,7 @@ SELECT
   COUNT(DISTINCT d.usage_date) as usage_days,
   ROUND(SUM(d.actual_cost), 2) as total_cost
 FROM first_usage f
-JOIN {{catalog}}.{{schema}}.dashboard_data d
+JOIN IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data') d
   ON f.workspace_id = d.workspace_id
   AND f.cloud_provider = d.cloud_provider
 WHERE f.first_seen >= DATE_SUB(CURRENT_DATE(), 30)

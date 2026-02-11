@@ -18,11 +18,11 @@ monthly_stats AS (
     ROUND(AVG(daily_cost), 2) as avg_daily_cost,
     ROUND(MAX(daily_cost), 2) as max_daily_cost,
     ROUND(MIN(daily_cost), 2) as min_daily_cost
-  FROM {{catalog}}.{{schema}}.dashboard_data d
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data') d
   CROSS JOIN prev_month pm
   JOIN (
     SELECT usage_date, SUM(actual_cost) as daily_cost
-    FROM {{catalog}}.{{schema}}.dashboard_data
+    FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
     GROUP BY usage_date
   ) dc ON d.usage_date = dc.usage_date
   WHERE d.usage_date >= pm.month_start
@@ -34,7 +34,7 @@ product_breakdown AS (
     d.product_category,
     ROUND(SUM(d.actual_cost), 2) as cost,
     ROUND(SUM(d.actual_cost) * 100.0 / SUM(SUM(d.actual_cost)) OVER (), 1) as pct
-  FROM {{catalog}}.{{schema}}.dashboard_data d
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data') d
   CROSS JOIN prev_month pm
   WHERE d.usage_date >= pm.month_start
     AND d.usage_date <= pm.month_end
@@ -49,7 +49,7 @@ month_over_month AS (
       PARTITION BY cloud_provider
       ORDER BY DATE_TRUNC('MONTH', usage_date)
     ) as prev_month_cost
-  FROM {{catalog}}.{{schema}}.dashboard_data
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
   WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90)
   GROUP BY DATE_TRUNC('MONTH', usage_date), cloud_provider
 )

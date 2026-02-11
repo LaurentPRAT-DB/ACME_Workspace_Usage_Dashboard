@@ -2,11 +2,11 @@
 -- This script creates all necessary Unity Catalog objects
 
 -- Create schema
-CREATE SCHEMA IF NOT EXISTS {{catalog}}.{{schema}}
+CREATE SCHEMA IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}})
 COMMENT 'Account monitoring and cost tracking using system tables';
 
 -- Create contracts table
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.contracts (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contracts') (
   contract_id STRING NOT NULL COMMENT 'Unique contract identifier',
   account_id STRING NOT NULL COMMENT 'Databricks account ID',
   cloud_provider STRING NOT NULL COMMENT 'Cloud provider: aws, azure, gcp',
@@ -30,7 +30,7 @@ TBLPROPERTIES (
 );
 
 -- Create account metadata table
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.account_metadata (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.account_metadata') (
   account_id STRING NOT NULL COMMENT 'Databricks account ID',
   customer_name STRING NOT NULL COMMENT 'Customer display name',
   business_unit_l0 STRING COMMENT 'Top-level business unit',
@@ -54,7 +54,7 @@ TBLPROPERTIES (
 );
 
 -- Create dashboard data table
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.dashboard_data (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data') (
   usage_date DATE NOT NULL,
   account_id STRING NOT NULL,
   customer_name STRING,
@@ -91,7 +91,7 @@ TBLPROPERTIES (
 );
 
 -- Create daily summary table for faster queries
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.daily_summary (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.daily_summary') (
   usage_date DATE NOT NULL,
   cloud_provider STRING NOT NULL,
   workspace_id STRING NOT NULL,
@@ -112,7 +112,7 @@ TBLPROPERTIES (
 
 -- Table: contract_forecast
 -- Stores daily forecast predictions and exhaustion dates
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.contract_forecast (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast') (
   contract_id STRING NOT NULL COMMENT 'Contract identifier',
   forecast_date DATE NOT NULL COMMENT 'Date this forecast was generated',
   model_version STRING COMMENT 'Model version/MLflow run ID',
@@ -137,7 +137,7 @@ TBLPROPERTIES (
 
 -- Table: forecast_model_registry
 -- Tracks trained models and their performance
-CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.forecast_model_registry (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.forecast_model_registry') (
   model_id STRING NOT NULL COMMENT 'Unique model identifier',
   contract_id STRING NOT NULL COMMENT 'Contract this model was trained for',
   trained_at TIMESTAMP COMMENT 'When the model was trained',
@@ -160,12 +160,12 @@ TBLPROPERTIES (
 );
 
 -- View: Latest forecast per contract
-CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.contract_forecast_latest AS
+CREATE OR REPLACE VIEW IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast_latest') AS
 SELECT *
-FROM {{catalog}}.{{schema}}.contract_forecast f
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast') f
 WHERE forecast_date = (
   SELECT MAX(forecast_date)
-  FROM {{catalog}}.{{schema}}.contract_forecast
+  FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast')
   WHERE contract_id = f.contract_id
 );
 

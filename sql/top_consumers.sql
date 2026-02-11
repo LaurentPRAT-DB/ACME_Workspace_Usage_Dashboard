@@ -11,7 +11,7 @@ SELECT
   ROUND(SUM(usage_quantity), 2) as total_dbu,
   ROUND(SUM(actual_cost), 2) as total_cost,
   ROUND(AVG(actual_cost), 2) as avg_daily_cost
-FROM {{catalog}}.{{schema}}.dashboard_data
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
 GROUP BY workspace_id, cloud_provider
 ORDER BY total_cost DESC
@@ -27,7 +27,7 @@ SELECT
   ROUND(SUM(usage_quantity), 2) as total_usage,
   ROUND(SUM(actual_cost), 2) as total_cost,
   ROUND(AVG(price_per_unit), 4) as avg_price_per_unit
-FROM {{catalog}}.{{schema}}.dashboard_data
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
 GROUP BY sku_name, cloud_provider, product_category
 ORDER BY total_cost DESC
@@ -43,7 +43,7 @@ SELECT
   ROUND(SUM(usage_quantity), 2) as total_dbu,
   ROUND(SUM(actual_cost), 2) as total_cost,
   ROUND(AVG(actual_cost), 2) as avg_run_cost
-FROM {{catalog}}.{{schema}}.dashboard_data
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
   AND job_id IS NOT NULL
 GROUP BY job_id, job_name, cloud_provider
@@ -59,7 +59,7 @@ SELECT
   COUNT(DISTINCT workspace_id) as workspace_count,
   ROUND(SUM(usage_quantity), 2) as total_dbu,
   ROUND(SUM(actual_cost), 2) as total_cost
-FROM {{catalog}}.{{schema}}.dashboard_data
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30)
   AND run_as IS NOT NULL
 GROUP BY run_as, cloud_provider
