@@ -1276,6 +1276,97 @@ databricks_conso_reports/
 
 ---
 
+## Deployment Targets & Schema Naming
+
+The bundle supports two deployment targets with environment-specific schemas to separate dev and production data.
+
+### Targets Overview
+
+| Target | Mode | Schema | Job Prefix | Use Case |
+|--------|------|--------|------------|----------|
+| **dev** (default) | development | `main.account_monitoring_dev` | `[dev username]` | Testing, development |
+| **prod** | production | `main.account_monitoring` | None | Production deployment |
+
+### Schema & Table Naming Convention
+
+```
+{catalog}.{schema}.{table}
+   │         │        │
+   │         │        └── Table name (e.g., contracts, contract_burndown)
+   │         └── Environment-specific schema
+   └── Unity Catalog (default: main)
+```
+
+| Environment | Full Table Path Example |
+|-------------|------------------------|
+| Development | `main.account_monitoring_dev.contracts` |
+| Production | `main.account_monitoring.contracts` |
+
+This separation ensures dev testing never impacts production data.
+
+### Deploy to Development (Default)
+
+```bash
+# Deploy to dev (default target)
+databricks bundle deploy --profile YOUR_PROFILE
+
+# Run first install
+databricks bundle run account_monitor_first_install --profile YOUR_PROFILE
+```
+
+### Deploy to Production
+
+```bash
+# Deploy to production target
+databricks bundle deploy --target prod --profile YOUR_PROFILE
+
+# Or with a specific config file
+databricks bundle deploy --target prod --profile YOUR_PROFILE \
+  --var="config_files=config/contracts_prod.yml"
+
+# Run first install in production
+databricks bundle run account_monitor_first_install --target prod --profile YOUR_PROFILE
+```
+
+### Key Differences: Dev vs Prod
+
+| Aspect | Dev (`-t dev`) | Prod (`-t prod`) |
+|--------|----------------|------------------|
+| Schema | `account_monitoring_dev` | `account_monitoring` |
+| Job names | `[dev user] [dev] Account Monitor - ...` | `Account Monitor - ...` |
+| Mode | development (can pause/edit) | production (strict) |
+| Run as | Current user | Service principal |
+
+### Variables You Can Override
+
+| Variable | Default | Override Example |
+|----------|---------|------------------|
+| `catalog` | `main` | `--var="catalog=my_catalog"` |
+| `schema` | `account_monitoring` (prod) | `--var="schema=custom_schema"` |
+| `warehouse_id` | `4b9b953939869799` | `--var="warehouse_id=abc123"` |
+| `config_files` | `config/contracts.yml` | `--var="config_files=config/prod.yml"` |
+
+### Production Deployment Checklist
+
+```bash
+# 1. Create production config (optional)
+cp config/contracts.yml config/contracts_prod.yml
+vi config/contracts_prod.yml
+
+# 2. Deploy bundle to prod
+databricks bundle deploy --target prod --profile PROD_PROFILE
+
+# 3. Run first install
+databricks bundle run account_monitor_first_install --target prod --profile PROD_PROFILE
+
+# 4. Verify with daily refresh
+databricks bundle run account_monitor_daily_refresh --target prod --profile PROD_PROFILE
+```
+
+> **Note:** The prod target includes `run_as.service_principal_name: account_monitor_sp`. Either create this service principal or remove the `run_as` section from `databricks.yml` to run as your user account.
+
+---
+
 ## Required Permissions
 
 The Account Monitor requires specific Unity Catalog permissions to function correctly.
