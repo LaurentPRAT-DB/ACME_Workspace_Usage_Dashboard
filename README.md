@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.11.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.12.0-green)](CHANGELOG.md)
 
 ---
 
@@ -645,10 +645,20 @@ The Lakeview dashboard includes a **What-If Analysis** page with:
 
 | Widget | Description |
 |--------|-------------|
-| **Scenario Comparison Table** | All scenarios ranked by savings with status indicators |
-| **Scenario Burndown Chart** | Multi-line chart comparing cumulative spend across scenarios |
+| **What-If Burndown Chart** | Multi-line chart comparing baseline vs extension scenarios |
 | **Sweet Spot Summary** | Recommended scenario per contract |
-| **Longer Duration Opportunities** | Potential savings with extended commitments |
+| **Strategy & Savings Explained** | Dynamic business summary with live contract data |
+
+**Strategy & Savings Explained Widget** shows 6 lines of live data:
+
+| Line | Content |
+|------|---------|
+| 📋 CONTRACT | Total commitment amount |
+| 📅 CURRENT TERM | Exact start/end dates with days remaining |
+| 📈 CONSUMED | Amount spent, % utilized, remaining budget |
+| ⚠️ STATUS | Exhaustion prediction or warning |
+| 💡 EXTENSION | Extension option with new end date and discount % |
+| 💰 SAVINGS | Total potential savings with extension |
 
 ### What-If Tables
 
@@ -1270,6 +1280,7 @@ databricks_conso_reports/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.12.0** | 2026-02-11 | Simplified What-If page with enhanced Strategy & Savings widget showing live contract data |
 | **1.11.0** | 2026-02-08 | Added comprehensive Administrator Operations Guide with health monitoring, data quality checks, and emergency procedures |
 | **1.10.0** | 2026-02-07 | What-If discount simulation with tier-based scenarios and sweet spot detection |
 | **1.9.0** | 2026-02-06 | Simplified dashboard (2 pages), optimized bundle sync config |

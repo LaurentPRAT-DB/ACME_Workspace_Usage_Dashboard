@@ -1,6 +1,6 @@
 # Account Monitor - User Guide
 
-**Version 1.7.0**
+**Version 1.12.0**
 
 A comprehensive guide for managing and monitoring Databricks account costs and contract consumption.
 
@@ -517,6 +517,36 @@ A visual dashboard built with Databricks Lakeview.
 **Creating Your Own:**
 See `docs/archive/CREATE_LAKEVIEW_DASHBOARD.md` for detailed instructions.
 
+### What-If Analysis Page
+
+The What-If Analysis page helps you understand contract optimization opportunities:
+
+**Widgets:**
+
+| Widget | Description |
+|--------|-------------|
+| **What-If Burndown Chart** | Multi-line chart comparing baseline vs extension scenarios |
+| **Sweet Spot Summary** | Recommended scenario per contract |
+| **Strategy & Savings Explained** | Dynamic business summary with live contract data |
+
+**Strategy & Savings Explained Widget:**
+
+This widget displays 6 lines of live scenario data:
+
+| Line | Example Content |
+|------|-----------------|
+| 📋 CONTRACT | $35,000,000 commitment |
+| 📅 CURRENT TERM | Feb 1, 2025 → Feb 28, 2027 (381 days remaining) |
+| 📈 CONSUMED | $10,896,372 of $35,000,000 (31.1%) — $24,103,628 remaining |
+| ⚠️ STATUS | EXTENDED — contract will NOT exhaust before end date |
+| 💡 EXTENSION | Extend to 3yr (new end: Feb 1, 2028) for 40% discount |
+| 💰 SAVINGS | $14,349,431 total savings with extension |
+
+**Understanding the Status:**
+- **EXTENDED**: Contract under-consumed — won't exhaust before end date
+- **EARLY EXHAUSTION**: Will consume commitment before contract end
+- **ON TRACK**: Consumption aligns well with contract timeline
+
 ---
 
 ## Consumption Forecasting (ML)
@@ -835,6 +865,12 @@ databricks_conso_reports/
 
 ### Version History
 
+- **1.12.0** (2026-02-11) - Enhanced What-If Analysis page
+  - Simplified dashboard with focused widgets
+  - New Strategy & Savings Explained widget with live contract data
+  - Shows contract term, consumption %, extension opportunities
+- **1.11.0** (2026-02-08) - Administrator Operations Guide
+- **1.10.0** (2026-02-07) - What-If discount simulation
 - **1.7.0** (2026-02-05) - Added Prophet-based ML consumption forecasting
   - New tables: contract_forecast, forecast_model_registry
   - Weekly training job for Prophet models

@@ -136,10 +136,26 @@ The tool helps answer these critical business questions:
 - **Exhaustion Date** (white vertical line): When forecast crosses commitment
 
 ### What-If Analysis Page
-- Scenario comparison table with all discount levels
-- Savings projections for each scenario
-- Sweet spot recommendation highlighted
-- "Longer Duration Opportunities" showing incentive to extend
+
+**Strategy & Savings Explained Widget:**
+
+The dashboard shows a dynamic business summary with live data:
+
+| Line | Content |
+|------|---------|
+| 📋 CONTRACT | Total commitment amount (e.g., "$35,000,000 commitment") |
+| 📅 CURRENT TERM | Exact start/end dates with days remaining (e.g., "Feb 1, 2025 → Feb 28, 2027 (381 days remaining)") |
+| 📈 CONSUMED | Amount spent, % utilized, remaining budget (e.g., "$10.9M of $35M (31.1%) — $24.1M remaining") |
+| ⚠️ STATUS | Exhaustion prediction or warning (e.g., "EXTENDED — contract will NOT exhaust before end date") |
+| 💡 EXTENSION | Extension option with new end date and discount (e.g., "Extend to 3yr (new end: Feb 1, 2028) for 40% discount") |
+| 💰 SAVINGS | Total potential savings (e.g., "$14,349,431 total savings with extension") |
+
+**What-If Burndown Chart:**
+- Multi-line chart comparing baseline vs extension scenarios
+- Shows how discount extends contract runway
+
+**Sweet Spot Recommendation:**
+- Identifies the optimal scenario per contract
 
 ---
 
@@ -196,5 +212,5 @@ This system transforms contract negotiation from guesswork into data-driven deci
 
 ---
 
-*Document generated: 2026-02-08*
-*Version: 1.10.0*
+*Document generated: 2026-02-11*
+*Version: 1.12.0*
