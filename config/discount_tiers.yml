@@ -167,3 +167,107 @@ discount_tiers:
     duration_years: 3
     discount_rate: 0.40
     notes: "Strategic commit, 3 year term"
+
+  - tier_id: "TIER_5M_4Y"
+    tier_name: "Strategic - 4 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 4
+    discount_rate: 0.40
+    notes: "Strategic commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_5M_5Y"
+    tier_name: "Strategic - 5 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 5
+    discount_rate: 0.40
+    notes: "Strategic commit, 5 year term (same discount as 3yr)"
+
+  # Extended Duration Tiers for other commitment levels (4-5 years)
+  # Discount rates kept same as 3yr - longer duration adds time, not more discount
+
+  # Enterprise Tier: $1M - $5M
+  - tier_id: "TIER_1M_4Y"
+    tier_name: "Enterprise - 4 Year"
+    min_commitment: 1000000
+    max_commitment: 4999999
+    duration_years: 4
+    discount_rate: 0.35
+    notes: "Enterprise commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_1M_5Y"
+    tier_name: "Enterprise - 5 Year"
+    min_commitment: 1000000
+    max_commitment: 4999999
+    duration_years: 5
+    discount_rate: 0.35
+    notes: "Enterprise commit, 5 year term (same discount as 3yr)"
+
+  # Scale Tier: $500K - $1M
+  - tier_id: "TIER_500K_4Y"
+    tier_name: "Scale - 4 Year"
+    min_commitment: 500000
+    max_commitment: 999999
+    duration_years: 4
+    discount_rate: 0.30
+    notes: "Scale commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_500K_5Y"
+    tier_name: "Scale - 5 Year"
+    min_commitment: 500000
+    max_commitment: 999999
+    duration_years: 5
+    discount_rate: 0.30
+    notes: "Scale commit, 5 year term (same discount as 3yr)"
+
+  # Growth Tier: $250K - $500K
+  - tier_id: "TIER_250K_4Y"
+    tier_name: "Growth - 4 Year"
+    min_commitment: 250000
+    max_commitment: 499999
+    duration_years: 4
+    discount_rate: 0.25
+    notes: "Growth commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_250K_5Y"
+    tier_name: "Growth - 5 Year"
+    min_commitment: 250000
+    max_commitment: 499999
+    duration_years: 5
+    discount_rate: 0.25
+    notes: "Growth commit, 5 year term (same discount as 3yr)"
+
+  # Standard Tier: $100K - $250K
+  - tier_id: "TIER_100K_4Y"
+    tier_name: "Standard - 4 Year"
+    min_commitment: 100000
+    max_commitment: 249999
+    duration_years: 4
+    discount_rate: 0.18
+    notes: "Standard commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_100K_5Y"
+    tier_name: "Standard - 5 Year"
+    min_commitment: 100000
+    max_commitment: 249999
+    duration_years: 5
+    discount_rate: 0.18
+    notes: "Standard commit, 5 year term (same discount as 3yr)"
+
+  # Entry Tier: $50K - $100K
+  - tier_id: "TIER_50K_4Y"
+    tier_name: "Entry - 4 Year"
+    min_commitment: 50000
+    max_commitment: 99999
+    duration_years: 4
+    discount_rate: 0.10
+    notes: "Entry level commit, 4 year term (same discount as 3yr)"
+
+  - tier_id: "TIER_50K_5Y"
+    tier_name: "Entry - 5 Year"
+    min_commitment: 50000
+    max_commitment: 99999
+    duration_years: 5
+    discount_rate: 0.10
+    notes: "Entry level commit, 5 year term (same discount as 3yr)"

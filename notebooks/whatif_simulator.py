@@ -211,14 +211,14 @@ def get_max_discount_for_contract(commitment_amount, duration_years, tiers_df):
 
 def get_discount_by_duration(commitment_amount, tiers_df):
     """
-    Get max discount available for each duration (1, 2, 3 years).
+    Get max discount available for each duration (1, 2, 3, 4, 5 years).
     Shows the incentive of longer commitments.
 
     Returns:
         Dict mapping duration_years to max_discount_pct
     """
     discounts = {}
-    for duration in [1, 2, 3]:
+    for duration in [1, 2, 3, 4, 5]:
         discounts[duration] = get_max_discount_for_contract(commitment_amount, duration, tiers_df)
     return discounts
 
@@ -228,7 +228,7 @@ def calculate_contract_duration_years(start_date, end_date):
     end = pd.to_datetime(end_date)
     days = (end - start).days
     years = round(days / 365)
-    return max(1, min(years, 3))  # Clamp to 1-3 years
+    return max(1, min(years, 5))  # Clamp to 1-5 years
 
 # Load data
 try:
@@ -362,7 +362,8 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
         })
 
     # Add "what if longer duration" scenarios to show incentive
-    for longer_duration in [2, 3]:
+    # Only show durations that provide ADDITIONAL discount over current duration
+    for longer_duration in [2, 3, 4, 5]:
         if longer_duration > duration_years:
             longer_max = discounts_by_duration.get(longer_duration, 0)
             if longer_max > max_discount_current:
@@ -392,44 +393,52 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
                     'updated_at': None
                 })
 
-    # Add "Duration Extension" scenario - extend timeline, same commitment
-    # This is useful when contract is under-consumed and extending gives more time + better discount
-    for target_duration in [3]:  # Extend to 3 years
+    # Add "Duration Extension" scenarios - extend timeline, same commitment
+    # This is useful when contract is under-consumed and extending gives more time
+    # Generate ALL valid extension durations (3yr, 4yr, 5yr) - even with same discount,
+    # longer duration provides value by allowing full consumption of the commitment.
+    # The recommendation engine will pick the optimal duration based on consumption forecasts.
+
+    for target_duration in [3, 4, 5]:  # Extend to 3, 4, or 5 years
         if target_duration > duration_years:
             extension_discount = discounts_by_duration.get(target_duration, 0)
-            if extension_discount >= max_discount_current:
-                scenario_id = str(uuid.uuid4())
 
-                # Calculate new end date
-                start_dt = pd.to_datetime(start_date)
-                new_end_dt = start_dt + pd.DateOffset(years=target_duration)
-                extra_years = target_duration - duration_years
+            # Skip only if discount is WORSE than current contract's max
+            if extension_discount < max_discount_current:
+                continue
 
-                scenarios.append({
-                    'scenario_id': scenario_id,
-                    'contract_id': contract_id,
-                    'scenario_name': f"Extend to {target_duration}yr (+{extra_years}yr)",
-                    'description': f"Extend contract by {extra_years} year(s) to {new_end_dt.strftime('%Y-%m-%d')}, same ${contract_value:,.0f} commitment, {extension_discount:.0f}% discount",
-                    'discount_pct': extension_discount,
-                    'discount_type': 'overall',
-                    'adjusted_total_value': float(contract_value),
-                    'adjusted_start_date': start_date,
-                    'adjusted_end_date': new_end_dt.strftime('%Y-%m-%d'),
-                    'is_baseline': False,
-                    'is_recommended': False,
-                    'is_max_for_duration': True,
-                    'is_longer_duration_scenario': False,
-                    'is_extension_scenario': True,
-                    'original_end_date': end_date,
-                    'extension_years': extra_years,
-                    'potential_duration_years': target_duration,
-                    'contract_duration_years': duration_years,
-                    'status': 'ACTIVE',
-                    'created_by': 'whatif_simulator',
-                    'created_at': datetime.now(),
-                    'updated_at': None
-                })
-                log_debug(f"  Added extension scenario: {target_duration}yr with {extension_discount}% discount, new end: {new_end_dt.strftime('%Y-%m-%d')}")
+            # Calculate new end date
+            start_dt = pd.to_datetime(start_date)
+            new_end_dt = start_dt + pd.DateOffset(years=target_duration)
+            extra_years = target_duration - duration_years
+
+            scenario_id = str(uuid.uuid4())
+
+            scenarios.append({
+                'scenario_id': scenario_id,
+                'contract_id': contract_id,
+                'scenario_name': f"Extend to {target_duration}yr (+{extra_years}yr)",
+                'description': f"Extend contract by {extra_years} year(s) to {new_end_dt.strftime('%Y-%m-%d')}, same ${contract_value:,.0f} commitment, {extension_discount:.0f}% discount",
+                'discount_pct': extension_discount,
+                'discount_type': 'overall',
+                'adjusted_total_value': float(contract_value),
+                'adjusted_start_date': start_date,
+                'adjusted_end_date': new_end_dt.strftime('%Y-%m-%d'),
+                'is_baseline': False,
+                'is_recommended': False,
+                'is_max_for_duration': True,
+                'is_longer_duration_scenario': False,
+                'is_extension_scenario': True,
+                'original_end_date': end_date,
+                'extension_years': extra_years,
+                'potential_duration_years': target_duration,
+                'contract_duration_years': duration_years,
+                'status': 'ACTIVE',
+                'created_by': 'whatif_simulator',
+                'created_at': datetime.now(),
+                'updated_at': None
+            })
+            log_debug(f"  Added extension scenario: {target_duration}yr with {extension_discount}% discount, new end: {new_end_dt.strftime('%Y-%m-%d')}")
 
     return scenarios
 
@@ -750,9 +759,8 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
             if r['simulated_cumulative'] >= contract_value:
                 scenario_exhaustion_date = r['usage_date']
                 break
-        # If not exhausted within extended period, use adjusted end date
-        if scenario_exhaustion_date is None:
-            scenario_exhaustion_date = adjusted_end_date
+        # If not exhausted within extended period, leave scenario_exhaustion_date as None
+        # This will correctly mark it as EXTENDED (won't exhaust)
         # Calculate days extended vs baseline
         if scenario_exhaustion_date and baseline_exhaustion_date:
             scenario_ex_dt = pd.to_datetime(scenario_exhaustion_date)
@@ -894,7 +902,7 @@ for contract_id in contracts_df['contract_id'].unique():
         # EARLY_EXHAUSTION - will burn but could get better discount with longer contract
         best = max(early_exhaust, key=lambda x: x['discount_pct'])
 
-        if contract_duration < 3:
+        if contract_duration < 5:
             # Not at max duration - recommend longer contract
             strategy_note = f"SUBOPTIMAL - Exhausts early, consider longer duration for more discount"
             log_debug(f"  Contract {contract_id}: Current best = {best['scenario_name']} ({best['discount_pct']}%)")
@@ -908,25 +916,46 @@ for contract_id in contracts_df['contract_id'].unique():
                 if extra_discount > 0:
                     log_debug(f"    RECOMMEND: {potential_duration}yr contract → {ls['discount_pct']}% discount (+{extra_discount}% more)")
         else:
-            # Already at 3yr max duration - this is the best we can do
-            strategy_note = "GOOD - Max duration (3yr), will exhaust with best available discount"
+            # Already at 5yr max duration - this is the best we can do
+            strategy_note = "GOOD - Max duration (5yr), will exhaust with best available discount"
             log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
             log_debug(f"    {strategy_note}")
 
     elif extended:
-        # EXTENDED - won't exhaust, money will be lost
-        best = next((s for s in current_scenarios if s['discount_pct'] == 0), current_scenarios[0] if current_scenarios else None)
-        strategy_note = "RISK - Under-consumption, commitment will not be fully utilized"
-        log_debug(f"  Contract {contract_id}: WARNING - Under-consumption risk!")
-        log_debug(f"    No discount scenario will exhaust contract by end date")
-        log_debug(f"    Money will be LOST at contract termination")
-        log_debug(f"    Consider: increase consumption OR reduce commitment amount")
+        # EXTENDED - won't exhaust with current duration, money will be lost
+        # Check if extension scenarios can solve this by giving more time
+        extension_scenarios = [s for s in current_scenarios if s.get('is_extension_scenario', False)]
 
-        # Check if longer duration helps (more time to consume)
-        longer_that_exhaust = [ls for ls in longer_scenarios if ls['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']]
-        if longer_that_exhaust:
-            best_longer = max(longer_that_exhaust, key=lambda x: x['discount_pct'])
-            log_debug(f"    ALTERNATIVE: Extend to {best_longer.get('potential_duration_years')}yr to allow full consumption")
+        # Find extension scenarios that achieve full consumption (ON_TRACK is ideal)
+        extensions_on_track = [s for s in extension_scenarios if s['exhaustion_status'] == 'ON_TRACK']
+        extensions_exhaust = [s for s in extension_scenarios if s['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']]
+
+        if extensions_on_track:
+            # Pick the SHORTEST extension that achieves ON_TRACK (optimal utilization)
+            best = min(extensions_on_track, key=lambda x: x.get('potential_duration_years', 99))
+            strategy_note = f"OPTIMAL - Extend to {best.get('potential_duration_years')}yr for full consumption with max discount"
+            log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
+            log_debug(f"    {strategy_note}")
+        elif extensions_exhaust:
+            # No ON_TRACK but some extensions exhaust - pick shortest that exhausts
+            best = min(extensions_exhaust, key=lambda x: x.get('potential_duration_years', 99))
+            strategy_note = f"GOOD - Extend to {best.get('potential_duration_years')}yr to exhaust contract"
+            log_debug(f"  Contract {contract_id}: Sweet spot = {best['scenario_name']} ({best['discount_pct']}%)")
+            log_debug(f"    {strategy_note}")
+        else:
+            # No extension helps - fall back to baseline
+            best = next((s for s in current_scenarios if s['discount_pct'] == 0), current_scenarios[0] if current_scenarios else None)
+            strategy_note = "RISK - Under-consumption, commitment will not be fully utilized"
+            log_debug(f"  Contract {contract_id}: WARNING - Under-consumption risk!")
+            log_debug(f"    No scenario (including extensions) will exhaust contract")
+            log_debug(f"    Money will be LOST at contract termination")
+            log_debug(f"    Consider: increase consumption OR reduce commitment amount")
+
+            # Check if longer duration hypotheticals help
+            longer_that_exhaust = [ls for ls in longer_scenarios if ls['exhaustion_status'] in ['EARLY_EXHAUSTION', 'ON_TRACK']]
+            if longer_that_exhaust:
+                best_longer = max(longer_that_exhaust, key=lambda x: x['discount_pct'])
+                log_debug(f"    ALTERNATIVE: Start a new {best_longer.get('potential_duration_years')}yr contract to allow full consumption")
 
     # Mark as sweet spot
     if best:

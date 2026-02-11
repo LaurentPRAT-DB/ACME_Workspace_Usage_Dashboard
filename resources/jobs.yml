@@ -267,17 +267,14 @@ resources:
             source: WORKSPACE
           timeout_seconds: 3600
 
-        - task_key: refresh_whatif_scenarios
-          description: "Refresh what-if discount scenarios"
+        - task_key: run_whatif_simulation
+          description: "Generate what-if discount scenarios"
           depends_on:
             - task_key: run_forecast_inference
-          sql_task:
-            warehouse_id: ${var.warehouse_id}
-            file:
-              path: ../sql/refresh_whatif_scenarios.sql
-            parameters:
-              catalog: ${var.catalog}
-              schema: ${var.schema}
+          notebook_task:
+            notebook_path: ../notebooks/whatif_simulator.py
+            source: WORKSPACE
+          timeout_seconds: 3600
 
       schedule:
         quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM
