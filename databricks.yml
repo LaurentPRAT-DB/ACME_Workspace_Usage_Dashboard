@@ -103,9 +103,8 @@ sync:
     - "sql/populate_discount_tiers.sql"
     - "sql/refresh_whatif_scenarios.sql"
     - "sql/cleanup_schema.sql"
-    # Config files read by notebooks
-    - "config/contracts.yml"
-    - "config/discount_tiers.yml"
+    # Config files read by notebooks (include all yml files)
+    - "config/*.yml"
 
   # Exclude these patterns
   exclude:
