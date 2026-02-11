@@ -151,7 +151,7 @@
       "name": "ds_whatif_explanation",
       "displayName": "Strategy Explanation",
       "queryLines": [
-        "WITH contract_info AS (SELECT c.contract_id, c.total_value, c.start_date, c.end_date, ROUND(DATEDIFF(c.end_date, c.start_date)/365) as duration_years, cb.cumulative_cost as current_consumption, cb.commitment FROM main.account_monitoring_dev.contracts c JOIN (SELECT contract_id, MAX(cumulative_cost) as cumulative_cost, MAX(commitment) as commitment FROM main.account_monitoring_dev.contract_burndown GROUP BY contract_id) cb ON c.contract_id = cb.contract_id WHERE c.status = 'ACTIVE'), baseline AS (SELECT ss.contract_id, ss.scenario_exhaustion_date, ss.cumulative_savings FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE), extension AS (SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ss.cumulative_savings, ss.scenario_exhaustion_date, ss.days_extended FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%') SELECT CONCAT('**Understanding the Chart:**\\n\\n', '• **Blue Line (Baseline)**: Shows your projected consumption in dollars at current rates with no discount. ', 'Your $', FORMAT_NUMBER(ci.total_value, 0), ' commitment will be fully consumed by ', COALESCE(DATE_FORMAT(b.scenario_exhaustion_date, 'MMMM yyyy'), 'contract end'), '.\\n\\n', '• **Green Line (Extension with ', CAST(e.discount_pct AS INT), '% Discount)**: Shows the same consumption but with a ', CAST(e.discount_pct AS INT), '% discount applied. ', 'Because each unit costs less, the same usage burns through your commitment slower.\\n\\n', '**Strategy Recommendation:**\\n\\n', CASE WHEN b.scenario_exhaustion_date < ci.end_date THEN CONCAT('Your current burn rate will exhaust the $', FORMAT_NUMBER(ci.total_value, 0), ' commitment BEFORE the contract ends. ', 'Consider extending to a 3-year contract to get a ', CAST(e.discount_pct AS INT), '% discount, saving approximately $', FORMAT_NUMBER(e.cumulative_savings, 0), ' over the contract period.') WHEN b.scenario_exhaustion_date > ci.end_date THEN CONCAT('Your current burn rate is UNDER-CONSUMING the commitment. ', 'You may not fully utilize your $', FORMAT_NUMBER(ci.total_value, 0), ' by contract end. ', 'Extending gives more time to consume AND a better discount.') ELSE CONCAT('Your consumption is ON TRACK to fully utilize the $', FORMAT_NUMBER(ci.total_value, 0), ' commitment by contract end.') END, '\\n\\n', '**Key Insight:** The gap between the blue and green lines represents your potential savings. ', 'With the same workloads, a ', CAST(e.discount_pct AS INT), '% discount means you pay $', FORMAT_NUMBER(e.cumulative_savings, 0), ' less for identical usage.') as explanation FROM contract_info ci LEFT JOIN baseline b ON ci.contract_id = b.contract_id LEFT JOIN extension e ON ci.contract_id = e.contract_id LIMIT 1"
+        "WITH extension AS (SELECT ss.contract_id, ss.discount_pct, ss.cumulative_savings FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), contract_info AS (SELECT c.contract_id, c.total_value FROM main.account_monitoring_dev.contracts c WHERE c.status = 'ACTIVE') SELECT 'BLUE LINE: Shows your consumption at full price (0% discount) - this is what you pay without any contract extension.' as chart_blue, CONCAT('GREEN LINE: Shows the SAME usage with ', CAST(e.discount_pct AS INT), '% discount applied. Same workloads, lower cost.') as chart_green, CONCAT('SAVINGS: By extending to 3 years with ', CAST(e.discount_pct AS INT), '% discount, you save $', FORMAT_NUMBER(e.cumulative_savings, 0), ' for identical usage.') as savings, CONCAT('RECOMMENDATION: The gap between lines = your savings. Extending your $', FORMAT_NUMBER(ci.total_value, 0), ' contract gives more time AND a better discount rate.') as recommendation FROM contract_info ci LEFT JOIN extension e ON ci.contract_id = e.contract_id LIMIT 1"
       ]
     }
   ],
@@ -1174,8 +1174,20 @@
                   "datasetName": "ds_whatif_explanation",
                   "fields": [
                     {
-                      "name": "explanation",
-                      "expression": "`explanation`"
+                      "name": "chart_blue",
+                      "expression": "`chart_blue`"
+                    },
+                    {
+                      "name": "chart_green",
+                      "expression": "`chart_green`"
+                    },
+                    {
+                      "name": "savings",
+                      "expression": "`savings`"
+                    },
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
                     }
                   ],
                   "disaggregated": true
@@ -1184,12 +1196,27 @@
             ],
             "spec": {
               "version": 2,
-              "widgetType": "details",
+              "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "explanation",
-                    "displayName": "Strategy & Savings Explanation",
+                    "fieldName": "chart_blue",
+                    "displayName": "Blue Line (Baseline)",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "chart_green",
+                    "displayName": "Green Line (Extension)",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "savings",
+                    "displayName": "Potential Savings",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "recommendation",
+                    "displayName": "Recommendation",
                     "type": "string"
                   }
                 ]
