@@ -253,6 +253,11 @@ print(f"✓ Account metadata inserted/updated for: {account_meta.get('customer_n
 contracts = config.get('contracts', [])
 print(f"Processing {len(contracts)} contract(s)...\n")
 
+# Clear existing contracts before loading new ones
+# This ensures only contracts from the current config file(s) exist
+spark.sql(f"DELETE FROM {CATALOG}.{SCHEMA}.contracts WHERE 1=1")
+print(f"Cleared existing contracts from {CATALOG}.{SCHEMA}.contracts")
+
 for contract in contracts:
     # Resolve auto values
     contract_id = contract.get('contract_id')
