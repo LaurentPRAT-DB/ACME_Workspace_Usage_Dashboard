@@ -151,7 +151,7 @@
       "name": "ds_whatif_explanation",
       "displayName": "Strategy Explanation",
       "queryLines": [
-        "WITH extension AS (SELECT ss.contract_id, ss.discount_pct, ss.cumulative_savings FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), contract_info AS (SELECT c.contract_id, c.total_value FROM main.account_monitoring_dev.contracts c WHERE c.status = 'ACTIVE') SELECT 'BLUE LINE: Shows your consumption at full price (0% discount) - this is what you pay without any contract extension.' as chart_blue, CONCAT('GREEN LINE: Shows the SAME usage with ', CAST(e.discount_pct AS INT), '% discount applied. Same workloads, lower cost.') as chart_green, CONCAT('SAVINGS: By extending to 3 years with ', CAST(e.discount_pct AS INT), '% discount, you save $', FORMAT_NUMBER(e.cumulative_savings, 0), ' for identical usage.') as savings, CONCAT('RECOMMENDATION: The gap between lines = your savings. Extending your $', FORMAT_NUMBER(ci.total_value, 0), ' contract gives more time AND a better discount rate.') as recommendation FROM contract_info ci LEFT JOIN extension e ON ci.contract_id = e.contract_id LIMIT 1"
+        "WITH extension AS (SELECT ss.contract_id, ss.discount_pct, ss.cumulative_savings FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), contract_info AS (SELECT c.contract_id, c.total_value FROM main.account_monitoring_dev.contracts c WHERE c.status = 'ACTIVE') SELECT 1 as sort_order, '📊 UNDERSTANDING THE CHART' as explanation FROM contract_info UNION ALL SELECT 2, CONCAT('BLUE LINE shows your projected consumption at full list price (0% discount) — what you pay without extending.') FROM contract_info UNION ALL SELECT 3, CONCAT('GREEN LINE shows the exact same workloads with a ', CAST(e.discount_pct AS INT), '% discount. Same usage, lower cost.') FROM contract_info ci JOIN extension e ON ci.contract_id = e.contract_id UNION ALL SELECT 4, CONCAT('💰 SAVINGS: $', FORMAT_NUMBER(e.cumulative_savings, 0), ' — the gap between lines is money saved at each point in time.') FROM contract_info ci JOIN extension e ON ci.contract_id = e.contract_id UNION ALL SELECT 5, CONCAT('By extending your $', FORMAT_NUMBER(ci.total_value, 0), ' contract to 3 years, you unlock a ', CAST(e.discount_pct AS INT), '% discount — same workloads, lower cost, more time.') FROM contract_info ci JOIN extension e ON ci.contract_id = e.contract_id ORDER BY sort_order"
       ]
     }
   ],
@@ -1174,20 +1174,8 @@
                   "datasetName": "ds_whatif_explanation",
                   "fields": [
                     {
-                      "name": "chart_blue",
-                      "expression": "`chart_blue`"
-                    },
-                    {
-                      "name": "chart_green",
-                      "expression": "`chart_green`"
-                    },
-                    {
-                      "name": "savings",
-                      "expression": "`savings`"
-                    },
-                    {
-                      "name": "recommendation",
-                      "expression": "`recommendation`"
+                      "name": "explanation",
+                      "expression": "`explanation`"
                     }
                   ],
                   "disaggregated": true
@@ -1200,23 +1188,8 @@
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "chart_blue",
-                    "displayName": "Blue Line (Baseline)",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "chart_green",
-                    "displayName": "Green Line (Extension)",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "savings",
-                    "displayName": "Potential Savings",
-                    "type": "string"
-                  },
-                  {
-                    "fieldName": "recommendation",
-                    "displayName": "Recommendation",
+                    "fieldName": "explanation",
+                    "displayName": " ",
                     "type": "string"
                   }
                 ]
@@ -1231,7 +1204,7 @@
             "x": 0,
             "y": 6,
             "width": 6,
-            "height": 3
+            "height": 4
           }
         },
         {
@@ -1329,7 +1302,7 @@
           },
           "position": {
             "x": 0,
-            "y": 9,
+            "y": 10,
             "width": 6,
             "height": 5
           }
@@ -1399,7 +1372,7 @@
           },
           "position": {
             "x": 0,
-            "y": 14,
+            "y": 15,
             "width": 6,
             "height": 4
           }
