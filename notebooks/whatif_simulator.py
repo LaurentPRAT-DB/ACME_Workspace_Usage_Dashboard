@@ -728,7 +728,8 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
 
     # Get latest burndown values
     if burndown_records:
-        latest_burndown = max(burndown_records, key=lambda x: x['usage_date'])
+        # Convert dates to pd.Timestamp for consistent comparison
+        latest_burndown = max(burndown_records, key=lambda x: pd.to_datetime(x['usage_date']))
         # For extension scenarios, actual_cumulative may be None for projected data
         actual_cumulative = latest_burndown.get('original_cumulative') or 0
         simulated_cumulative = latest_burndown['simulated_cumulative']
@@ -745,7 +746,7 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
     # For extension scenarios, find exhaustion date from burndown data
     if is_extension and burndown_records:
         # Find the date when cumulative >= contract_value
-        for r in sorted(burndown_records, key=lambda x: x['usage_date']):
+        for r in sorted(burndown_records, key=lambda x: pd.to_datetime(x['usage_date'])):
             if r['simulated_cumulative'] >= contract_value:
                 scenario_exhaustion_date = r['usage_date']
                 break

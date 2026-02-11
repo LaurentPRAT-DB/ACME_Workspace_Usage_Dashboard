@@ -212,5 +212,5 @@ This system transforms contract negotiation from guesswork into data-driven deci
 
 ---
 
-*Document generated: 2026-02-11*
-*Version: 1.12.0*
+*Document generated: 2026-02-08*
+*Version: 1.10.0*
