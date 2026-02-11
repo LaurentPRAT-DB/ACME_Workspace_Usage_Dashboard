@@ -1276,6 +1276,94 @@ databricks_conso_reports/
 
 ---
 
+## Required Permissions
+
+The Account Monitor requires specific Unity Catalog permissions to function correctly.
+
+### System Tables (Read Access Required)
+
+| Table | Permission | Purpose |
+|-------|------------|---------|
+| `system.billing.usage` | SELECT | Read consumption data for all workspaces |
+| `system.billing.list_prices` | SELECT | Read list prices for cost calculations |
+
+> **Note:** Access to system tables requires account-level admin or specific grants. See [Databricks documentation](https://docs.databricks.com/en/administration-guide/system-tables/index.html) for details.
+
+### Schema Permissions
+
+| Object | Permission | Purpose |
+|--------|------------|---------|
+| Catalog (e.g., `main`) | USE CATALOG | Access the catalog |
+| Schema (e.g., `account_monitoring_dev`) | CREATE SCHEMA | Initial setup only |
+| Schema | USE SCHEMA | All operations |
+| Schema | CREATE TABLE | Create tables during setup |
+
+### Table Permissions
+
+The following tables are created and managed by the Account Monitor:
+
+| Table | Required Permissions | Description |
+|-------|---------------------|-------------|
+| `account_metadata` | SELECT, INSERT, UPDATE, DELETE | Organization metadata |
+| `contracts` | SELECT, INSERT, UPDATE, DELETE | Contract definitions |
+| `dashboard_data` | SELECT, INSERT, DELETE | Aggregated billing data |
+| `dashboard_data_archive` | SELECT, INSERT | Historical archives |
+| `daily_summary` | SELECT, INSERT, DELETE | Daily cost summaries |
+| `contract_burndown` | SELECT, INSERT, DELETE | Cumulative consumption |
+| `contract_forecast` | SELECT, INSERT, DELETE | Prophet ML predictions |
+| `forecast_model_registry` | SELECT, INSERT, UPDATE | Model metadata |
+| `discount_tiers` | SELECT, INSERT, DELETE | Discount rate configuration |
+| `discount_scenarios` | SELECT, INSERT, DELETE | What-If scenarios |
+| `scenario_burndown` | SELECT, INSERT, DELETE | Simulated burndown |
+| `scenario_forecast` | SELECT, INSERT, DELETE | Scaled forecasts |
+| `scenario_summary` | SELECT, INSERT, DELETE | Scenario KPIs |
+
+### Views Created
+
+| View | Purpose |
+|------|---------|
+| `contract_burndown_summary` | Aggregated burndown metrics |
+| `forecast_features` | ML feature engineering |
+| `forecast_feature_summary` | Feature statistics |
+| `contract_forecast_latest` | Latest forecast per contract |
+| `forecast_model_active` | Active model metadata |
+| `contract_forecast_details` | Detailed forecast data |
+| `scenario_comparison` | What-If scenario comparison |
+| `scenario_burndown_chart` | Chart-ready burndown data |
+| `sweet_spot_recommendation` | Optimal scenario per contract |
+
+### Granting Permissions
+
+```sql
+-- Grant schema access to a user or group
+GRANT USE CATALOG ON CATALOG main TO `user@example.com`;
+GRANT USE SCHEMA ON SCHEMA main.account_monitoring_dev TO `user@example.com`;
+GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA main.account_monitoring_dev TO `user@example.com`;
+
+-- Grant system table access (requires account admin)
+GRANT SELECT ON TABLE system.billing.usage TO `user@example.com`;
+GRANT SELECT ON TABLE system.billing.list_prices TO `user@example.com`;
+```
+
+### Service Principal (Production)
+
+For production deployments, use a service principal with the minimum required permissions:
+
+```yaml
+# In databricks.yml
+targets:
+  prod:
+    run_as:
+      service_principal_name: account_monitor_sp
+```
+
+Grant the service principal:
+1. SELECT on system billing tables
+2. Full access to the account monitoring schema
+3. Job run permissions
+
+---
+
 ## Version History
 
 | Version | Date | Changes |

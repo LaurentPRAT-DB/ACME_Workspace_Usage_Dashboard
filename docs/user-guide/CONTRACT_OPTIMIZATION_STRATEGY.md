@@ -204,13 +204,57 @@ This system transforms contract negotiation from guesswork into data-driven deci
 
 ---
 
-## Related Documentation
+## Required Permissions
 
-- [README.md](../README.md) - Full system documentation
-- [USER_GUIDE.md](user-guide/USER_GUIDE.md) - Detailed usage instructions
-- [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) - How to configure contracts and discount tiers
+To use the Account Monitor, you need access to specific Unity Catalog objects:
+
+### System Tables (Read-Only)
+
+| Table | Why Needed |
+|-------|-----------|
+| `system.billing.usage` | Source of all consumption data |
+| `system.billing.list_prices` | List prices for savings calculations |
+
+> Contact your Databricks account admin to request access to billing system tables.
+
+### Application Schema
+
+All application data lives in a single schema (default: `main.account_monitoring_dev`):
+
+| Object Type | Count | Examples |
+|-------------|-------|----------|
+| **Tables** | 13 | `contracts`, `dashboard_data`, `contract_burndown`, `scenario_summary` |
+| **Views** | 9 | `contract_burndown_summary`, `sweet_spot_recommendation` |
+
+### Permission Levels
+
+| Role | Permissions Needed |
+|------|-------------------|
+| **Dashboard Viewer** | SELECT on schema (read-only access) |
+| **Contract Manager** | SELECT, INSERT, UPDATE on `contracts`, `account_metadata` |
+| **Administrator** | Full schema access + system table access |
+
+### Quick Permission Grant
+
+```sql
+-- For dashboard viewers (read-only)
+GRANT USE CATALOG ON CATALOG main TO `viewer@example.com`;
+GRANT USE SCHEMA ON SCHEMA main.account_monitoring_dev TO `viewer@example.com`;
+GRANT SELECT ON SCHEMA main.account_monitoring_dev TO `viewer@example.com`;
+
+-- For administrators (full access)
+GRANT ALL PRIVILEGES ON SCHEMA main.account_monitoring_dev TO `admin@example.com`;
+```
 
 ---
 
-*Document generated: 2026-02-08*
-*Version: 1.10.0*
+## Related Documentation
+
+- [README.md](../../README.md) - Full system documentation with detailed permissions
+- [USER_GUIDE.md](USER_GUIDE.md) - Detailed usage instructions
+- [CONFIGURATION_GUIDE.md](../CONFIGURATION_GUIDE.md) - How to configure contracts and discount tiers
+
+---
+
+*Document updated: 2026-02-11*
+*Version: 1.12.0*
