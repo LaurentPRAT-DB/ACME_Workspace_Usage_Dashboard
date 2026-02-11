@@ -4,9 +4,9 @@
 bundle:
   name: account_monitor
 
-# Use the LPT_FREE_EDITION CLI profile
+# Use the DEFAULT CLI profile (e2-demo-field-eng)
 workspace:
-  profile: LPT_FREE_EDITION
+  profile: DEFAULT
 
 # Variables that can be overridden per environment
 variables:

@@ -116,7 +116,7 @@
       "name": "ds_whatif_scenarios",
       "displayName": "What-If Discount Scenarios",
       "queryLines": [
-        "WITH scenario_data AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, ds.scenario_name as series_type, ds.discount_pct, ds.is_baseline FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.description NOT LIKE '%extended to%'), all_dates AS (SELECT DISTINCT contract_id, usage_date as date, scenario_commitment FROM main.account_monitoring_dev.scenario_burndown sb WHERE scenario_id IN (SELECT scenario_id FROM main.account_monitoring_dev.discount_scenarios WHERE status = 'ACTIVE')), commitment_line AS (SELECT contract_id, date, MAX(scenario_commitment) as value, 'Contract Commitment' as series_type, 0 as discount_pct, FALSE as is_baseline FROM all_dates GROUP BY contract_id, date) SELECT * FROM scenario_data UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date, discount_pct"
+        "WITH sweet_spots AS (SELECT scenario_id FROM main.account_monitoring_dev.scenario_summary WHERE is_sweet_spot = TRUE), scenario_data AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, CASE WHEN ds.is_baseline THEN 'Baseline (No Discount)' ELSE CONCAT(ds.scenario_name, ' (Recommended)') END as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.description NOT LIKE '%extended to%' AND (ds.is_baseline = TRUE OR sb.scenario_id IN (SELECT scenario_id FROM sweet_spots))), commitment_line AS (SELECT DISTINCT sb.contract_id, sb.usage_date as date, sb.scenario_commitment as value, 'Contract Commitment' as series_type FROM main.account_monitoring_dev.scenario_burndown sb JOIN main.account_monitoring_dev.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE AND ds.status = 'ACTIVE') SELECT * FROM scenario_data UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date"
       ]
     },
     {
@@ -990,39 +990,11 @@
                     "mappings": [
                       {
                         "value": "Baseline (No Discount)",
-                        "color": "#FF0000"
-                      },
-                      {
-                        "value": "5% Discount",
-                        "color": "#90EE90"
-                      },
-                      {
-                        "value": "10% Discount",
-                        "color": "#00A972"
-                      },
-                      {
-                        "value": "10% Discount (Max for 1yr)",
-                        "color": "#00A972"
-                      },
-                      {
-                        "value": "15% Discount",
-                        "color": "#0078D4"
-                      },
-                      {
-                        "value": "15% (If 2yr commit)",
-                        "color": "#0078D4"
-                      },
-                      {
-                        "value": "18% (If 3yr commit)",
-                        "color": "#00008B"
-                      },
-                      {
-                        "value": "20% Discount",
-                        "color": "#00008B"
+                        "color": "#FF4444"
                       },
                       {
                         "value": "Contract Commitment",
-                        "color": "#FFD700"
+                        "color": "#666666"
                       }
                     ]
                   },
