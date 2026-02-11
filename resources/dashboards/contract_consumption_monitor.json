@@ -123,7 +123,7 @@
       "name": "ds_whatif_summary",
       "displayName": "What-If Summary",
       "queryLines": [
-        "SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ROUND(ss.cumulative_savings, 0) as savings_to_date, ss.scenario_exhaustion_date, ss.days_extended, ROUND(ss.utilization_pct, 1) as utilization_pct, ss.exhaustion_status, CASE WHEN ss.is_sweet_spot THEN 'RECOMMENDED' WHEN ds.scenario_name LIKE 'Extend to%' THEN 'EXTENSION' ELSE '' END as recommendation FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND COALESCE(ds.description, '') NOT LIKE '%Potential discount if contract extended%' ORDER BY ss.contract_id, ss.discount_pct"
+        "SELECT ss.contract_id, ss.scenario_name, ss.discount_pct, ROUND(ss.cumulative_savings, 0) as savings_to_date, COALESCE(CAST(ss.scenario_exhaustion_date AS STRING), 'No exhaustion') as scenario_exhaustion_date, COALESCE(CAST(ss.days_extended AS STRING), '-') as days_extended, CASE WHEN ss.is_sweet_spot THEN 'RECOMMENDED' WHEN ds.scenario_name LIKE 'Extend to%' THEN 'EXTENSION' ELSE ss.exhaustion_status END as recommendation FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND COALESCE(ds.description, '') NOT LIKE '%Potential discount if contract extended%' ORDER BY ss.contract_id, ss.discount_pct"
       ]
     },
     {
@@ -1279,13 +1279,12 @@
                   {
                     "fieldName": "scenario_exhaustion_date",
                     "displayName": "Exhaustion Date",
-                    "type": "datetime",
-                    "dateTimeFormat": "YYYY-MM-DD"
+                    "type": "string"
                   },
                   {
                     "fieldName": "days_extended",
                     "displayName": "Days Extended",
-                    "type": "number"
+                    "type": "string"
                   },
                   {
                     "fieldName": "recommendation",
