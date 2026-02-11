@@ -5,7 +5,7 @@
 -- Table: discount_tiers
 -- Configurable discount rates by commitment level and duration
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.discount_tiers (
+CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.discount_tiers (
   tier_id STRING NOT NULL COMMENT 'Unique tier identifier',
   tier_name STRING NOT NULL COMMENT 'Human-readable tier name',
   min_commitment DECIMAL(18,2) NOT NULL COMMENT 'Minimum commitment for this tier',
@@ -30,7 +30,7 @@ TBLPROPERTIES (
 -- Table: discount_scenarios
 -- User-defined what-if scenarios for contracts
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.discount_scenarios (
+CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.discount_scenarios (
   scenario_id STRING NOT NULL COMMENT 'Unique scenario identifier (UUID)',
   contract_id STRING NOT NULL COMMENT 'Base contract for simulation',
   scenario_name STRING NOT NULL COMMENT 'User-friendly scenario name',
@@ -62,7 +62,7 @@ TBLPROPERTIES (
 -- Table: scenario_burndown
 -- Simulated daily burndown for each scenario
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_burndown (
+CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.scenario_burndown (
   scenario_id STRING NOT NULL COMMENT 'Scenario this burndown belongs to',
   contract_id STRING NOT NULL COMMENT 'Base contract reference',
   usage_date DATE NOT NULL COMMENT 'Simulation date',
@@ -97,7 +97,7 @@ TBLPROPERTIES (
 -- Table: scenario_forecast
 -- Prophet-based predictions for each scenario
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_forecast (
+CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.scenario_forecast (
   scenario_id STRING NOT NULL COMMENT 'Scenario this forecast belongs to',
   contract_id STRING NOT NULL COMMENT 'Base contract reference',
   forecast_date DATE NOT NULL COMMENT 'Forecast date',
@@ -132,7 +132,7 @@ TBLPROPERTIES (
 -- Table: scenario_summary
 -- Denormalized summary for fast dashboard queries
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_summary (
+CREATE TABLE IF NOT EXISTS {{catalog}}.{{schema}}.scenario_summary (
   scenario_id STRING NOT NULL COMMENT 'Scenario identifier',
   contract_id STRING NOT NULL COMMENT 'Base contract reference',
   scenario_name STRING COMMENT 'Scenario display name',
@@ -172,7 +172,7 @@ TBLPROPERTIES (
 -- View: scenario_comparison
 -- Compare all active scenarios for a contract
 -- ============================================================================
-CREATE OR REPLACE VIEW main.account_monitoring_dev.scenario_comparison AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.scenario_comparison AS
 SELECT
   s.scenario_id,
   s.contract_id,
@@ -193,8 +193,8 @@ SELECT
   sm.is_sweet_spot,
   sm.exhaustion_status,
   sm.break_even_status
-FROM main.account_monitoring_dev.discount_scenarios s
-INNER JOIN main.account_monitoring_dev.scenario_summary sm
+FROM {{catalog}}.{{schema}}.discount_scenarios s
+INNER JOIN {{catalog}}.{{schema}}.scenario_summary sm
   ON s.scenario_id = sm.scenario_id
 WHERE s.status = 'ACTIVE'
 ORDER BY s.contract_id, s.discount_pct;
@@ -203,7 +203,7 @@ ORDER BY s.contract_id, s.discount_pct;
 -- View: scenario_burndown_chart
 -- Data for multi-line burndown comparison chart
 -- ============================================================================
-CREATE OR REPLACE VIEW main.account_monitoring_dev.scenario_burndown_chart AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.scenario_burndown_chart AS
 SELECT
   sb.contract_id,
   sb.usage_date,
@@ -213,8 +213,8 @@ SELECT
   sb.scenario_commitment as commitment,
   sb.cumulative_savings,
   s.is_baseline
-FROM main.account_monitoring_dev.scenario_burndown sb
-INNER JOIN main.account_monitoring_dev.discount_scenarios s
+FROM {{catalog}}.{{schema}}.scenario_burndown sb
+INNER JOIN {{catalog}}.{{schema}}.discount_scenarios s
   ON sb.scenario_id = s.scenario_id
 WHERE s.status = 'ACTIVE'
 ORDER BY sb.contract_id, sb.usage_date, s.discount_pct;
@@ -223,7 +223,7 @@ ORDER BY sb.contract_id, sb.usage_date, s.discount_pct;
 -- View: sweet_spot_recommendation
 -- Shows the optimal scenario per contract
 -- ============================================================================
-CREATE OR REPLACE VIEW main.account_monitoring_dev.sweet_spot_recommendation AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.sweet_spot_recommendation AS
 SELECT
   contract_id,
   scenario_id,
@@ -233,7 +233,7 @@ SELECT
   days_extended,
   utilization_pct,
   pct_savings
-FROM main.account_monitoring_dev.scenario_summary
+FROM {{catalog}}.{{schema}}.scenario_summary
 WHERE is_sweet_spot = TRUE;
 
 SELECT 'What-If simulation schema created successfully' as status;

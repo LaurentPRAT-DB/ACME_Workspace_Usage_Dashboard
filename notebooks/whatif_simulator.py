@@ -28,6 +28,12 @@ import traceback
 
 DEBUG_LOG = []
 
+# Get catalog/schema early for debug logging
+dbutils.widgets.text("catalog", "main", "Unity Catalog")
+dbutils.widgets.text("schema", "account_monitoring_dev", "Schema")
+_DEBUG_CATALOG = dbutils.widgets.get("catalog")
+_DEBUG_SCHEMA = dbutils.widgets.get("schema")
+
 def log_debug(message):
     """Log debug message with timestamp"""
     timestamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -40,7 +46,7 @@ def save_debug_log():
     try:
         log_text = "\n".join(DEBUG_LOG)
         spark.sql(f"""
-            CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.whatif_debug_log (
+            CREATE TABLE IF NOT EXISTS {_DEBUG_CATALOG}.{_DEBUG_SCHEMA}.whatif_debug_log (
                 run_id STRING,
                 timestamp TIMESTAMP,
                 log_text STRING
@@ -50,7 +56,7 @@ def save_debug_log():
         # Escape single quotes in log text
         escaped_log = log_text.replace("'", "''")
         spark.sql(f"""
-            INSERT INTO main.account_monitoring_dev.whatif_debug_log
+            INSERT INTO {_DEBUG_CATALOG}.{_DEBUG_SCHEMA}.whatif_debug_log
             VALUES ('{run_id}', CURRENT_TIMESTAMP(), '{escaped_log}')
         """)
         print(f"Debug log saved with run_id: {run_id}")
@@ -71,9 +77,9 @@ import uuid
 
 log_debug("Imports successful")
 
-# Configuration
-CATALOG = "main"
-SCHEMA = "account_monitoring_dev"
+# Configuration (widgets defined earlier for debug logging)
+CATALOG = dbutils.widgets.get("catalog")
+SCHEMA = dbutils.widgets.get("schema")
 
 # Base discount levels to simulate (will be capped by tier max)
 BASE_DISCOUNT_LEVELS = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]

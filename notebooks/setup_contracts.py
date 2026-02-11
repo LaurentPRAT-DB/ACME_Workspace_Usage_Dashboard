@@ -27,10 +27,12 @@ from pyspark.sql import functions as F
 # Get parameters with defaults
 dbutils.widgets.text("config_files", "config/contracts.yml", "Config Files (comma-separated)")
 dbutils.widgets.text("discount_tiers_file", "config/discount_tiers.yml", "Discount Tiers Config")
+dbutils.widgets.text("catalog", "main", "Unity Catalog")
+dbutils.widgets.text("schema", "account_monitoring_dev", "Schema")
 
 # Configuration
-CATALOG = "main"
-SCHEMA = "account_monitoring_dev"
+CATALOG = dbutils.widgets.get("catalog")
+SCHEMA = dbutils.widgets.get("schema")
 CONFIG_FILES = dbutils.widgets.get("config_files").split(",")
 CONFIG_FILES = [f.strip() for f in CONFIG_FILES if f.strip()]  # Clean up whitespace
 DISCOUNT_TIERS_FILE = dbutils.widgets.get("discount_tiers_file").strip()

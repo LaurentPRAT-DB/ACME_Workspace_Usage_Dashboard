@@ -12,8 +12,8 @@ WITH contract_consumption AS (
     DATEDIFF(CURRENT_DATE(), c.start_date) as elapsed_days,
     DATEDIFF(c.end_date, CURRENT_DATE()) as remaining_days,
     SUM(d.actual_cost) as consumed
-  FROM main.account_monitoring_dev.contracts c
-  LEFT JOIN main.account_monitoring_dev.dashboard_data d
+  FROM {{catalog}}.{{schema}}.contracts c
+  LEFT JOIN {{catalog}}.{{schema}}.dashboard_data d
     ON c.account_id = d.account_id
     AND c.cloud_provider = d.cloud_provider
     AND d.usage_date BETWEEN c.start_date AND c.end_date

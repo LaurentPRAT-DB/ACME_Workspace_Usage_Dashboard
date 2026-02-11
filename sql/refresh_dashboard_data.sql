@@ -2,7 +2,7 @@
 -- Loads usage and cost data from system tables into dashboard_data table
 
 -- Replace the dashboard_data table with fresh data from last 365 days
-CREATE OR REPLACE TABLE main.account_monitoring_dev.dashboard_data AS
+CREATE OR REPLACE TABLE {{catalog}}.{{schema}}.dashboard_data AS
 SELECT
   u.usage_date,
   u.account_id,
@@ -48,13 +48,13 @@ LEFT JOIN system.billing.list_prices lp
   AND u.usage_unit = lp.usage_unit
   AND u.usage_end_time >= lp.price_start_time
   AND (lp.price_end_time IS NULL OR u.usage_end_time < lp.price_end_time)
-LEFT JOIN main.account_monitoring_dev.account_metadata am
+LEFT JOIN {{catalog}}.{{schema}}.account_metadata am
   ON u.account_id = am.account_id
 WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
   AND u.record_type = 'ORIGINAL';
 
 -- Refresh daily summary table
-CREATE OR REPLACE TABLE main.account_monitoring_dev.daily_summary AS
+CREATE OR REPLACE TABLE {{catalog}}.{{schema}}.daily_summary AS
 SELECT
   usage_date,
   cloud_provider,
@@ -63,7 +63,7 @@ SELECT
   SUM(actual_cost) as total_cost,
   COUNT(DISTINCT sku_name) as unique_skus,
   CURRENT_TIMESTAMP() as updated_at
-FROM main.account_monitoring_dev.dashboard_data
+FROM {{catalog}}.{{schema}}.dashboard_data
 GROUP BY usage_date, cloud_provider, workspace_id;
 
 -- Return summary
@@ -73,4 +73,4 @@ SELECT
   MIN(usage_date) as earliest_date,
   MAX(usage_date) as latest_date,
   SUM(actual_cost) as total_cost
-FROM main.account_monitoring_dev.dashboard_data;
+FROM {{catalog}}.{{schema}}.dashboard_data;

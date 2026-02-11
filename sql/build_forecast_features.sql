@@ -4,7 +4,7 @@
 
 -- Create or replace view with daily aggregated costs per contract
 -- Prophet requires data in (ds, y) format where ds=date and y=value
-CREATE OR REPLACE VIEW main.account_monitoring_dev.forecast_features AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.forecast_features AS
 WITH daily_costs AS (
   SELECT
     c.contract_id,
@@ -18,8 +18,8 @@ WITH daily_costs AS (
     SUM(d.actual_cost) as daily_cost,
     -- Count of records for data quality check
     COUNT(*) as record_count
-  FROM main.account_monitoring_dev.contracts c
-  INNER JOIN main.account_monitoring_dev.dashboard_data d
+  FROM {{catalog}}.{{schema}}.contracts c
+  INNER JOIN {{catalog}}.{{schema}}.dashboard_data d
     ON c.account_id = d.account_id
     AND c.cloud_provider = d.cloud_provider
     AND d.usage_date BETWEEN c.start_date AND CURRENT_DATE()
@@ -96,7 +96,7 @@ LEFT JOIN daily_costs dc
 ORDER BY ds.contract_id, ds.usage_date;
 
 -- Create summary stats for each contract (useful for model selection)
-CREATE OR REPLACE VIEW main.account_monitoring_dev.forecast_feature_summary AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.forecast_feature_summary AS
 SELECT
   contract_id,
   cloud_provider,
@@ -124,7 +124,7 @@ SELECT
     WHEN SUM(has_actual_data) >= 14 THEN 'LIMITED'
     ELSE 'INSUFFICIENT'
   END as prophet_readiness
-FROM main.account_monitoring_dev.forecast_features
+FROM {{catalog}}.{{schema}}.forecast_features
 GROUP BY
   contract_id,
   cloud_provider,
@@ -140,4 +140,4 @@ SELECT
   SUM(CASE WHEN prophet_readiness = 'READY' THEN 1 ELSE 0 END) as ready_for_prophet,
   SUM(CASE WHEN prophet_readiness = 'LIMITED' THEN 1 ELSE 0 END) as limited_data,
   SUM(CASE WHEN prophet_readiness = 'INSUFFICIENT' THEN 1 ELSE 0 END) as insufficient_data
-FROM main.account_monitoring_dev.forecast_feature_summary;
+FROM {{catalog}}.{{schema}}.forecast_feature_summary;

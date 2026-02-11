@@ -1,7 +1,7 @@
 -- Refresh Contract Burndown Table
 -- Creates daily burndown data for active contracts
 
-CREATE OR REPLACE TABLE main.account_monitoring_dev.contract_burndown AS
+CREATE OR REPLACE TABLE {{catalog}}.{{schema}}.contract_burndown AS
 SELECT
   c.contract_id,
   c.cloud_provider,
@@ -44,8 +44,8 @@ SELECT
   ) * 100.0 / c.total_value, 2) as budget_pct_consumed,
   -- Current timestamp for freshness tracking
   CURRENT_TIMESTAMP() as refreshed_at
-FROM main.account_monitoring_dev.contracts c
-INNER JOIN main.account_monitoring_dev.dashboard_data d
+FROM {{catalog}}.{{schema}}.contracts c
+INNER JOIN {{catalog}}.{{schema}}.dashboard_data d
   ON c.account_id = d.account_id
   AND c.cloud_provider = d.cloud_provider
   AND d.usage_date BETWEEN c.start_date AND c.end_date
@@ -63,7 +63,7 @@ GROUP BY
 ORDER BY c.contract_id, d.usage_date;
 
 -- Create summary view for latest status
-CREATE OR REPLACE VIEW main.account_monitoring_dev.contract_burndown_summary AS
+CREATE OR REPLACE VIEW {{catalog}}.{{schema}}.contract_burndown_summary AS
 WITH latest_burndown AS (
   SELECT
     contract_id,
@@ -79,7 +79,7 @@ WITH latest_burndown AS (
     MAX(days_elapsed) as days_into_contract,
     MAX(total_contract_days) as contract_duration,
     MAX(budget_pct_consumed) as pct_consumed
-  FROM main.account_monitoring_dev.contract_burndown
+  FROM {{catalog}}.{{schema}}.contract_burndown
   GROUP BY contract_id, cloud_provider, start_date, end_date, commitment, currency
 )
 SELECT
@@ -130,4 +130,4 @@ SELECT
   COUNT(*) as total_data_points,
   MIN(usage_date) as earliest_date,
   MAX(usage_date) as latest_date
-FROM main.account_monitoring_dev.contract_burndown;
+FROM {{catalog}}.{{schema}}.contract_burndown;

@@ -7,7 +7,7 @@
 -- Apply discount factors to historical consumption
 -- ============================================================================
 
-MERGE INTO main.account_monitoring_dev.scenario_burndown AS target
+MERGE INTO {{catalog}}.{{schema}}.scenario_burndown AS target
 USING (
   SELECT
     ds.scenario_id,
@@ -27,8 +27,8 @@ USING (
     SUM(cb.daily_cost - cb.daily_cost * (1 - ds.discount_pct / 100)) OVER (
       PARTITION BY ds.scenario_id ORDER BY cb.usage_date
     ) AS cumulative_savings
-  FROM main.account_monitoring_dev.discount_scenarios ds
-  INNER JOIN main.account_monitoring_dev.contract_burndown cb
+  FROM {{catalog}}.{{schema}}.discount_scenarios ds
+  INNER JOIN {{catalog}}.{{schema}}.contract_burndown cb
     ON ds.contract_id = cb.contract_id
   WHERE ds.status = 'ACTIVE'
 ) AS source
@@ -59,13 +59,13 @@ WHEN NOT MATCHED THEN INSERT (
 -- Scale Prophet predictions by discount factor
 -- ============================================================================
 
-MERGE INTO main.account_monitoring_dev.scenario_forecast AS target
+MERGE INTO {{catalog}}.{{schema}}.scenario_forecast AS target
 USING (
   WITH baseline_exhaustion AS (
     SELECT
       contract_id,
       MAX(exhaustion_date_p50) AS baseline_exhaustion_date
-    FROM main.account_monitoring_dev.contract_forecast
+    FROM {{catalog}}.{{schema}}.contract_forecast
     GROUP BY contract_id
   ),
   scaled_forecasts AS (
@@ -82,8 +82,8 @@ USING (
       cf.model_version,
       be.baseline_exhaustion_date,
       ds.adjusted_total_value AS commitment
-    FROM main.account_monitoring_dev.discount_scenarios ds
-    INNER JOIN main.account_monitoring_dev.contract_forecast cf
+    FROM {{catalog}}.{{schema}}.discount_scenarios ds
+    INNER JOIN {{catalog}}.{{schema}}.contract_forecast cf
       ON ds.contract_id = cf.contract_id
     LEFT JOIN baseline_exhaustion be
       ON ds.contract_id = be.contract_id
@@ -143,7 +143,7 @@ WHEN NOT MATCHED THEN INSERT (
 -- Step 3: Refresh scenario_summary with latest metrics
 -- ============================================================================
 
-MERGE INTO main.account_monitoring_dev.scenario_summary AS target
+MERGE INTO {{catalog}}.{{schema}}.scenario_summary AS target
 USING (
   WITH latest_burndown AS (
     SELECT
@@ -153,7 +153,7 @@ USING (
       MAX(original_cumulative) AS actual_cumulative,
       MAX(simulated_cumulative) AS simulated_cumulative,
       MAX(cumulative_savings) AS cumulative_savings
-    FROM main.account_monitoring_dev.scenario_burndown
+    FROM {{catalog}}.{{schema}}.scenario_burndown
     GROUP BY scenario_id, contract_id
   ),
   latest_forecast AS (
@@ -163,7 +163,7 @@ USING (
       MIN(exhaustion_date_p50) AS scenario_exhaustion_date,
       MIN(baseline_exhaustion_date) AS baseline_exhaustion_date,
       MAX(days_extended) AS days_extended
-    FROM main.account_monitoring_dev.scenario_forecast
+    FROM {{catalog}}.{{schema}}.scenario_forecast
     WHERE exhaustion_date_p50 IS NOT NULL
     GROUP BY scenario_id, contract_id
   ),
@@ -207,8 +207,8 @@ USING (
         ELSE 'ON_TRACK'
       END AS exhaustion_status,
       ds.discount_pct AS pct_savings
-    FROM main.account_monitoring_dev.discount_scenarios ds
-    INNER JOIN main.account_monitoring_dev.contracts c
+    FROM {{catalog}}.{{schema}}.discount_scenarios ds
+    INNER JOIN {{catalog}}.{{schema}}.contracts c
       ON ds.contract_id = c.contract_id
     LEFT JOIN latest_burndown lb
       ON ds.scenario_id = lb.scenario_id
@@ -258,12 +258,12 @@ WHEN NOT MATCHED THEN INSERT (
 -- ============================================================================
 
 -- Reset all sweet spot flags
-UPDATE main.account_monitoring_dev.scenario_summary
+UPDATE {{catalog}}.{{schema}}.scenario_summary
 SET is_sweet_spot = FALSE
 WHERE is_sweet_spot = TRUE;
 
 -- Set sweet spot for each contract
-MERGE INTO main.account_monitoring_dev.scenario_summary AS target
+MERGE INTO {{catalog}}.{{schema}}.scenario_summary AS target
 USING (
   SELECT scenario_id
   FROM (
@@ -277,7 +277,7 @@ USING (
         ORDER BY
           CASE WHEN utilization_pct >= 85 OR discount_pct = 0 THEN cumulative_savings ELSE -1 END DESC
       ) AS rn
-    FROM main.account_monitoring_dev.scenario_summary
+    FROM {{catalog}}.{{schema}}.scenario_summary
   )
   WHERE rn = 1
 ) AS source
@@ -286,10 +286,10 @@ WHEN MATCHED THEN UPDATE SET
   is_sweet_spot = TRUE;
 
 -- Also update discount_scenarios is_recommended flag using MERGE
-MERGE INTO main.account_monitoring_dev.discount_scenarios AS target
+MERGE INTO {{catalog}}.{{schema}}.discount_scenarios AS target
 USING (
   SELECT scenario_id, is_sweet_spot
-  FROM main.account_monitoring_dev.scenario_summary
+  FROM {{catalog}}.{{schema}}.scenario_summary
 ) AS source
 ON target.scenario_id = source.scenario_id
 WHEN MATCHED THEN UPDATE SET
@@ -305,4 +305,4 @@ SELECT
   COUNT(DISTINCT scenario_id) AS total_scenarios,
   COUNT(DISTINCT contract_id) AS contracts_covered,
   SUM(CASE WHEN is_sweet_spot THEN 1 ELSE 0 END) AS sweet_spots_identified
-FROM main.account_monitoring_dev.scenario_summary;
+FROM {{catalog}}.{{schema}}.scenario_summary;

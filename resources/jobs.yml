@@ -54,6 +54,8 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/setup_contracts.py
             base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
               config_files: ${var.config_files}
               discount_tiers_file: ${var.discount_tiers_file}
             source: WORKSPACE
@@ -117,6 +119,8 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/consumption_forecaster.py
             base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
               mode: "both"
               forecast_horizon_days: "365"
               confidence_interval: "0.80"
@@ -131,6 +135,9 @@ resources:
             - task_key: train_and_forecast
           notebook_task:
             notebook_path: ../notebooks/whatif_simulator.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
             source: WORKSPACE
           timeout_seconds: 3600
 
@@ -181,6 +188,8 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/setup_contracts.py
             base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
               config_files: ${var.config_files}
             source: WORKSPACE
 
@@ -260,6 +269,8 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/consumption_forecaster.py
             base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
               mode: "inference"
               forecast_horizon_days: "365"
               confidence_interval: "0.80"
@@ -273,6 +284,9 @@ resources:
             - task_key: run_forecast_inference
           notebook_task:
             notebook_path: ../notebooks/whatif_simulator.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
             source: WORKSPACE
           timeout_seconds: 3600
 
@@ -411,6 +425,8 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/consumption_forecaster.py
             base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
               mode: "both"
               forecast_horizon_days: "365"
               confidence_interval: "0.80"
@@ -424,6 +440,9 @@ resources:
             - task_key: train_prophet_models
           notebook_task:
             notebook_path: ../notebooks/whatif_simulator.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
             source: WORKSPACE
           timeout_seconds: 3600
 
