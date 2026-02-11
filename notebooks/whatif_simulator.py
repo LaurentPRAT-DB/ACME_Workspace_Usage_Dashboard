@@ -383,6 +383,7 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
                     'is_recommended': False,
                     'is_max_for_duration': True,
                     'is_longer_duration_scenario': True,
+                    'is_extension_scenario': False,
                     'potential_duration_years': longer_duration,
                     'contract_duration_years': duration_years,
                     'status': 'ACTIVE',
@@ -390,6 +391,45 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
                     'created_at': datetime.now(),
                     'updated_at': None
                 })
+
+    # Add "Duration Extension" scenario - extend timeline, same commitment
+    # This is useful when contract is under-consumed and extending gives more time + better discount
+    for target_duration in [3]:  # Extend to 3 years
+        if target_duration > duration_years:
+            extension_discount = discounts_by_duration.get(target_duration, 0)
+            if extension_discount >= max_discount_current:
+                scenario_id = str(uuid.uuid4())
+
+                # Calculate new end date
+                start_dt = pd.to_datetime(start_date)
+                new_end_dt = start_dt + pd.DateOffset(years=target_duration)
+                extra_years = target_duration - duration_years
+
+                scenarios.append({
+                    'scenario_id': scenario_id,
+                    'contract_id': contract_id,
+                    'scenario_name': f"Extend to {target_duration}yr (+{extra_years}yr)",
+                    'description': f"Extend contract by {extra_years} year(s) to {new_end_dt.strftime('%Y-%m-%d')}, same ${contract_value:,.0f} commitment, {extension_discount:.0f}% discount",
+                    'discount_pct': extension_discount,
+                    'discount_type': 'overall',
+                    'adjusted_total_value': float(contract_value),
+                    'adjusted_start_date': start_date,
+                    'adjusted_end_date': new_end_dt.strftime('%Y-%m-%d'),
+                    'is_baseline': False,
+                    'is_recommended': False,
+                    'is_max_for_duration': True,
+                    'is_longer_duration_scenario': False,
+                    'is_extension_scenario': True,
+                    'original_end_date': end_date,
+                    'extension_years': extra_years,
+                    'potential_duration_years': target_duration,
+                    'contract_duration_years': duration_years,
+                    'status': 'ACTIVE',
+                    'created_by': 'whatif_simulator',
+                    'created_at': datetime.now(),
+                    'updated_at': None
+                })
+                log_debug(f"  Added extension scenario: {target_duration}yr with {extension_discount}% discount, new end: {new_end_dt.strftime('%Y-%m-%d')}")
 
     return scenarios
 
@@ -418,7 +458,7 @@ log_debug(f"Total scenarios generated: {len(all_scenarios)}")
 
 # COMMAND ----------
 
-def calculate_scenario_burndown(contract_id, scenario_id, discount_pct, burndown_data, contract_value):
+def calculate_scenario_burndown(contract_id, scenario_id, discount_pct, burndown_data, contract_value, adjusted_end_date=None):
     """
     Calculate simulated burndown with discount applied.
 
@@ -428,6 +468,7 @@ def calculate_scenario_burndown(contract_id, scenario_id, discount_pct, burndown
         discount_pct: Discount percentage (0-100)
         burndown_data: Historical burndown DataFrame
         contract_value: Contract commitment value
+        adjusted_end_date: Extended contract end date (for extension scenarios)
 
     Returns:
         List of burndown records for this scenario
@@ -467,8 +508,48 @@ def calculate_scenario_burndown(contract_id, scenario_id, discount_pct, burndown
             'simulated_remaining': contract_value - simulated_cumulative,
             'daily_savings': daily_savings,
             'cumulative_savings': cumulative_savings,
+            'is_projected': False,
             'calculated_at': datetime.now()
         })
+
+    # For extension scenarios, project future consumption
+    if adjusted_end_date is not None and len(records) > 0:
+        # Calculate average daily consumption rate from historical data (last 90 days)
+        recent_days = min(90, len(contract_burndown))
+        recent_data = contract_burndown.tail(recent_days)
+        avg_daily_cost = recent_data['daily_cost'].mean()
+
+        if pd.notna(avg_daily_cost) and avg_daily_cost > 0:
+            # Project from last historical date to adjusted end date
+            last_date = pd.to_datetime(records[-1]['usage_date'])
+            end_date = pd.to_datetime(adjusted_end_date)
+
+            current_date = last_date + timedelta(days=1)
+            while current_date <= end_date and simulated_cumulative < contract_value:
+                original_daily = float(avg_daily_cost)
+                simulated_daily = original_daily * discount_factor
+                simulated_cumulative += simulated_daily
+
+                daily_savings = original_daily - simulated_daily
+                cumulative_savings += daily_savings
+
+                records.append({
+                    'scenario_id': scenario_id,
+                    'contract_id': contract_id,
+                    'usage_date': current_date,
+                    'original_daily_cost': original_daily,
+                    'original_cumulative': None,  # No original cumulative for projected
+                    'simulated_daily_cost': simulated_daily,
+                    'simulated_cumulative': simulated_cumulative,
+                    'scenario_commitment': contract_value,
+                    'simulated_remaining': max(0, contract_value - simulated_cumulative),
+                    'daily_savings': daily_savings,
+                    'cumulative_savings': cumulative_savings,
+                    'is_projected': True,
+                    'calculated_at': datetime.now()
+                })
+
+                current_date += timedelta(days=1)
 
     return records
 
@@ -478,14 +559,19 @@ all_burndown = []
 
 for scenario in all_scenarios:
     contract = contracts_df[contracts_df['contract_id'] == scenario['contract_id']].iloc[0]
+    # Pass adjusted end date for extension scenarios
+    adjusted_end = scenario.get('adjusted_end_date') if scenario.get('is_extension_scenario', False) else None
     burndown_records = calculate_scenario_burndown(
         scenario['contract_id'],
         scenario['scenario_id'],
         scenario['discount_pct'],
         burndown_df,
-        float(contract['total_value'])
+        float(contract['total_value']),
+        adjusted_end_date=adjusted_end
     )
     all_burndown.extend(burndown_records)
+    if adjusted_end:
+        log_debug(f"  Extension scenario {scenario['scenario_name']}: {len(burndown_records)} records (projected to {adjusted_end})")
 
 log_debug(f"Total burndown records: {len(all_burndown)}")
 
@@ -637,11 +723,14 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
     """
     contract_value = float(contract['total_value'])
     discount_pct = scenario['discount_pct']
+    is_extension = scenario.get('is_extension_scenario', False)
+    adjusted_end_date = scenario.get('adjusted_end_date')
 
     # Get latest burndown values
     if burndown_records:
         latest_burndown = max(burndown_records, key=lambda x: x['usage_date'])
-        actual_cumulative = latest_burndown['original_cumulative']
+        # For extension scenarios, actual_cumulative may be None for projected data
+        actual_cumulative = latest_burndown.get('original_cumulative') or 0
         simulated_cumulative = latest_burndown['simulated_cumulative']
         cumulative_savings = latest_burndown['cumulative_savings']
     else:
@@ -649,10 +738,26 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
         simulated_cumulative = 0
         cumulative_savings = 0
 
-    # Get exhaustion dates from forecasts
+    # Get exhaustion dates
     scenario_exhaustion_date = None
     days_extended = None
-    if forecast_records:
+
+    # For extension scenarios, find exhaustion date from burndown data
+    if is_extension and burndown_records:
+        # Find the date when cumulative >= contract_value
+        for r in sorted(burndown_records, key=lambda x: x['usage_date']):
+            if r['simulated_cumulative'] >= contract_value:
+                scenario_exhaustion_date = r['usage_date']
+                break
+        # If not exhausted within extended period, use adjusted end date
+        if scenario_exhaustion_date is None:
+            scenario_exhaustion_date = adjusted_end_date
+        # Calculate days extended vs baseline
+        if scenario_exhaustion_date and baseline_exhaustion_date:
+            scenario_ex_dt = pd.to_datetime(scenario_exhaustion_date)
+            baseline_dt = pd.to_datetime(baseline_exhaustion_date)
+            days_extended = (scenario_ex_dt - baseline_dt).days
+    elif forecast_records:
         scenario_exhaustion_date = forecast_records[0].get('exhaustion_date_p50')
         days_extended = forecast_records[0].get('days_extended')
 
@@ -675,8 +780,8 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
     else:
         break_even_status = 'BELOW_BREAKEVEN'
 
-    # Exhaustion status
-    contract_end = pd.to_datetime(contract['end_date'])
+    # Exhaustion status - use adjusted_end_date for extension scenarios
+    contract_end = pd.to_datetime(adjusted_end_date) if is_extension and adjusted_end_date else pd.to_datetime(contract['end_date'])
     if scenario_exhaustion_date is not None:
         scenario_ex_dt = pd.to_datetime(scenario_exhaustion_date)
         if scenario_ex_dt < contract_end:
@@ -705,7 +810,7 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
         'base_commitment': contract_value,
         'scenario_commitment': contract_value,
         'contract_start': contract['start_date'],
-        'contract_end': contract['end_date'],
+        'contract_end': adjusted_end_date if is_extension else contract['end_date'],
         'actual_cumulative': actual_cumulative,
         'simulated_cumulative': simulated_cumulative,
         'cumulative_savings': cumulative_savings,
@@ -719,6 +824,8 @@ def calculate_scenario_summary(scenario, burndown_records, forecast_records, con
         'pct_savings': pct_savings,
         'is_sweet_spot': False,  # Will be set later
         'is_longer_duration_scenario': is_longer_duration,
+        'is_extension_scenario': is_extension,
+        'adjusted_end_date': adjusted_end_date,
         'potential_duration_years': potential_duration,
         'contract_duration_years': current_duration,
         'is_max_for_duration': is_max_for_duration,
@@ -901,18 +1008,22 @@ def save_burndown(burndown_records):
         batch = burndown_records[i:i+batch_size]
         values = []
         for r in batch:
+            # Handle nullable original_cumulative (None for projected data)
+            orig_cum = r['original_cumulative'] if r.get('original_cumulative') is not None else 'NULL'
+            is_projected = 'TRUE' if r.get('is_projected', False) else 'FALSE'
             values.append(f"""(
                 '{r['scenario_id']}',
                 '{r['contract_id']}',
                 '{r['usage_date']}',
                 {r['original_daily_cost']},
-                {r['original_cumulative']},
+                {orig_cum},
                 {r['simulated_daily_cost']},
                 {r['simulated_cumulative']},
                 {r['scenario_commitment']},
                 {r['simulated_remaining']},
                 {r['daily_savings']},
                 {r['cumulative_savings']},
+                {is_projected},
                 CURRENT_TIMESTAMP()
             )""")
 
@@ -920,7 +1031,7 @@ def save_burndown(burndown_records):
             INSERT INTO {CATALOG}.{SCHEMA}.scenario_burndown
             (scenario_id, contract_id, usage_date, original_daily_cost, original_cumulative,
              simulated_daily_cost, simulated_cumulative, scenario_commitment, simulated_remaining,
-             daily_savings, cumulative_savings, calculated_at)
+             daily_savings, cumulative_savings, is_projected, calculated_at)
             VALUES {', '.join(values)}
         """)
 

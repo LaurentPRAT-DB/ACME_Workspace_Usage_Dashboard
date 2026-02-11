@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS main.account_monitoring_dev.scenario_burndown (
   -- Savings metrics
   daily_savings DECIMAL(18,2) COMMENT 'Savings on this day',
   cumulative_savings DECIMAL(18,2) COMMENT 'Total savings to date',
+  -- Extension scenario flag
+  is_projected BOOLEAN COMMENT 'True if this is projected future data (for extension scenarios)',
   -- Metadata
   calculated_at TIMESTAMP COMMENT 'When this row was calculated',
   CONSTRAINT pk_scenario_burndown PRIMARY KEY (scenario_id, usage_date)
