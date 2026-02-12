@@ -193,7 +193,7 @@ def get_max_discount_for_contract(commitment_amount, duration_years, tiers_df):
 
     Args:
         commitment_amount: Contract value in dollars
-        duration_years: Contract duration (1, 2, or 3)
+        duration_years: Contract duration (1, 2, 3, 4, or 5)
         tiers_df: Discount tiers DataFrame
 
     Returns:
@@ -207,7 +207,19 @@ def get_max_discount_for_contract(commitment_amount, duration_years, tiers_df):
     ]
 
     if matching_tiers.empty:
-        # No matching tier - return a conservative default
+        # No matching tier for this duration - fall back to 3yr tier for 4yr/5yr
+        if duration_years in [4, 5]:
+            fallback_tiers = tiers_df[
+                (tiers_df['min_commitment'] <= commitment_amount) &
+                ((tiers_df['max_commitment'].isna()) | (tiers_df['max_commitment'] >= commitment_amount)) &
+                (tiers_df['duration_years'] == 3)
+            ]
+            if not fallback_tiers.empty:
+                max_discount = float(fallback_tiers['discount_rate'].max()) * 100
+                log_debug(f"  No {duration_years}yr tier for ${commitment_amount:,.0f}, using 3yr rate: {max_discount}%")
+                return max_discount
+
+        # No matching tier at all - return conservative default
         log_debug(f"  No tier found for ${commitment_amount:,.0f} / {duration_years}yr, using 5% default")
         return 5.0
 
