@@ -137,7 +137,7 @@
       "name": "ds_contract_pace",
       "displayName": "Contract Pace Status",
       "queryLines": [
-        "SELECT contract_id, cloud_provider, ROUND(commitment, 0) as contract_value, ROUND(total_consumed, 0) as consumed, ROUND(consumed_pct, 1) as consumed_pct, ROUND(time_elapsed_pct, 1) as time_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
+        "SELECT contract_id, cloud_provider, ROUND(commitment, 0) as contract_value, ROUND(total_consumed, 0) as consumed, ROUND(consumed_pct, 1) as consumed_pct, ROUND(days_into_contract * 100.0 / NULLIF(DATEDIFF(end_date, start_date), 0), 1) as time_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
       ]
     },
     {
