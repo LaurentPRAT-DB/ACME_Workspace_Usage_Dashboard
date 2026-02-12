@@ -1,0 +1,2113 @@
+{
+  "datasets": [
+    {
+      "name": "ds_executive_summary",
+      "displayName": "Executive Summary",
+      "queryLines": [
+        "WITH unique_consumption AS (SELECT COALESCE(SUM(actual_cost), 0) as total_unique_consumed FROM main.account_monitoring.dashboard_data), contract_totals AS (SELECT SUM(commitment) as total_contract_value, COUNT(*) as contract_count FROM main.account_monitoring.contract_burndown_summary) SELECT ct.total_contract_value, uc.total_unique_consumed as total_consumed, GREATEST(ct.total_contract_value - uc.total_unique_consumed, 0) as remaining_budget, ct.contract_count FROM contract_totals ct, unique_consumption uc"
+      ]
+    },
+    {
+      "name": "ds_pace_distribution",
+      "displayName": "Pace Distribution",
+      "queryLines": [
+        "SELECT contract_id, pace_status, ROUND(consumed_pct, 1) as consumed_pct FROM main.account_monitoring.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
+      ]
+    },
+    {
+      "name": "ds_combined_burndown",
+      "displayName": "Combined Burndown",
+      "queryLines": [
+        "WITH daily_data AS (SELECT usage_date, SUM(cumulative_cost) as total_actual, SUM(commitment) as total_commitment FROM main.account_monitoring.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY usage_date), actuals AS (SELECT usage_date as date, total_actual as value, 'Actual Consumption' as series_type FROM daily_data), commitment AS (SELECT usage_date as date, total_commitment as value, 'Contract Commitment' as series_type FROM daily_data) SELECT * FROM actuals UNION ALL SELECT * FROM commitment ORDER BY date, series_type"
+      ]
+    },
+    {
+      "name": "ds_contract_burndown",
+      "displayName": "Contract Burndown",
+      "queryLines": [
+        "WITH base_data AS (SELECT contract_id, usage_date, ROUND(cumulative_cost, 2) as actual_consumption, ROUND(commitment, 2) as contract_value FROM main.account_monitoring.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)), actuals AS (SELECT contract_id, usage_date as date, actual_consumption as value, CONCAT(contract_id, ' - Actual') as series_type FROM base_data), commitment AS (SELECT contract_id, usage_date as date, contract_value as value, CONCAT(contract_id, ' - Commitment') as series_type FROM base_data) SELECT * FROM actuals UNION ALL SELECT * FROM commitment ORDER BY contract_id, date, series_type"
+      ]
+    },
+    {
+      "name": "ds_contract_summary",
+      "displayName": "Contract Summary",
+      "queryLines": [
+        "SELECT contract_id, cloud_provider, start_date, end_date, ROUND(commitment, 0) as contract_value, ROUND(total_consumed, 2) as consumed, ROUND(budget_remaining, 2) as remaining, ROUND(consumed_pct, 1) as consumed_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring.contract_burndown_summary ORDER BY consumed_pct DESC"
+      ]
+    },
+    {
+      "name": "ds_monthly_consumption",
+      "displayName": "Monthly Consumption by Contract",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, contract_id, SUM(daily_cost) as monthly_cost FROM main.account_monitoring.contract_burndown WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date), contract_id ORDER BY month, contract_id"
+      ]
+    },
+    {
+      "name": "ds_forecast_with_history",
+      "displayName": "Forecast with History",
+      "queryLines": [
+        "WITH history AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as actual_value, CAST(NULL AS DOUBLE) as forecast_value, CAST(NULL AS DOUBLE) as lower_bound, CAST(NULL AS DOUBLE) as upper_bound, b.commitment as contract_commitment FROM main.account_monitoring.contract_burndown b), forecast AS (SELECT f.contract_id, f.forecast_date as date, CAST(NULL AS DOUBLE) as actual_value, f.predicted_cumulative as forecast_value, f.lower_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring.contract_burndown WHERE contract_id = f.contract_id) as lower_bound, f.upper_bound + (SELECT MAX(cumulative_cost) FROM main.account_monitoring.contract_burndown WHERE contract_id = f.contract_id) as upper_bound, c.total_value as contract_commitment FROM main.account_monitoring.contract_forecast f JOIN main.account_monitoring.contracts c ON f.contract_id = c.contract_id WHERE f.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring.contract_burndown WHERE contract_id = f.contract_id)) SELECT * FROM history UNION ALL SELECT * FROM forecast ORDER BY contract_id, date"
+      ]
+    },
+    {
+      "name": "ds_prophet_combined",
+      "displayName": "Contract Burndown with ML Forecast",
+      "queryLines": [
+        "WITH contract_dates AS (SELECT contract_id, MIN(usage_date) as min_date, MAX(usage_date) as max_date, MAX(commitment) as commitment FROM main.account_monitoring.contract_burndown GROUP BY contract_id), all_dates AS (SELECT DISTINCT contract_id, usage_date as date FROM main.account_monitoring.contract_burndown UNION SELECT DISTINCT f.contract_id, f.forecast_date as date FROM main.account_monitoring.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), actuals AS (SELECT b.contract_id, b.usage_date as date, b.cumulative_cost as value, CONCAT(b.contract_id, ' - Historical') as series_type FROM main.account_monitoring.contract_burndown b), forecasts AS (SELECT f.contract_id, f.forecast_date as date, f.predicted_cumulative as value, CONCAT(f.contract_id, ' - Forecast') as series_type FROM main.account_monitoring.contract_forecast f INNER JOIN contract_dates cd ON f.contract_id = cd.contract_id WHERE f.forecast_date > cd.max_date), commitment_line AS (SELECT ad.contract_id, ad.date, cd.commitment as value, CONCAT(ad.contract_id, ' - Commitment') as series_type FROM all_dates ad INNER JOIN contract_dates cd ON ad.contract_id = cd.contract_id) SELECT * FROM actuals UNION ALL SELECT * FROM forecasts UNION ALL SELECT * FROM commitment_line ORDER BY contract_id, date, series_type"
+      ]
+    },
+    {
+      "name": "ds_forecast_summary",
+      "displayName": "Forecast Summary",
+      "queryLines": [
+        "SELECT f.contract_id, f.cloud_provider, f.contract_value, f.exhaustion_date_p10, f.exhaustion_date_p50, f.exhaustion_date_p90, f.days_to_exhaustion, f.forecast_status, f.contract_end FROM main.account_monitoring.contract_forecast_details f WHERE f.forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring.contract_forecast WHERE contract_id = f.contract_id)"
+      ]
+    },
+    {
+      "name": "ds_contracts_at_risk",
+      "displayName": "Contracts at Risk",
+      "queryLines": [
+        "SELECT COUNT(DISTINCT contract_id) as at_risk_count FROM main.account_monitoring.contract_forecast_details WHERE forecast_status = 'AT RISK'"
+      ]
+    },
+    {
+      "name": "ds_product_category",
+      "displayName": "Cost by Product Category",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, product_category, ROUND(SUM(actual_cost), 2) as total_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date), product_category ORDER BY month, product_category"
+      ]
+    },
+    {
+      "name": "ds_top_workspaces",
+      "displayName": "Top Workspaces",
+      "queryLines": [
+        "SELECT workspace_id, cloud_provider, ROUND(SUM(actual_cost), 2) as total_cost, ROUND(SUM(usage_quantity), 2) as total_dbu, COUNT(DISTINCT sku_name) as unique_skus FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) GROUP BY workspace_id, cloud_provider ORDER BY total_cost DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_top_skus",
+      "displayName": "Top SKUs",
+      "queryLines": [
+        "SELECT sku_name, cloud_provider, usage_unit, ROUND(SUM(usage_quantity), 2) as total_usage, ROUND(SUM(actual_cost), 2) as total_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 90) GROUP BY sku_name, cloud_provider, usage_unit ORDER BY total_cost DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_monthly_by_cloud",
+      "displayName": "Monthly Cost by Cloud",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, cloud_provider, ROUND(SUM(actual_cost), 2) as monthly_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date), cloud_provider ORDER BY month"
+      ]
+    },
+    {
+      "name": "ds_consumption_trend",
+      "displayName": "Daily Consumption with Moving Average",
+      "queryLines": [
+        "WITH daily AS (SELECT usage_date, SUM(daily_cost) as daily_cost FROM main.account_monitoring.contract_burndown GROUP BY usage_date), with_ma AS (SELECT usage_date, daily_cost, AVG(daily_cost) OVER (ORDER BY usage_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as moving_avg_7d, AVG(daily_cost) OVER (ORDER BY usage_date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as moving_avg_30d FROM daily WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 210)), daily_series AS (SELECT usage_date as date, daily_cost as value, 'Daily Cost' as series_type FROM with_ma WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)), ma7_series AS (SELECT usage_date as date, moving_avg_7d as value, '7-Day Moving Avg' as series_type FROM with_ma WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)), ma30_series AS (SELECT usage_date as date, moving_avg_30d as value, '30-Day Moving Avg' as series_type FROM with_ma WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180)) SELECT * FROM daily_series UNION ALL SELECT * FROM ma7_series UNION ALL SELECT * FROM ma30_series ORDER BY date, series_type"
+      ]
+    },
+    {
+      "name": "ds_exhaustion_date",
+      "displayName": "Contract Exhaustion Date",
+      "queryLines": [
+        "SELECT c.contract_id, c.start_date, c.end_date, c.total_value as commitment, COALESCE(f.exhaustion_date_p50, c.end_date) as predicted_exhaustion_date, CASE WHEN f.exhaustion_date_p50 IS NOT NULL THEN DATEDIFF(f.exhaustion_date_p50, CURRENT_DATE()) ELSE DATEDIFF(c.end_date, CURRENT_DATE()) END as days_until_exhaustion, f.model_version, CASE WHEN f.exhaustion_date_p50 < c.end_date THEN \"EARLY EXHAUSTION\" WHEN f.exhaustion_date_p50 > c.end_date THEN \"UNDER-CONSUMPTION\" ELSE \"ON TRACK\" END as exhaustion_status FROM main.account_monitoring.contracts c LEFT JOIN (SELECT contract_id, exhaustion_date_p50, model_version FROM main.account_monitoring.contract_forecast WHERE forecast_date = (SELECT MAX(forecast_date) FROM main.account_monitoring.contract_forecast)) f ON c.contract_id = f.contract_id WHERE c.status = \"ACTIVE\""
+      ]
+    },
+    {
+      "name": "ds_whatif_scenarios",
+      "displayName": "What-If Discount Scenarios",
+      "queryLines": [
+        "WITH baseline_burndown AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value FROM main.account_monitoring.scenario_burndown sb JOIN main.account_monitoring.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.is_baseline = TRUE), baseline_forecast AS (SELECT sf.contract_id, sf.forecast_date as date, sf.predicted_cumulative + (SELECT MAX(simulated_cumulative) FROM main.account_monitoring.scenario_burndown WHERE scenario_id = sf.scenario_id) as value FROM main.account_monitoring.scenario_forecast sf JOIN main.account_monitoring.discount_scenarios ds ON sf.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.is_baseline = TRUE AND sf.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring.scenario_burndown WHERE scenario_id = sf.scenario_id)), baseline_combined AS (SELECT contract_id, date, value FROM baseline_burndown UNION ALL SELECT contract_id, date, value FROM baseline_forecast), last_baseline AS (SELECT contract_id, MAX(date) as last_date, MAX(value) as last_value FROM baseline_combined GROUP BY contract_id), daily_rate AS (SELECT contract_id, (MAX(value) - MIN(value)) / NULLIF(DATEDIFF(MAX(date), MIN(date)), 0) as rate FROM baseline_combined WHERE date >= DATE_SUB((SELECT MAX(date) FROM baseline_combined b2 WHERE b2.contract_id = baseline_combined.contract_id), 90) GROUP BY contract_id), max_extension_date AS (SELECT sb.contract_id, MAX(sb.usage_date) as max_date FROM main.account_monitoring.scenario_burndown sb JOIN main.account_monitoring.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to 5yr%' GROUP BY sb.contract_id), projection_dates AS (SELECT lb.contract_id, DATE_ADD(lb.last_date, pe.pos) as date FROM last_baseline lb CROSS JOIN (SELECT EXPLODE(SEQUENCE(1, 1100)) as pos) pe JOIN max_extension_date med ON lb.contract_id = med.contract_id WHERE DATE_ADD(lb.last_date, pe.pos) <= med.max_date), baseline_projection AS (SELECT pd.contract_id, pd.date, lb.last_value + (dr.rate * DATEDIFF(pd.date, lb.last_date)) as value FROM projection_dates pd JOIN last_baseline lb ON pd.contract_id = lb.contract_id JOIN daily_rate dr ON pd.contract_id = dr.contract_id), baseline_full AS (SELECT contract_id, date, value FROM baseline_combined UNION ALL SELECT contract_id, date, value FROM baseline_projection), baseline_series AS (SELECT contract_id, date, value, 'Baseline (No Discount)' as series_type FROM baseline_full), extension_burndown AS (SELECT sb.contract_id, sb.usage_date as date, sb.simulated_cumulative as value, CONCAT(ds.scenario_name, ' (', CAST(ds.discount_pct AS INT), '% Discount)') as series_type FROM main.account_monitoring.scenario_burndown sb JOIN main.account_monitoring.discount_scenarios ds ON sb.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.scenario_name LIKE 'Extend to%'), extension_forecast AS (SELECT sf.contract_id, sf.forecast_date as date, sf.predicted_cumulative + (SELECT MAX(simulated_cumulative) FROM main.account_monitoring.scenario_burndown WHERE scenario_id = sf.scenario_id) as value, CONCAT(ds.scenario_name, ' (', CAST(ds.discount_pct AS INT), '% Discount)') as series_type FROM main.account_monitoring.scenario_forecast sf JOIN main.account_monitoring.discount_scenarios ds ON sf.scenario_id = ds.scenario_id WHERE ds.status = 'ACTIVE' AND ds.scenario_name LIKE 'Extend to%' AND sf.forecast_date > (SELECT MAX(usage_date) FROM main.account_monitoring.scenario_burndown WHERE scenario_id = sf.scenario_id)), all_dates AS (SELECT DISTINCT contract_id, date FROM baseline_full UNION SELECT DISTINCT contract_id, date FROM extension_burndown UNION SELECT DISTINCT contract_id, date FROM extension_forecast), commitment_line AS (SELECT ad.contract_id, ad.date, c.total_value as value, 'Contract Commitment' as series_type FROM all_dates ad JOIN main.account_monitoring.contracts c ON ad.contract_id = c.contract_id) SELECT * FROM baseline_series WHERE contract_id != 'CONTRACT-001' UNION ALL SELECT * FROM extension_burndown WHERE contract_id != 'CONTRACT-001' UNION ALL SELECT * FROM extension_forecast WHERE contract_id != 'CONTRACT-001' UNION ALL SELECT * FROM commitment_line WHERE contract_id != 'CONTRACT-001' ORDER BY contract_id, date"
+      ]
+    },
+    {
+      "name": "ds_whatif_sweet_spot",
+      "displayName": "Sweet Spot Recommendations",
+      "queryLines": [
+        "SELECT contract_id, scenario_name, discount_pct as best_discount, ROUND(cumulative_savings, 0) as savings, days_extended, ROUND(utilization_pct, 1) as utilization_pct FROM main.account_monitoring.scenario_summary WHERE is_sweet_spot = TRUE"
+      ]
+    },
+    {
+      "name": "ds_whatif_explanation",
+      "displayName": "Strategy Explanation",
+      "queryLines": [
+        "WITH contract_info AS (SELECT c.contract_id, c.total_value, c.start_date, c.end_date, DATEDIFF(c.end_date, CURRENT_DATE()) as days_remaining, DATEDIFF(c.end_date, c.start_date) / 365 as contract_years, ROW_NUMBER() OVER (ORDER BY c.contract_id) as contract_num FROM main.account_monitoring.contracts c WHERE c.status = 'ACTIVE' AND c.contract_id != 'CONTRACT-001'), baseline AS (SELECT ss.contract_id, ss.actual_cumulative, ss.simulated_cumulative, ss.exhaustion_status, ss.scenario_exhaustion_date, ss.utilization_pct FROM main.account_monitoring.scenario_summary ss JOIN main.account_monitoring.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE), extensions AS (SELECT ss.contract_id, ds.scenario_name, ss.discount_pct, ss.simulated_cumulative, ss.utilization_pct, ss.exhaustion_status, ss.contract_end as extended_end_date, ds.adjusted_end_date, ROW_NUMBER() OVER (PARTITION BY ss.contract_id ORDER BY CASE WHEN ss.exhaustion_status = 'ON_TRACK' THEN 1 WHEN ss.exhaustion_status = 'EARLY_EXHAUSTION' THEN 2 ELSE 3 END, ss.utilization_pct DESC) as rn FROM main.account_monitoring.scenario_summary ss JOIN main.account_monitoring.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), best_ext AS (SELECT * FROM extensions WHERE rn = 1), ext_3yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 3yr%'), ext_4yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 4yr%'), ext_5yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 5yr%'), contract_analysis AS (SELECT ci.contract_id, ci.contract_num, ci.total_value, ci.start_date, ci.end_date, ci.days_remaining, ci.contract_years, b.actual_cumulative, b.simulated_cumulative, b.exhaustion_status, b.utilization_pct, be.scenario_name as best_scenario, be.discount_pct as best_discount, be.extended_end_date, be.utilization_pct as best_utilization, be.exhaustion_status as best_exhaustion_status, e3.utilization_pct as ext3_util, e3.simulated_cumulative as ext3_cum, e3.exhaustion_status as ext3_status, e4.utilization_pct as ext4_util, e4.simulated_cumulative as ext4_cum, e4.exhaustion_status as ext4_status, e5.utilization_pct as ext5_util, e5.simulated_cumulative as ext5_cum, e5.exhaustion_status as ext5_status FROM contract_info ci LEFT JOIN baseline b ON ci.contract_id = b.contract_id LEFT JOIN best_ext be ON ci.contract_id = be.contract_id LEFT JOIN ext_3yr e3 ON ci.contract_id = e3.contract_id LEFT JOIN ext_4yr e4 ON ci.contract_id = e4.contract_id LEFT JOIN ext_5yr e5 ON ci.contract_id = e5.contract_id) SELECT (contract_num - 1) * 100 + 1 as sort_order, CONCAT('\ud83d\udccb ', contract_id, ': $', FORMAT_NUMBER(total_value, 0), ' over ', ROUND(contract_years), ' years') as explanation FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 2, CONCAT('   \ud83d\udcc5 ', DATE_FORMAT(start_date, 'MMM d, yyyy'), ' \u2192 ', DATE_FORMAT(end_date, 'MMM d, yyyy'), ' (', days_remaining, ' days left)') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 3, CONCAT('   \ud83d\udcca Consumed: $', FORMAT_NUMBER(actual_cumulative, 0), ' (', ROUND(actual_cumulative / total_value * 100, 1), '%) \u2014 $', FORMAT_NUMBER(total_value - actual_cumulative, 0), ' remaining') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 4, CASE WHEN exhaustion_status = 'EXTENDED' THEN CONCAT('   \u26a0\ufe0f  At current pace, only ', ROUND(utilization_pct, 0), '% will be consumed \u2014 $', FORMAT_NUMBER(total_value - simulated_cumulative, 0), ' LOST') ELSE '   \u2705 On track to consume commitment' END FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 5, ' ' FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 6, CONCAT('   \ud83d\udcca Extensions: 3yr\u2192', COALESCE(CONCAT(ROUND(ext3_util, 0), '%'), 'N/A'), ' | 4yr\u2192', COALESCE(CONCAT(ROUND(ext4_util, 0), '%'), 'N/A'), ' | 5yr\u2192', COALESCE(CONCAT(ROUND(ext5_util, 0), '%'), 'N/A')) FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 7, CONCAT('   \u2705 BEST: ', best_scenario, ' (', CAST(best_discount AS INT), '% discount, ', ROUND(best_utilization, 0), '% utilization)') FROM contract_analysis WHERE best_scenario IS NOT NULL UNION ALL SELECT (contract_num - 1) * 100 + 8, CONCAT('   \u2192 New end: ', DATE_FORMAT(extended_end_date, 'MMM d, yyyy')) FROM contract_analysis WHERE extended_end_date IS NOT NULL UNION ALL SELECT 9999, ' ' UNION ALL SELECT 10000, '\ud83d\udca1 Unused commitment at contract end = money lost. Extend duration to consume at discounted rate.' ORDER BY sort_order"
+      ]
+    },
+    {
+      "name": "ds_contract_pace",
+      "displayName": "Contract Pace Status",
+      "queryLines": [
+        "SELECT contract_id, cloud_provider, ROUND(commitment, 0) as contract_value, ROUND(total_consumed, 0) as consumed, ROUND(consumed_pct, 1) as consumed_pct, ROUND(days_into_contract * 100.0 / NULLIF(DATEDIFF(end_date, start_date), 0), 1) as time_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
+      ]
+    },
+    {
+      "name": "ds_daily_anomalies",
+      "displayName": "Daily Cost Anomalies",
+      "queryLines": [
+        "WITH daily_costs AS (SELECT usage_date, workspace_id, SUM(actual_cost) as daily_cost, LAG(SUM(actual_cost)) OVER (PARTITION BY workspace_id ORDER BY usage_date) as prev_day_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 14) GROUP BY usage_date, workspace_id) SELECT usage_date, workspace_id, ROUND(daily_cost, 0) as today_cost, ROUND(prev_day_cost, 0) as yesterday_cost, ROUND(daily_cost - prev_day_cost, 0) as change, ROUND((daily_cost - prev_day_cost) / NULLIF(prev_day_cost, 0) * 100, 0) as pct_change FROM daily_costs WHERE prev_day_cost > 0 AND ABS((daily_cost - prev_day_cost) / prev_day_cost) > 0.5 ORDER BY usage_date DESC, ABS(daily_cost - prev_day_cost) DESC LIMIT 20"
+      ]
+    },
+    {
+      "name": "ds_weekend_usage",
+      "displayName": "Weekend Usage",
+      "queryLines": [
+        "SELECT usage_date, workspace_id, ROUND(SUM(actual_cost), 0) as cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) AND DAYOFWEEK(usage_date) IN (1, 7) GROUP BY usage_date, workspace_id HAVING SUM(actual_cost) > 50 ORDER BY cost DESC LIMIT 15"
+      ]
+    },
+    {
+      "name": "ds_top_jobs",
+      "displayName": "Top Jobs by Cost",
+      "queryLines": [
+        "SELECT COALESCE(job_name, job_id, 'Interactive') as job, COUNT(DISTINCT usage_date) as run_days, ROUND(SUM(usage_quantity), 0) as total_dbu, ROUND(SUM(actual_cost), 0) as total_cost, ROUND(SUM(actual_cost) / NULLIF(COUNT(DISTINCT usage_date), 0), 0) as avg_daily_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) GROUP BY COALESCE(job_name, job_id, 'Interactive') ORDER BY total_cost DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_anomaly_summary",
+      "displayName": "Anomaly Summary",
+      "queryLines": [
+        "WITH daily_anomalies AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id, SUM(actual_cost) as daily_cost, LAG(SUM(actual_cost)) OVER (PARTITION BY workspace_id ORDER BY usage_date) as prev_day_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 14) GROUP BY usage_date, workspace_id) WHERE prev_day_cost > 0 AND ABS((daily_cost - prev_day_cost) / prev_day_cost) > 0.5), weekend AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) AND DAYOFWEEK(usage_date) IN (1, 7) GROUP BY usage_date, workspace_id HAVING SUM(actual_cost) > 50)) SELECT da.cnt as daily_spikes, w.cnt as weekend_alerts FROM daily_anomalies da, weekend w"
+      ]
+    },
+    {
+      "name": "ds_monthly_trend",
+      "displayName": "Monthly Cost Trend",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, ROUND(SUM(actual_cost), 0) as monthly_cost, ROUND(SUM(usage_quantity), 0) as monthly_dbu FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date) ORDER BY month"
+      ]
+    },
+    {
+      "name": "ds_mom_change",
+      "displayName": "Month-over-Month Change",
+      "queryLines": [
+        "WITH monthly AS (SELECT DATE_TRUNC('MONTH', usage_date) as month, SUM(actual_cost) as cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 60) GROUP BY DATE_TRUNC('MONTH', usage_date)), ranked AS (SELECT month, cost, LAG(cost) OVER (ORDER BY month) as prev_cost FROM monthly) SELECT ROUND((cost - prev_cost) / NULLIF(prev_cost, 0) * 100, 1) as pct_change, ROUND(cost - prev_cost, 0) as abs_change, ROUND(cost, 0) as current_month, ROUND(prev_cost, 0) as prev_month FROM ranked WHERE prev_cost IS NOT NULL ORDER BY month DESC LIMIT 1"
+      ]
+    },
+    {
+      "name": "ds_product_breakdown",
+      "displayName": "Cost by Product Category",
+      "queryLines": [
+        "SELECT COALESCE(product_category, 'Other') as category, ROUND(SUM(actual_cost), 0) as cost, ROUND(SUM(actual_cost) * 100.0 / SUM(SUM(actual_cost)) OVER (), 1) as pct FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_TRUNC('MONTH', DATE_SUB(CURRENT_DATE(), 30)) GROUP BY product_category ORDER BY cost DESC"
+      ]
+    },
+    {
+      "name": "ds_mom_comparison",
+      "displayName": "MoM Comparison by Cloud",
+      "queryLines": [
+        "WITH monthly AS (SELECT DATE_TRUNC('MONTH', usage_date) as month, cloud_provider, SUM(actual_cost) as cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 60) GROUP BY DATE_TRUNC('MONTH', usage_date), cloud_provider), with_lag AS (SELECT month, cloud_provider, cost, LAG(cost) OVER (PARTITION BY cloud_provider ORDER BY month) as prev_cost FROM monthly) SELECT cloud_provider, ROUND(cost, 0) as this_month, ROUND(prev_cost, 0) as last_month, ROUND(cost - prev_cost, 0) as change, ROUND((cost - prev_cost) / NULLIF(prev_cost, 0) * 100, 1) as pct_change FROM with_lag WHERE prev_cost IS NOT NULL ORDER BY cost DESC"
+      ]
+    },
+    {
+      "name": "ds_monthly_stats",
+      "displayName": "Monthly Statistics",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, COUNT(DISTINCT workspace_id) as workspaces, COUNT(DISTINCT sku_name) as skus, ROUND(SUM(usage_quantity), 0) as total_dbu, ROUND(SUM(actual_cost), 0) as total_cost, ROUND(SUM(actual_cost) / COUNT(DISTINCT usage_date), 0) as avg_daily_cost FROM main.account_monitoring.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180) GROUP BY DATE_TRUNC('MONTH', usage_date) ORDER BY month DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_executive",
+      "displayName": "Executive Summary",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_total_value",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "total_contract_value",
+                      "expression": "`total_contract_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_contract_value",
+                  "displayName": "Total Contract Value (USD)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Contract Value"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_total_consumed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "total_consumed",
+                      "expression": "`total_consumed`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_consumed",
+                  "displayName": "Total Consumed (USD)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Consumed"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_remaining",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_executive_summary",
+                  "fields": [
+                    {
+                      "name": "remaining_budget",
+                      "expression": "`remaining_budget`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "remaining_budget",
+                  "displayName": "Remaining Budget (USD)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Remaining Budget"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_pace_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pace_distribution",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "contract_id",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Contract"
+                },
+                "y": {
+                  "fieldName": "consumed_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "% Consumed"
+                },
+                "color": {
+                  "fieldName": "pace_status",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Pace Status"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Pace Distribution"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_combined_burndown",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_combined_burndown",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    },
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "value",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total (USD)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Actual Consumption",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "Contract Commitment",
+                        "color": "#00008B"
+                      }
+                    ]
+                  },
+                  "displayName": "Series"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Combined Contract Consumption - All Contracts"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_daily_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_consumption_trend",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    },
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "value",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Daily Cost (USD)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Daily Cost",
+                        "color": "#4A90D9"
+                      },
+                      {
+                        "value": "7-Day Moving Avg",
+                        "color": "#FF6B6B"
+                      },
+                      {
+                        "value": "30-Day Moving Avg",
+                        "color": "#4ECDC4"
+                      }
+                    ]
+                  },
+                  "displayName": "Series"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Consumption with Moving Averages (7d & 30d)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_contract_summary_exec",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_summary",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "cloud_provider",
+                    "displayName": "Cloud",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "contract_value",
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "displayName": "% Used",
+                    "type": "number",
+                    "numberFormat": "0.0%"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "displayName": "Pace Status",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "displayName": "Days Left",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Details & Status"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "page_burndown",
+      "displayName": "Contract Burndown",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_burndown_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_burndown",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    },
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "value",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Cumulative Cost (USD)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Series"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Burndown - Actual vs Commitment"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "w_prophet_burndown",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_prophet_combined",
+                  "fields": [
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    },
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Burndown with Prophet ML Forecast"
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "displayName": "Cumulative Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "displayName": "Series",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "w_contract_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_summary",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "start_date",
+                      "expression": "`start_date`"
+                    },
+                    {
+                      "name": "end_date",
+                      "expression": "`end_date`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "remaining",
+                      "expression": "`remaining`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract ID",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "cloud_provider",
+                    "displayName": "Cloud",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "start_date",
+                    "displayName": "Start Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
+                  },
+                  {
+                    "fieldName": "end_date",
+                    "displayName": "End Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
+                  },
+                  {
+                    "fieldName": "contract_value",
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0.00"
+                  },
+                  {
+                    "fieldName": "remaining",
+                    "displayName": "Remaining ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0.00"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "displayName": "% Used",
+                    "type": "number",
+                    "numberFormat": "0.0%"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "displayName": "Pace Status",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "displayName": "Days Left",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Details & Status"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "w_exhaustion_date",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_exhaustion_date",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "commitment",
+                      "expression": "`commitment`"
+                    },
+                    {
+                      "name": "predicted_exhaustion_date",
+                      "expression": "`predicted_exhaustion_date`"
+                    },
+                    {
+                      "name": "days_until_exhaustion",
+                      "expression": "`days_until_exhaustion`"
+                    },
+                    {
+                      "name": "model_version",
+                      "expression": "`model_version`"
+                    },
+                    {
+                      "name": "exhaustion_status",
+                      "expression": "`exhaustion_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "commitment",
+                    "displayName": "Commitment ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "predicted_exhaustion_date",
+                    "displayName": "Predicted Exhaustion Date",
+                    "type": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD"
+                  },
+                  {
+                    "fieldName": "days_until_exhaustion",
+                    "displayName": "Days Until Exhaustion",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "model_version",
+                    "displayName": "Forecast Model",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "exhaustion_status",
+                    "displayName": "Status",
+                    "type": "string"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Exhaustion Prediction"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 6,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "page_weekly_ops",
+      "displayName": "Weekly Operations",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_daily_spikes_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_anomaly_summary",
+                  "fields": [
+                    {
+                      "name": "daily_spikes",
+                      "expression": "`daily_spikes`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "daily_spikes",
+                  "displayName": "Daily Spikes (>50% change)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cost Spikes (14 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_weekend_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_anomaly_summary",
+                  "fields": [
+                    {
+                      "name": "weekend_alerts",
+                      "expression": "`weekend_alerts`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "weekend_alerts",
+                  "displayName": "Weekend Usage Alerts"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Weekend Alerts (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_contract_pace",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_pace",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "time_pct",
+                      "expression": "`time_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "contract_value",
+                    "displayName": "Value ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "displayName": "Consumed %",
+                    "type": "number",
+                    "numberFormat": "0.0"
+                  },
+                  {
+                    "fieldName": "time_pct",
+                    "displayName": "Time %",
+                    "type": "number",
+                    "numberFormat": "0.0"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "displayName": "Pace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "displayName": "Days Left",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Pace Analysis"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_daily_anomalies",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_daily_anomalies",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "today_cost",
+                      "expression": "`today_cost`"
+                    },
+                    {
+                      "name": "yesterday_cost",
+                      "expression": "`yesterday_cost`"
+                    },
+                    {
+                      "name": "change",
+                      "expression": "`change`"
+                    },
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "usage_date",
+                    "displayName": "Date",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspace_id",
+                    "displayName": "Workspace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "today_cost",
+                    "displayName": "Today ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "yesterday_cost",
+                    "displayName": "Yesterday ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "change",
+                    "displayName": "Change ($)",
+                    "type": "number",
+                    "numberFormat": "+#,##0;-#,##0"
+                  },
+                  {
+                    "fieldName": "pct_change",
+                    "displayName": "Change %",
+                    "type": "number",
+                    "numberFormat": "+0;-0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Cost Spikes (>50% change)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_weekend_usage",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_weekend_usage",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "cost",
+                      "expression": "`cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "usage_date",
+                    "displayName": "Date",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspace_id",
+                    "displayName": "Workspace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "cost",
+                    "displayName": "Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Weekend Usage (Sat/Sun)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_top_workspaces_ops",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_top_workspaces",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "total_cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "workspace_id",
+                  "displayName": "Workspace",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "sort": {
+                    "by": "x",
+                    "direction": "descending"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Workspaces (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_top_jobs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_top_jobs",
+                  "fields": [
+                    {
+                      "name": "job",
+                      "expression": "`job`"
+                    },
+                    {
+                      "name": "run_days",
+                      "expression": "`run_days`"
+                    },
+                    {
+                      "name": "total_dbu",
+                      "expression": "`total_dbu`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    },
+                    {
+                      "name": "avg_daily_cost",
+                      "expression": "`avg_daily_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "job",
+                    "displayName": "Job",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "run_days",
+                    "displayName": "Run Days",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "total_dbu",
+                    "displayName": "Total DBU",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "total_cost",
+                    "displayName": "Total Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "avg_daily_cost",
+                    "displayName": "Avg/Day ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Jobs (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 9,
+            "width": 3,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "page_monthly",
+      "displayName": "Monthly Summary",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_mom_pct_change",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "pct_change",
+                  "displayName": "% Change vs Last Month"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month Change (%)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_mom_abs_change",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "abs_change",
+                      "expression": "`abs_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "abs_change",
+                  "displayName": "$ Change vs Last Month"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month Change ($)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_current_month",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "current_month",
+                      "expression": "`current_month`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_month",
+                  "displayName": "Current Month Total ($)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Current Month Cost"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_monthly_trend_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_monthly_trend",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "monthly_cost",
+                      "expression": "`monthly_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "monthly_cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Cost Trend (12 months)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_product_breakdown",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_product_breakdown",
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "cost",
+                      "expression": "`cost`"
+                    },
+                    {
+                      "name": "pct",
+                      "expression": "`pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "category",
+                  "displayName": "Product Category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "sort": {
+                    "by": "x",
+                    "direction": "descending"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cost by Product Category (Current Month)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_mom_comparison",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_comparison",
+                  "fields": [
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "this_month",
+                      "expression": "`this_month`"
+                    },
+                    {
+                      "name": "last_month",
+                      "expression": "`last_month`"
+                    },
+                    {
+                      "name": "change",
+                      "expression": "`change`"
+                    },
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "cloud_provider",
+                    "displayName": "Cloud",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "this_month",
+                    "displayName": "This Month ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "last_month",
+                    "displayName": "Last Month ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "change",
+                    "displayName": "Change ($)",
+                    "type": "number",
+                    "numberFormat": "+#,##0;-#,##0"
+                  },
+                  {
+                    "fieldName": "pct_change",
+                    "displayName": "Change %",
+                    "type": "number",
+                    "numberFormat": "+0.0;-0.0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month by Cloud Provider"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_monthly_stats",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_monthly_stats",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "workspaces",
+                      "expression": "`workspaces`"
+                    },
+                    {
+                      "name": "skus",
+                      "expression": "`skus`"
+                    },
+                    {
+                      "name": "total_dbu",
+                      "expression": "`total_dbu`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    },
+                    {
+                      "name": "avg_daily_cost",
+                      "expression": "`avg_daily_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "month",
+                    "displayName": "Month",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspaces",
+                    "displayName": "Workspaces",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "skus",
+                    "displayName": "SKUs",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "total_dbu",
+                    "displayName": "Total DBU",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "total_cost",
+                    "displayName": "Total Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "avg_daily_cost",
+                    "displayName": "Avg Daily ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Statistics (6 months)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 6,
+            "width": 3,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "page_whatif",
+      "displayName": "What-If Analysis",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_whatif_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_whatif_scenarios",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    },
+                    {
+                      "name": "series_type",
+                      "expression": "`series_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "value",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Cumulative Cost ($)"
+                },
+                "color": {
+                  "fieldName": "series_type",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Scenario"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "What-If Discount Scenario Comparison"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_sweet_spot",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_whatif_sweet_spot",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "scenario_name",
+                      "expression": "`scenario_name`"
+                    },
+                    {
+                      "name": "best_discount",
+                      "expression": "`best_discount`"
+                    },
+                    {
+                      "name": "savings",
+                      "expression": "`savings`"
+                    },
+                    {
+                      "name": "days_extended",
+                      "expression": "`days_extended`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "scenario_name",
+                    "displayName": "Best Scenario",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "best_discount",
+                    "displayName": "Discount %",
+                    "type": "number",
+                    "numberFormat": "0"
+                  },
+                  {
+                    "fieldName": "savings",
+                    "displayName": "Savings ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "days_extended",
+                    "displayName": "Days Extended",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Recommended Scenario (Sweet Spot)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_strategy_explanation",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_whatif_explanation",
+                  "fields": [
+                    {
+                      "name": "explanation",
+                      "expression": "`explanation`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "explanation",
+                    "displayName": " ",
+                    "type": "string"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Strategy & Savings Explained"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

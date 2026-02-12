@@ -6,7 +6,7 @@ resources:
     contract_consumption_monitor:
       display_name: "Contract Consumption Monitor"
       warehouse_id: ${var.warehouse_id}
-      file_path: ../resources/dashboards/contract_consumption_monitor.json
+      file_path: ${var.dashboard_file}
 
       # Dashboard permissions
       permissions:

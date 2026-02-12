@@ -38,6 +38,10 @@ variables:
     description: Suffix for state path to avoid lineage conflicts (e.g., profile name or machine name)
     default: "default"
 
+  dashboard_file:
+    description: Dashboard JSON file path (varies by target for schema)
+    default: "../resources/dashboards/contract_consumption_monitor.json"
+
 # Include configuration files
 include:
   - resources/*.yml
@@ -67,6 +71,7 @@ targets:
     variables:
       catalog: main
       schema: account_monitoring
+      dashboard_file: "../resources/dashboards/contract_consumption_monitor_prod.json"
 
     # Production validation
     # run_as:
