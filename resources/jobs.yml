@@ -460,6 +460,45 @@ resources:
         ml: forecasting
 
     # ==========================================================================
+    # UPDATE DISCOUNT TIERS - Lightweight job for tier changes
+    # ==========================================================================
+    account_monitor_update_discount_tiers:
+      name: "[${bundle.target}] Account Monitor - Update Discount Tiers"
+      description: "Update discount tiers using MERGE (incremental). Optionally refreshes What-If scenarios."
+
+      tasks:
+        - task_key: update_tiers
+          description: "MERGE discount tiers from config file"
+          notebook_task:
+            notebook_path: ../notebooks/update_discount_tiers.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              discount_tiers_file: ${var.discount_tiers_file}
+            source: WORKSPACE
+          timeout_seconds: 600
+
+        - task_key: refresh_whatif
+          description: "Regenerate What-If scenarios with updated tiers"
+          depends_on:
+            - task_key: update_tiers
+          notebook_task:
+            notebook_path: ../notebooks/whatif_simulator.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+            source: WORKSPACE
+          timeout_seconds: 3600
+
+      # No schedule - manual run only
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        type: config_update
+
+    # ==========================================================================
     # CLEANUP JOB - Run this to wipe all data and start fresh
     # ==========================================================================
     account_monitor_cleanup:
