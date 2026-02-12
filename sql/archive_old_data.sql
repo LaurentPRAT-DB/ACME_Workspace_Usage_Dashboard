@@ -1,17 +1,18 @@
 -- Archive Old Data
 -- Moves data older than 2 years to archive table
 
--- Create archive table if it doesn't exist
+-- ============================================================================
+-- Step 1: Create archive table if it doesn't exist (using CTAS with empty result)
+-- ============================================================================
+
 CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data_archive')
-LIKE IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data');
+AS SELECT * FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
+WHERE 1 = 0;
 
--- Archive data older than 2 years
-INSERT INTO IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data_archive')
-SELECT *
-FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
-WHERE usage_date < DATE_SUB(CURRENT_DATE(), 730);
+-- ============================================================================
+-- Step 2: Count records to be archived (before archiving)
+-- ============================================================================
 
--- Count archived records
 CREATE OR REPLACE TEMP VIEW archive_summary AS
 SELECT
   COUNT(*) as archived_records,
@@ -21,15 +22,33 @@ SELECT
 FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date < DATE_SUB(CURRENT_DATE(), 730);
 
--- Delete archived data from main table
+-- ============================================================================
+-- Step 3: Archive data older than 2 years
+-- ============================================================================
+
+INSERT INTO IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data_archive')
+SELECT *
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
+WHERE usage_date < DATE_SUB(CURRENT_DATE(), 730);
+
+-- ============================================================================
+-- Step 4: Delete archived data from main table
+-- ============================================================================
+
 DELETE FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data')
 WHERE usage_date < DATE_SUB(CURRENT_DATE(), 730);
 
--- Optimize tables after deletion
-OPTIMIZE IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data');
-VACUUM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data') RETAIN 168 HOURS;
+-- ============================================================================
+-- Step 5: Optimize tables after deletion
+-- ============================================================================
 
--- Return summary
+OPTIMIZE IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data');
+OPTIMIZE IDENTIFIER({{catalog}} || '.' || {{schema}} || '.dashboard_data_archive');
+
+-- ============================================================================
+-- Step 6: Return summary
+-- ============================================================================
+
 SELECT
   'Archive completed' as status,
   archived_records,
