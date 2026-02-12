@@ -6,14 +6,25 @@
 
 ## Overview
 
-The Account Monitor runs four automated jobs to keep data fresh and generate reports.
+The Account Monitor runs four automated jobs plus manual utility jobs.
+
+### Scheduled Jobs
 
 | Job | Schedule | Purpose | Duration |
 |-----|----------|---------|----------|
 | Daily Refresh | 2 AM UTC daily | Pull new billing data | ~5 min |
-| Weekly Training | Sunday 8 AM UTC | Retrain ML model | ~15 min |
+| Weekly Training | Sunday 3 AM UTC | Retrain ML model | ~15 min |
 | Weekly Review | Monday 8 AM UTC | Generate operational reports | ~5 min |
 | Monthly Summary | 1st of month 6 AM UTC | Executive summary & archive | ~10 min |
+
+### Manual Jobs
+
+| Job | Trigger | Purpose | Duration |
+|-----|---------|---------|----------|
+| First Install | Manual | Complete initial setup | ~20 min |
+| Setup | Manual | Create schema & load contracts | ~2 min |
+| Update Discount Tiers | Manual | MERGE discount tiers (incremental) | ~5 min |
+| Cleanup | Manual | Drop all tables (reset) | ~1 min |
 
 ---
 
@@ -164,6 +175,53 @@ Results appear on the **Monthly Summary** page:
 ```bash
 databricks bundle run account_monitor_monthly_summary --profile YOUR_PROFILE
 ```
+
+---
+
+## Update Discount Tiers Job
+
+### What It Does
+
+Updates discount tier configuration using MERGE (incremental update) instead of DELETE+INSERT. This preserves existing tiers while adding or modifying tiers from the config file.
+
+### Tasks
+
+1. **update_tiers** - MERGE discount tiers from YAML config
+2. **refresh_whatif** - Regenerate What-If scenarios with updated tiers
+
+### Key Features
+
+- **Non-destructive**: Preserves existing tiers not in config file
+- **Incremental**: Only updates changed tiers
+- **Automatic refresh**: Regenerates What-If scenarios after update
+
+### Tables Updated
+
+| Table | What Changes |
+|-------|-------------|
+| `discount_tiers` | New/updated tiers merged in |
+| `discount_scenarios` | Regenerated with new tier rates |
+| `scenario_summary` | Recalculated KPIs |
+
+### Manual Run
+
+```bash
+# Using default discount_tiers.yml
+databricks bundle run account_monitor_update_discount_tiers --profile YOUR_PROFILE
+
+# Using an alternative config file
+databricks bundle run account_monitor_update_discount_tiers \
+  --profile YOUR_PROFILE \
+  --notebook-params discount_tiers_file="config/files/discount_tiers_alternative2_aggressive.yml"
+```
+
+### When to Use
+
+- After editing `config/discount_tiers.yml`
+- When switching to an alternative tier configuration
+- To add custom tiers for specific customers
+
+See [CONFIG_UPDATES.md](CONFIG_UPDATES.md) for detailed instructions.
 
 ---
 

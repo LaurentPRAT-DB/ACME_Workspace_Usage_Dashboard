@@ -1,6 +1,132 @@
-# Databricks System Tables Schema Reference
+# Schema Reference
 
-This document contains the actual schema from Databricks system tables as of 2026.
+This document contains schema references for both Databricks system tables and Account Monitor custom tables.
+
+---
+
+## Account Monitor Tables (Unity Catalog)
+
+### contracts
+
+Stores contract definitions loaded from YAML configuration.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Primary key - unique contract identifier |
+| `account_id` | STRING | Databricks account ID |
+| `cloud_provider` | STRING | Cloud provider (AWS, AZURE, GCP) |
+| `start_date` | DATE | Contract start date |
+| `end_date` | DATE | Contract end date |
+| `total_value` | DECIMAL(20,2) | Contract commitment value |
+| `currency` | STRING | Currency code (USD, EUR, etc.) |
+| `commitment_type` | STRING | SPEND or DBU |
+| `status` | STRING | ACTIVE, INACTIVE, EXPIRED |
+| `notes` | STRING | Optional description |
+| `created_at` | TIMESTAMP | Record creation time |
+
+### contract_burndown
+
+Daily cumulative consumption tracking per contract.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Foreign key to contracts |
+| `usage_date` | DATE | Date of consumption |
+| `daily_cost` | DECIMAL(20,2) | Cost for this day |
+| `cumulative_cost` | DECIMAL(20,2) | Running total from contract start |
+| `commitment` | DECIMAL(20,2) | Contract total_value |
+| `remaining_budget` | DECIMAL(20,2) | commitment - cumulative_cost |
+| `burn_rate_7d` | DECIMAL(20,6) | 7-day rolling average daily cost |
+| `pct_consumed` | DECIMAL(10,4) | Percentage of commitment consumed |
+
+### contract_forecast
+
+Prophet ML model predictions for consumption.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `contract_id` | STRING | Foreign key to contracts |
+| `forecast_date` | DATE | Date of prediction |
+| `predicted_cumulative` | DECIMAL(20,2) | Predicted cumulative cost |
+| `predicted_cumulative_lower` | DECIMAL(20,2) | Lower confidence bound |
+| `predicted_cumulative_upper` | DECIMAL(20,2) | Upper confidence bound |
+| `exhaustion_date_p10` | DATE | 10th percentile exhaustion date |
+| `exhaustion_date_p50` | DATE | Median exhaustion date |
+| `exhaustion_date_p90` | DATE | 90th percentile exhaustion date |
+| `forecast_model` | STRING | Model type (prophet, linear_fallback) |
+| `training_date` | TIMESTAMP | When model was trained |
+| `created_at` | TIMESTAMP | Record creation time |
+
+### discount_tiers
+
+Configurable discount rates by commitment level and duration.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `tier_id` | STRING | Primary key - unique tier identifier |
+| `tier_name` | STRING | Human-readable name |
+| `min_commitment` | DECIMAL(20,2) | Minimum contract value for this tier |
+| `max_commitment` | DECIMAL(20,2) | Maximum contract value (NULL = unlimited) |
+| `duration_years` | INT | Contract duration (1, 2, or 3 years) |
+| `discount_rate` | DECIMAL(5,4) | Discount as decimal (0.15 = 15%) |
+| `cloud_provider` | STRING | Optional cloud restriction |
+| `effective_date` | DATE | When tier becomes active |
+| `expiration_date` | DATE | When tier expires |
+| `notes` | STRING | Optional description |
+| `created_at` | TIMESTAMP | Record creation time |
+
+### discount_scenarios
+
+Generated What-If discount scenarios per contract.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `scenario_id` | STRING | Primary key - unique scenario identifier |
+| `contract_id` | STRING | Foreign key to contracts |
+| `scenario_name` | STRING | Display name (e.g., "10% Discount") |
+| `discount_pct` | DECIMAL(5,4) | Applied discount rate |
+| `is_baseline` | BOOLEAN | True for 0% baseline scenario |
+| `is_extension` | BOOLEAN | True for "If X-year commit" scenarios |
+| `extension_years` | INT | Extended duration for extension scenarios |
+| `tier_id` | STRING | Reference to discount_tiers |
+| `status` | STRING | ACTIVE or ARCHIVED |
+| `created_at` | TIMESTAMP | Record creation time |
+
+### scenario_summary
+
+Denormalized KPIs for dashboard queries.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `scenario_id` | STRING | Primary key - foreign key to discount_scenarios |
+| `contract_id` | STRING | Foreign key to contracts |
+| `cumulative_savings` | DECIMAL(20,2) | Total savings with discount applied |
+| `scenario_exhaustion_date` | DATE | Predicted exhaustion with discount |
+| `days_extended` | INT | Extra days vs baseline |
+| `utilization_pct` | DECIMAL(10,4) | Projected utilization percentage |
+| `is_sweet_spot` | BOOLEAN | True if recommended scenario |
+| `last_calculated` | TIMESTAMP | When KPIs were computed |
+
+### dashboard_data
+
+Aggregated billing data for dashboard queries.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `usage_date` | DATE | Date of usage |
+| `account_id` | STRING | Databricks account ID |
+| `workspace_id` | STRING | Workspace identifier |
+| `sku_name` | STRING | SKU designation |
+| `cloud` | STRING | Cloud provider |
+| `usage_quantity` | DECIMAL(20,6) | DBUs consumed |
+| `actual_cost` | DECIMAL(20,2) | Calculated cost |
+| `product_category` | STRING | Categorized product type |
+
+---
+
+## Databricks System Tables (Read-Only)
+
+This section documents the actual schema from Databricks system tables as of 2026.
 
 ## system.billing.usage
 

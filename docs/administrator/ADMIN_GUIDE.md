@@ -16,6 +16,7 @@ This guide covers everything you need to install, configure, and maintain the Ac
 |------|----------|
 | First-time installation | [Installation Guide](INSTALLATION.md) |
 | Understanding scheduled jobs | [Scheduled Jobs Guide](SCHEDULED_JOBS.md) |
+| Updating contracts & discount tiers | [Configuration Updates](CONFIG_UPDATES.md) |
 | Daily/weekly/monthly tasks | [Operations Checklist](OPERATIONS_CHECKLIST.md) |
 | Fixing issues | [Troubleshooting](TROUBLESHOOTING.md) |
 
@@ -66,9 +67,18 @@ This guide covers everything you need to install, configure, and maintain the Ac
 | Job | Schedule | Purpose |
 |-----|----------|---------|
 | Daily Refresh | 2 AM UTC daily | Pull new billing data |
-| Weekly Training | Sunday 8 AM UTC | Retrain Prophet ML model |
+| Weekly Training | Sunday 3 AM UTC | Retrain Prophet ML model |
 | Weekly Review | Monday 8 AM UTC | Generate operational reports |
 | Monthly Summary | 1st of month 6 AM UTC | Archive & executive summary |
+
+### Jobs (Manual)
+
+| Job | Purpose |
+|-----|---------|
+| First Install | Complete initial setup (run once) |
+| Setup | Create schema & load contracts |
+| Update Discount Tiers | MERGE discount tier changes (incremental) |
+| Cleanup | Drop all tables (full reset) |
 
 ### Dashboard
 
@@ -225,11 +235,14 @@ ANALYZE TABLE main.account_monitoring_dev.contract_burndown COMPUTE STATISTICS;
 
 ## Managing Contracts
 
+See [Configuration Updates](CONFIG_UPDATES.md) for comprehensive documentation.
+
 ### Adding a New Contract
 
 1. Edit `config/contracts.yml`
 2. Redeploy: `databricks bundle deploy --profile YOUR_PROFILE`
 3. Re-run setup: `databricks bundle run account_monitor_setup --profile YOUR_PROFILE`
+4. Run daily refresh and weekly training to populate data
 
 ### Modifying a Contract
 
@@ -249,6 +262,18 @@ UPDATE main.account_monitoring_dev.contracts
 SET status = 'INACTIVE'
 WHERE contract_id = 'OLD-CONTRACT';
 ```
+
+### Updating Discount Tiers
+
+Use the lightweight update job for tier changes (incremental MERGE):
+
+```bash
+# Edit config/discount_tiers.yml, then:
+databricks bundle deploy --profile YOUR_PROFILE
+databricks bundle run account_monitor_update_discount_tiers --profile YOUR_PROFILE
+```
+
+This preserves existing tiers while adding/updating changed tiers.
 
 ---
 
@@ -342,6 +367,7 @@ GRANT SELECT ON SCHEMA main.account_monitoring_dev TO `user@company.com`;
 |----------|-------------|
 | [Installation Guide](INSTALLATION.md) | Detailed installation steps |
 | [Scheduled Jobs Guide](SCHEDULED_JOBS.md) | Job descriptions with examples |
+| [Configuration Updates](CONFIG_UPDATES.md) | Adding/modifying contracts and discount tiers |
 | [Operations Checklist](OPERATIONS_CHECKLIST.md) | Printable daily/weekly/monthly checklists |
 | [Troubleshooting](TROUBLESHOOTING.md) | Common issues and solutions |
 

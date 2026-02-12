@@ -107,6 +107,7 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 | [ADMIN_GUIDE.md](administrator/ADMIN_GUIDE.md) | Admin quick reference |
 | [INSTALLATION.md](administrator/INSTALLATION.md) | Installation steps |
 | [SCHEDULED_JOBS.md](administrator/SCHEDULED_JOBS.md) | Job monitoring |
+| [CONFIG_UPDATES.md](administrator/CONFIG_UPDATES.md) | Contract & tier updates |
 | [OPERATIONS_CHECKLIST.md](administrator/OPERATIONS_CHECKLIST.md) | Printable checklists |
 | [TROUBLESHOOTING.md](administrator/TROUBLESHOOTING.md) | Issue resolution |
 | [DEPLOYMENT_GUIDE.md](administrator/DEPLOYMENT_GUIDE.md) | DAB deployment |
@@ -143,7 +144,7 @@ See [archive/archive_readme.md](archive/archive_readme.md) for index.
 
 ## Version Information
 
-- **Current Version:** 1.15.0
+- **Current Version:** 1.16.0
 - **Last Updated:** February 2026
 - **Databricks Runtime:** 13.0+
 

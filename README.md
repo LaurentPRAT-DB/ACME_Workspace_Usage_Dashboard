@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.13.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.16.0-green)](CHANGELOG.md)
 
 ---
 
@@ -749,6 +749,8 @@ FROM main.account_monitoring_dev.contract_forecast;
 | **contract_management_crud.py** | Add, update, delete contracts and metadata |
 | **consumption_forecaster.py** | Prophet model training and inference |
 | **whatif_simulator.py** | What-If discount scenario generation |
+| **setup_contracts.py** | Load contracts from YAML config files |
+| **update_discount_tiers.py** | MERGE-based discount tier updates |
 | **post_deployment_validation.py** | Verify setup and data integrity |
 
 ### Opening the Dashboard
@@ -1287,6 +1289,7 @@ databricks_conso_reports/
 │   ├── consumption_forecaster.py      # ML forecasting
 │   ├── whatif_simulator.py            # What-If discount scenarios
 │   ├── setup_contracts.py             # Config loader
+│   ├── update_discount_tiers.py       # Lightweight tier updates (MERGE)
 │   └── post_deployment_validation.py  # Setup verification
 ├── sql/
 │   ├── setup_schema.sql               # Create all tables
@@ -1535,6 +1538,8 @@ databricks jobs list --profile YOUR_PROFILE
 
 | Document | Audience | Description |
 |----------|----------|-------------|
+| [Documentation Index](docs/INDEX.md) | All | Central hub for all documentation |
 | [User Guide](docs/user-guide/USER_GUIDE.md) | End Users | Detailed usage instructions |
-| [Contract Optimization Strategy](docs/user-guide/CONTRACT_OPTIMIZATION_STRATEGY.md) | Business Stakeholders | Plain-English explanation of optimization strategy |
-| [Operations Guide](docs/OPERATIONS_GUIDE.md) | Administrators | Detailed SQL queries and maintenance procedures |
+| [Contract Optimization Strategy](docs/executive/CONTRACT_OPTIMIZATION_STRATEGY.md) | Business Stakeholders | Plain-English explanation of optimization strategy |
+| [Admin Guide](docs/administrator/ADMIN_GUIDE.md) | Administrators | System administration and maintenance |
+| [Configuration Updates](docs/administrator/CONFIG_UPDATES.md) | Administrators | Contract and discount tier management |
