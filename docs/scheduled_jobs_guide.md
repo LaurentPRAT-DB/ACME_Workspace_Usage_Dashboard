@@ -8,14 +8,69 @@ This guide explains what each scheduled job does in plain English, why it matter
 
 The Account Monitor runs four scheduled jobs to keep your contract consumption data fresh and actionable:
 
-| Job | When It Runs | What It Does |
-|-----|--------------|--------------|
-| Daily Refresh | Every day at 2 AM | Pulls new usage data |
-| Weekly Training | Every Sunday at 8 AM | Retrains the forecasting model |
-| Weekly Review | Every Monday at 8 AM | Generates operational reports |
-| Monthly Summary | 1st of each month at 6 AM | Creates executive summary |
+| Job | When It Runs | What It Does | Dashboard Page |
+|-----|--------------|--------------|----------------|
+| Daily Refresh | Every day at 2 AM | Pulls new usage data | Executive Summary, Contract Burndown |
+| Weekly Training | Every Sunday at 8 AM | Retrains the forecasting model | Contract Burndown, What-If Analysis |
+| Weekly Review | Every Monday at 8 AM | Generates operational reports | Weekly Operations |
+| Monthly Summary | 1st of each month at 6 AM | Creates executive summary | Monthly Summary |
 
 All times are in UTC.
+
+---
+
+## The Dashboard
+
+All job outputs are visualized in the **Contract Consumption Monitor** dashboard with 5 pages:
+
+```
+Contract Consumption Monitor
+├── Executive Summary      ← KPIs, overall status
+├── Contract Burndown      ← Prophet forecasts, exhaustion dates
+├── Weekly Operations      ← Anomalies, pace, top consumers
+├── Monthly Summary        ← Trends, MoM comparison
+└── What-If Analysis       ← Discount scenarios
+```
+
+### Page 1: Executive Summary
+High-level KPIs at a glance:
+- Total contract value
+- Total consumed
+- Remaining budget
+- Contracts at risk
+
+### Page 2: Contract Burndown
+Forecasting and contract health:
+- Historical consumption vs. commitment line
+- Prophet ML forecast (365 days ahead)
+- Exhaustion date prediction
+- Contract details table
+
+### Page 3: Weekly Operations
+Operational health check (from Weekly Review job):
+- Cost Spikes counter (anomalies >50% change)
+- Weekend Alerts counter
+- Contract Pace Analysis table
+- Daily Cost Spikes table
+- Weekend Usage table
+- Top 10 Workspaces bar chart
+- Top 10 Jobs table
+
+### Page 4: Monthly Summary
+Executive reporting (from Monthly Summary job):
+- Month-over-Month % Change
+- Month-over-Month $ Change
+- Current Month Cost
+- Monthly Cost Trend (12 months)
+- Cost by Product Category
+- MoM by Cloud Provider table
+- Monthly Statistics table (6 months)
+
+### Page 5: What-If Analysis
+Contract optimization scenarios:
+- Discount scenario comparison chart
+- Sweet spot recommendations
+- Strategy explanation
 
 ---
 
@@ -40,6 +95,18 @@ Think of it like a weather forecast: just as meteorologists look at historical w
 ### Why Weekly?
 
 Training a machine learning model is computationally expensive. Running it daily would be wasteful since consumption patterns don't change that fast. Weekly retraining balances accuracy with efficiency.
+
+### Dashboard Visualization
+
+Results appear on two dashboard pages:
+
+**Contract Burndown page:**
+- Line chart showing historical consumption + Prophet forecast
+- Exhaustion date prediction table
+
+**What-If Analysis page:**
+- Discount scenario comparison chart
+- Sweet spot recommendations
 
 ### Example Output
 
@@ -67,6 +134,20 @@ This job is your weekly "health check" for contract consumption. It answers thre
 1. **Are we on pace?** - Are we spending at the right rate to use our commitment?
 2. **Anything unusual?** - Did any costs spike unexpectedly?
 3. **Who's spending?** - Which teams, workspaces, or jobs cost the most?
+
+### Dashboard Visualization
+
+Results appear on the **Weekly Operations** dashboard page with 7 widgets:
+
+| Widget | What It Shows |
+|--------|---------------|
+| Cost Spikes (14 days) | Count of daily anomalies >50% change |
+| Weekend Alerts (30 days) | Count of significant weekend usage |
+| Contract Pace Analysis | Table with pace status per contract |
+| Daily Cost Spikes | Table of day-over-day cost jumps |
+| Weekend Usage | Table of Saturday/Sunday costs |
+| Top 10 Workspaces | Bar chart of highest-spending workspaces |
+| Top 10 Jobs | Table of most expensive jobs |
 
 ### The Three Reports
 
@@ -122,17 +203,6 @@ Common causes:
 - Developer left interactive cluster running Friday night
 ```
 
-**New Workspaces** - First-time usage detected in the last 30 days.
-
-```
-Example alert:
-New workspace: data-science-team
-First seen: Feb 1, 2026
-Cost so far: $4,200
-
-Action: Verify this workspace is authorized and properly governed
-```
-
 #### Report 3: Top Consumers
 
 Shows who and what is spending the most money over the last 30 days.
@@ -155,18 +225,9 @@ Rank | Job Name              | 30-Day Cost | Runs | Cost per Run
 3    | hourly_aggregations  | $6,200      | 720  | $8.60
 ```
 
-**Top Users:**
-```
-Rank | User                    | 30-Day Cost | Workspaces Used
------|-------------------------|-------------|----------------
-1    | data-pipeline@company   | $32,000     | 3
-2    | john.smith@company      | $8,500      | 2
-3    | analytics-bot@company   | $6,200      | 1
-```
-
 ### When to Use This Report
 
-Run the weekly review report every Monday morning to:
+Check the **Weekly Operations** dashboard page every Monday morning to:
 - Catch overspending contracts before it's too late
 - Investigate any cost spikes from the previous week
 - Identify optimization opportunities in your top consumers
@@ -178,6 +239,20 @@ Run the weekly review report every Monday morning to:
 ### What It Does
 
 This job creates an executive-level summary of the previous month's consumption. It's designed for monthly business reviews and FinOps reporting.
+
+### Dashboard Visualization
+
+Results appear on the **Monthly Summary** dashboard page with 7 widgets:
+
+| Widget | What It Shows |
+|--------|---------------|
+| MoM Change (%) | Percentage change vs last month |
+| MoM Change ($) | Dollar change vs last month |
+| Current Month Cost | This month's total spending |
+| Monthly Cost Trend | Bar chart of 12-month history |
+| Cost by Product Category | Breakdown by compute, SQL, storage |
+| MoM by Cloud Provider | This vs last month by AWS/Azure/GCP |
+| Monthly Statistics | 6-month table with workspaces, DBUs, cost |
 
 ### The Two Tasks
 
@@ -225,41 +300,44 @@ Records archived: 45,230
 Date range: Jan 2024 - Jan 2024
 Total cost archived: $892,400
 
-Main table optimized and vacuumed.
+Main table optimized.
 ```
 
 ### When to Use This Report
 
-Run at the start of each month (it's scheduled automatically for the 1st at 6 AM) to:
+Check the **Monthly Summary** dashboard page at the start of each month to:
 - Report monthly spending to finance/leadership
 - Track month-over-month cost trends
 - Identify which products are driving cost growth
-- Maintain database performance by archiving old data
 
 ---
 
 ## Real-World Example: A Month in the Life
 
-Here's how these jobs work together in practice:
+Here's how these jobs and dashboard pages work together in practice:
 
 **Week 1 (Monday, Feb 3):**
 - Weekly Review runs at 8 AM
+- Check **Weekly Operations** page
 - You notice: Contract is 58% consumed with only 50% time elapsed (ABOVE PACE)
 - Action: Alert the team to reduce non-essential workloads
 
 **Week 1 (Sunday, Feb 9):**
 - Weekly Training runs at 8 AM
+- Check **Contract Burndown** page
 - Prophet model updates forecast: Contract will exhaust March 15 (was March 30)
-- What-If shows: 10% discount would extend to April 5
+- Check **What-If Analysis** page: 10% discount would extend to April 5
 
 **Week 2 (Monday, Feb 10):**
 - Weekly Review runs
+- Check **Weekly Operations** page
 - You notice: Daily spike of +180% in prod-analytics workspace on Feb 7
 - Investigation: Data scientist ran an unoptimized query on a 10TB table
 - Action: Optimize the query, saving $400/day going forward
 
 **Month End (Saturday, Mar 1):**
 - Monthly Summary runs at 6 AM
+- Check **Monthly Summary** page
 - February total: $165,000 (up 8% from January)
 - Top growth area: SQL Serverless (+15%)
 - Action: Review SQL warehouse sizing for optimization opportunities
@@ -285,6 +363,16 @@ Here's how these jobs work together in practice:
 | Weekly Training | `contract_forecast`, `scenario_*` (What-If tables) |
 | Weekly Review | None (read-only reports) |
 | Monthly Summary | `dashboard_data_archive` |
+
+### Dashboard Pages
+
+| Page | Primary Data Source | Refresh Frequency |
+|------|--------------------|--------------------|
+| Executive Summary | `contract_burndown_summary` | Real-time |
+| Contract Burndown | `contract_burndown`, `contract_forecast` | Daily + Weekly |
+| Weekly Operations | `dashboard_data`, `contract_burndown_summary` | Real-time |
+| Monthly Summary | `dashboard_data` | Real-time |
+| What-If Analysis | `scenario_*` tables | Weekly |
 
 ### Manual Execution
 
@@ -323,7 +411,13 @@ databricks bundle run account_monitor_monthly_summary
 
 **Solution:** Check `config/contracts.yml` and verify start_date, end_date, and total_value match your actual contract terms.
 
+### Dashboard page shows errors
+
+**Cause:** Dashboard may not have been published after updates.
+
+**Solution:** Re-deploy with `databricks bundle deploy --force` and verify the dashboard is published.
+
 ---
 
 *Last updated: February 2026*
-*Version: 1.10.0*
+*Version: 1.11.0*
