@@ -1,0 +1,253 @@
+# Alternative 3: Base Tiers with Stackable Add-On Incentives
+# 
+# Modular discount structure with conservative base rates plus stackable bonuses.
+# This approach mimics real Databricks sales processes where discounts are built
+# up through multiple negotiation levers.
+#
+# Structure:
+# - Base discount rates (below)
+# - Plus stackable incentive bonuses (documented in notes)
+#
+# Stackable Incentive Programs (add to base discount):
+# ┌─────────────────────────────────────┬─────────────────┐
+# │ Multi-Cloud Commitment              │ +5% to +10%     │
+# │ (AWS + Azure or 2+ clouds)          │                 │
+# ├─────────────────────────────────────┼─────────────────┤
+# │ Competitive Displacement            │ +10% to +20%    │
+# │ (from Snowflake, AWS EMR, etc.)     │                 │
+# ├─────────────────────────────────────┼─────────────────┤
+# │ High Growth Commitment              │ +5% to +8%      │
+# │ (2x+ year-over-year growth)         │                 │
+# ├─────────────────────────────────────┼─────────────────┤
+# │ Annual Prepayment                   │ +3% to +5%      │
+# │ (vs quarterly billing)              │                 │
+# ├─────────────────────────────────────┼─────────────────┤
+# │ Support Fee Reduction               │ +5% to +10%     │
+# │ (reduce from 15% to 10-12%)         │                 │
+# └─────────────────────────────────────┴─────────────────┘
+#
+# Example: $2M, 3-year deal with multi-cloud + growth
+# Base: 40% + Multi-cloud: 10% + Growth: 8% = 58% total
+#
+# Sources:
+# - Vendr customer negotiation data showing stacked incentives
+# - Real customer reports: "14% cross-SKU + 32% support reduction"
+# - "By adding new use cases, increased SQL/DLT discount from 0% to 20%"
+
+discount_tiers:
+  # ============================================================
+  # $50K - $100K Commitment Tier (BASE RATES)
+  # ============================================================
+  - tier_id: "BASE_50K_1Y"
+    tier_name: "Small Business Base - 1 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 1
+    discount_rate: 0.08
+    notes: "Base rate. Add incentives: Multi-cloud +5-10%, Competitive +10-20%, Growth +5-8%, Prepay +3-5%"
+
+  - tier_id: "BASE_50K_2Y"
+    tier_name: "Small Business Base - 2 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 2
+    discount_rate: 0.12
+    notes: "Base rate. Stack with available incentive programs for total discount"
+
+  - tier_id: "BASE_50K_3Y"
+    tier_name: "Small Business Base - 3 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 3
+    discount_rate: 0.15
+    notes: "Base rate. Example: 15% + 10% competitive + 5% prepay = 30% total"
+
+  # ============================================================
+  # $100K - $250K Commitment Tier (BASE RATES)
+  # ============================================================
+  - tier_id: "BASE_100K_1Y"
+    tier_name: "Mid-Market Base - 1 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 1
+    discount_rate: 0.12
+    notes: "Base rate. Typical total with incentives: 17-32%"
+
+  - tier_id: "BASE_100K_2Y"
+    tier_name: "Mid-Market Base - 2 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 2
+    discount_rate: 0.18
+    notes: "Base rate. Typical total with incentives: 23-38%"
+
+  - tier_id: "BASE_100K_3Y"
+    tier_name: "Mid-Market Base - 3 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 3
+    discount_rate: 0.22
+    notes: "Base rate. Typical total with incentives: 27-42%"
+
+  # ============================================================
+  # $250K - $500K Commitment Tier (BASE RATES)
+  # ============================================================
+  - tier_id: "BASE_250K_1Y"
+    tier_name: "Growth Enterprise Base - 1 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 1
+    discount_rate: 0.18
+    notes: "Base rate. Multi-cloud adds +8%, competitive +15%, growth +6%"
+
+  - tier_id: "BASE_250K_2Y"
+    tier_name: "Growth Enterprise Base - 2 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 2
+    discount_rate: 0.24
+    notes: "Base rate. Typical total with 2-3 incentives: 32-44%"
+
+  - tier_id: "BASE_250K_3Y"
+    tier_name: "Growth Enterprise Base - 3 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 3
+    discount_rate: 0.30
+    notes: "Base rate. Example: 30% + 10% multi-cloud + 8% growth = 48% total"
+
+  # ============================================================
+  # $500K - $1M Commitment Tier (BASE RATES)
+  # ============================================================
+  - tier_id: "BASE_500K_1Y"
+    tier_name: "Enterprise Base - 1 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 1
+    discount_rate: 0.22
+    notes: "Base rate. Stack with competitive displacement for 32-42% total"
+
+  - tier_id: "BASE_500K_2Y"
+    tier_name: "Enterprise Base - 2 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 2
+    discount_rate: 0.30
+    notes: "Base rate. All incentives can push to 45-50% total"
+
+  - tier_id: "BASE_500K_3Y"
+    tier_name: "Enterprise Base - 3 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 3
+    discount_rate: 0.35
+    notes: "Base rate. Customer report: 35% base + 14% cross-SKU = 49% achieved"
+
+  # ============================================================
+  # $1M - $5M Commitment Tier (BASE RATES)
+  # ============================================================
+  - tier_id: "BASE_1M_1Y"
+    tier_name: "Large Enterprise Base - 1 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 1
+    discount_rate: 0.28
+    notes: "Base rate. Typical negotiated total: 35-48%"
+
+  - tier_id: "BASE_1M_2Y"
+    tier_name: "Large Enterprise Base - 2 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 2
+    discount_rate: 0.35
+    notes: "Base rate. With growth commitment: 35% + 8% = 43% minimum"
+
+  - tier_id: "BASE_1M_3Y"
+    tier_name: "Large Enterprise Base - 3 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 3
+    discount_rate: 0.40
+    notes: "Base rate. Customer report: 40% + support reduction + credits = 52% effective"
+
+  # ============================================================
+  # $5M+ Commitment Tier (BASE RATES - Strategic Accounts)
+  # ============================================================
+  - tier_id: "BASE_5M_1Y"
+    tier_name: "Strategic Account Base - 1 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 1
+    discount_rate: 0.33
+    notes: "Strategic base rate. Add multi-cloud +10%, competitive +20% for 63% total"
+
+  - tier_id: "BASE_5M_2Y"
+    tier_name: "Strategic Account Base - 2 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 2
+    discount_rate: 0.40
+    notes: "Strategic base. Typical fully-loaded: 55-65% with all incentives"
+
+  - tier_id: "BASE_5M_3Y"
+    tier_name: "Strategic Account Base - 3 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 3
+    discount_rate: 0.45
+    notes: "Maximum base rate. Example: 45% + 10% multi-cloud + 8% growth + 5% prepay = 68% total possible"
+
+# ============================================================
+# INCENTIVE PROGRAM DOCUMENTATION
+# ============================================================
+# 
+# Apply these bonuses ON TOP OF base discount rates above:
+#
+# 1. MULTI-CLOUD COMMITMENT (+5% to +10%)
+#    - Commit to using 2+ clouds (AWS + Azure, or AWS + GCP, etc.)
+#    - Allows flexible DBU usage across cloud providers
+#    - Typically +5% for 2 clouds, +10% for all 3 clouds
+#
+# 2. COMPETITIVE DISPLACEMENT (+10% to +20%)
+#    - Switching from Snowflake: +15-20%
+#    - Switching from AWS EMR: +10-15%
+#    - Switching from Azure Synapse: +10-15%
+#    - Must show proof of existing contract
+#    - Customer report: "Significant discounts on Jobs SKU, $100K in free AWS credits"
+#
+# 3. HIGH GROWTH COMMITMENT (+5% to +8%)
+#    - Commit to 2x year-over-year growth: +5%
+#    - Commit to 3x+ growth: +8%
+#    - Customer report: "Significant growth over term increased discount by ~15%"
+#
+# 4. ANNUAL PREPAYMENT (+3% to +5%)
+#    - Pay annually upfront instead of quarterly: +3-5%
+#    - Customer report: "Secured semi-annual net 45 payments on 36 month term"
+#
+# 5. SUPPORT FEE REDUCTION (+5% to +10% effective)
+#    - Standard support: 15% of usage commitment
+#    - Negotiate down to 12%: +3% effective savings
+#    - Negotiate down to 10%: +5% effective savings
+#    - Customer reports: "Support reduced from 15% to 12%", "32% discount off support"
+#
+# 6. NEW USE CASE EXPANSION (+5% to +20% on specific SKUs)
+#    - Adding SQL/DLT workloads: up to +20%
+#    - Adding ML workloads: up to +15%
+#    - Customer report: "By adding new use cases increased SQL/DLT from 0% to 20%"
+#
+# 7. ADDITIONAL PERKS (Non-discount value)
+#    - Free AWS/Azure/GCP credits ($50K-$100K reported)
+#    - Free Data + AI Summit tickets
+#    - Professional services credits
+#    - Customer report: "Free credits & services" with strategic deals
+#
+# EXAMPLE CALCULATIONS:
+#
+# Example 1: $750K, 2-year, competitive displacement
+# Base: 30% + Competitive: 15% + Prepay: 4% = 49% total
+#
+# Example 2: $2M, 3-year, multi-cloud + growth
+# Base: 40% + Multi-cloud: 10% + Growth: 8% = 58% total
+#
+# Example 3: $8M, 3-year, full stack
+# Base: 45% + Multi-cloud: 10% + Competitive: 20% + Growth: 8% + Prepay: 5% = 88% (capped at ~70% realistic max)

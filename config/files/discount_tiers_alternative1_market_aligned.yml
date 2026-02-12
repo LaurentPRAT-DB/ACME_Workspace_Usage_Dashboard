@@ -1,0 +1,179 @@
+# Alternative 1: Market-Aligned Discount Tiers (Conservative but Realistic)
+# 
+# Based on actual Databricks customer reports and documented Azure discounts.
+# This configuration reflects real-world enterprise contracts and is recommended
+# as the default tier structure.
+#
+# Key characteristics:
+# - Entry-level discounts start at 10% (more realistic than 5%)
+# - Aligns with Azure's documented 33-37% discounts for 1-3 year commits
+# - Reflects real customer reports showing 14-32% cross-SKU discounts
+# - Top tier reaches 50% for mega-deals ($5M+, 3-year commitments)
+#
+# Sources:
+# - Azure Databricks documented discounts
+# - Vendr customer negotiation data (2024-2025)
+# - CloudChipr and industry pricing analysis
+
+discount_tiers:
+  # ============================================================
+  # $50K - $100K Commitment Tier
+  # ============================================================
+  - tier_id: "TIER_50K_1Y"
+    tier_name: "Small Business - 1 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 1
+    discount_rate: 0.10
+    notes: "Entry-level commitment, suitable for small teams or pilot projects"
+
+  - tier_id: "TIER_50K_2Y"
+    tier_name: "Small Business - 2 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 2
+    discount_rate: 0.15
+    notes: "Mid-term commitment with enhanced discount"
+
+  - tier_id: "TIER_50K_3Y"
+    tier_name: "Small Business - 3 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 3
+    discount_rate: 0.20
+    notes: "Long-term commitment for maximum small-tier discount"
+
+  # ============================================================
+  # $100K - $250K Commitment Tier
+  # ============================================================
+  - tier_id: "TIER_100K_1Y"
+    tier_name: "Mid-Market - 1 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 1
+    discount_rate: 0.15
+    notes: "Mid-market standard annual commitment"
+
+  - tier_id: "TIER_100K_2Y"
+    tier_name: "Mid-Market - 2 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 2
+    discount_rate: 0.20
+    notes: "Mid-market 2-year commitment"
+
+  - tier_id: "TIER_100K_3Y"
+    tier_name: "Mid-Market - 3 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 3
+    discount_rate: 0.25
+    notes: "Mid-market long-term partnership discount"
+
+  # ============================================================
+  # $250K - $500K Commitment Tier
+  # ============================================================
+  - tier_id: "TIER_250K_1Y"
+    tier_name: "Growth Enterprise - 1 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 1
+    discount_rate: 0.20
+    notes: "Growing enterprise annual commitment"
+
+  - tier_id: "TIER_250K_2Y"
+    tier_name: "Growth Enterprise - 2 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 2
+    discount_rate: 0.27
+    notes: "Growth enterprise 2-year strategic commitment"
+
+  - tier_id: "TIER_250K_3Y"
+    tier_name: "Growth Enterprise - 3 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 3
+    discount_rate: 0.33
+    notes: "Aligns with Azure's documented 33% discount for 3-year commits"
+
+  # ============================================================
+  # $500K - $1M Commitment Tier
+  # ============================================================
+  - tier_id: "TIER_500K_1Y"
+    tier_name: "Enterprise - 1 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 1
+    discount_rate: 0.25
+    notes: "Enterprise-scale annual commitment"
+
+  - tier_id: "TIER_500K_2Y"
+    tier_name: "Enterprise - 2 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 2
+    discount_rate: 0.32
+    notes: "Enterprise 2-year strategic partnership"
+
+  - tier_id: "TIER_500K_3Y"
+    tier_name: "Enterprise - 3 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 3
+    discount_rate: 0.37
+    notes: "Matches Azure's documented maximum 37% discount for 3-year enterprise commits"
+
+  # ============================================================
+  # $1M - $5M Commitment Tier
+  # ============================================================
+  - tier_id: "TIER_1M_1Y"
+    tier_name: "Large Enterprise - 1 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 1
+    discount_rate: 0.30
+    notes: "Large enterprise volume commitment"
+
+  - tier_id: "TIER_1M_2Y"
+    tier_name: "Large Enterprise - 2 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 2
+    discount_rate: 0.37
+    notes: "Large enterprise multi-year strategic alliance"
+
+  - tier_id: "TIER_1M_3Y"
+    tier_name: "Large Enterprise - 3 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 3
+    discount_rate: 0.42
+    notes: "Premium discount for sustained large-scale usage"
+
+  # ============================================================
+  # $5M+ Commitment Tier (Strategic Accounts)
+  # ============================================================
+  - tier_id: "TIER_5M_1Y"
+    tier_name: "Strategic Account - 1 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 1
+    discount_rate: 0.35
+    notes: "Strategic account status with dedicated support"
+
+  - tier_id: "TIER_5M_2Y"
+    tier_name: "Strategic Account - 2 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 2
+    discount_rate: 0.42
+    notes: "Strategic partnership with enhanced benefits"
+
+  - tier_id: "TIER_5M_3Y"
+    tier_name: "Strategic Account - 3 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 3
+    discount_rate: 0.50
+    notes: "Maximum discount tier for mega-deals with long-term commitment"

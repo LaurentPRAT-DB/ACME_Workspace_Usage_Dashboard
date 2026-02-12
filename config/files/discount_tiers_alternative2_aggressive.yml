@@ -1,0 +1,185 @@
+# Alternative 2: Aggressive/Competitive Discount Tiers
+# 
+# For organizations with strong negotiating leverage, competitive displacement
+# scenarios, or combining multiple incentive programs.
+#
+# Key characteristics:
+# - Higher baseline discounts reflecting competitive situations
+# - Accounts for switching bonuses (e.g., moving from Snowflake)
+# - Includes high-growth customer incentives
+# - Suitable for multi-cloud commitment scenarios
+# - Top tier reaches 55% for mega-deals with all levers
+#
+# Use when:
+# - Competitive displacement (switching from Snowflake, AWS EMR, etc.)
+# - High growth commitment (2x+ year-over-year)
+# - Multi-cloud strategy (AWS + Azure + GCP)
+# - Strategic partnership with Databricks
+#
+# Sources:
+# - Customer reports showing 15-20% competitive displacement bonuses
+# - Vendr negotiation data showing stacked incentives
+# - Real deals with combined growth + competitive incentives
+
+discount_tiers:
+  # ============================================================
+  # $50K - $100K Commitment Tier
+  # ============================================================
+  - tier_id: "AGGR_50K_1Y"
+    tier_name: "Competitive Small - 1 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 1
+    discount_rate: 0.12
+    notes: "Competitive entry rate with switching bonus included"
+
+  - tier_id: "AGGR_50K_2Y"
+    tier_name: "Competitive Small - 2 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 2
+    discount_rate: 0.18
+    notes: "Enhanced 2-year rate for competitive scenarios"
+
+  - tier_id: "AGGR_50K_3Y"
+    tier_name: "Competitive Small - 3 Year"
+    min_commitment: 50000
+    max_commitment: 100000
+    duration_years: 3
+    discount_rate: 0.22
+    notes: "Long-term competitive positioning discount"
+
+  # ============================================================
+  # $100K - $250K Commitment Tier
+  # ============================================================
+  - tier_id: "AGGR_100K_1Y"
+    tier_name: "Competitive Mid-Market - 1 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 1
+    discount_rate: 0.18
+    notes: "Mid-market competitive displacement rate"
+
+  - tier_id: "AGGR_100K_2Y"
+    tier_name: "Competitive Mid-Market - 2 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 2
+    discount_rate: 0.25
+    notes: "Enhanced mid-market multi-year commitment"
+
+  - tier_id: "AGGR_100K_3Y"
+    tier_name: "Competitive Mid-Market - 3 Year"
+    min_commitment: 100000
+    max_commitment: 250000
+    duration_years: 3
+    discount_rate: 0.30
+    notes: "Strategic mid-market partnership with growth incentive"
+
+  # ============================================================
+  # $250K - $500K Commitment Tier
+  # ============================================================
+  - tier_id: "AGGR_250K_1Y"
+    tier_name: "Competitive Growth - 1 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 1
+    discount_rate: 0.25
+    notes: "Growth enterprise with competitive bonus"
+
+  - tier_id: "AGGR_250K_2Y"
+    tier_name: "Competitive Growth - 2 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 2
+    discount_rate: 0.32
+    notes: "High-growth 2-year strategic commitment"
+
+  - tier_id: "AGGR_250K_3Y"
+    tier_name: "Competitive Growth - 3 Year"
+    min_commitment: 250000
+    max_commitment: 500000
+    duration_years: 3
+    discount_rate: 0.38
+    notes: "Competitive + growth + multi-year stacked incentives"
+
+  # ============================================================
+  # $500K - $1M Commitment Tier
+  # ============================================================
+  - tier_id: "AGGR_500K_1Y"
+    tier_name: "Competitive Enterprise - 1 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 1
+    discount_rate: 0.30
+    notes: "Enterprise competitive displacement rate"
+
+  - tier_id: "AGGR_500K_2Y"
+    tier_name: "Competitive Enterprise - 2 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 2
+    discount_rate: 0.37
+    notes: "Enterprise strategic partnership with competitive bonus"
+
+  - tier_id: "AGGR_500K_3Y"
+    tier_name: "Competitive Enterprise - 3 Year"
+    min_commitment: 500000
+    max_commitment: 1000000
+    duration_years: 3
+    discount_rate: 0.43
+    notes: "Premium enterprise rate with all incentives stacked"
+
+  # ============================================================
+  # $1M - $5M Commitment Tier
+  # ============================================================
+  - tier_id: "AGGR_1M_1Y"
+    tier_name: "Competitive Large Enterprise - 1 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 1
+    discount_rate: 0.35
+    notes: "Large enterprise volume + competitive incentive"
+
+  - tier_id: "AGGR_1M_2Y"
+    tier_name: "Competitive Large Enterprise - 2 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 2
+    discount_rate: 0.42
+    notes: "Strategic alliance with growth and competitive bonuses"
+
+  - tier_id: "AGGR_1M_3Y"
+    tier_name: "Competitive Large Enterprise - 3 Year"
+    min_commitment: 1000000
+    max_commitment: 5000000
+    duration_years: 3
+    discount_rate: 0.48
+    notes: "Near-maximum discount with multi-year + competitive + growth"
+
+  # ============================================================
+  # $5M+ Commitment Tier (Strategic Accounts)
+  # ============================================================
+  - tier_id: "AGGR_5M_1Y"
+    tier_name: "Strategic Competitive Account - 1 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 1
+    discount_rate: 0.40
+    notes: "Strategic account with competitive displacement"
+
+  - tier_id: "AGGR_5M_2Y"
+    tier_name: "Strategic Competitive Account - 2 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 2
+    discount_rate: 0.47
+    notes: "Strategic partnership with enhanced competitive positioning"
+
+  - tier_id: "AGGR_5M_3Y"
+    tier_name: "Strategic Competitive Account - 3 Year"
+    min_commitment: 5000000
+    max_commitment: null
+    duration_years: 3
+    discount_rate: 0.55
+    notes: "Maximum achievable discount: mega-deal + 3-year + competitive + growth + multi-cloud"
