@@ -167,6 +167,41 @@
       "queryLines": [
         "WITH daily_anomalies AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id, SUM(actual_cost) as daily_cost, LAG(SUM(actual_cost)) OVER (PARTITION BY workspace_id ORDER BY usage_date) as prev_day_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 14) GROUP BY usage_date, workspace_id) WHERE prev_day_cost > 0 AND ABS((daily_cost - prev_day_cost) / prev_day_cost) > 0.5), weekend AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) AND DAYOFWEEK(usage_date) IN (1, 7) GROUP BY usage_date, workspace_id HAVING SUM(actual_cost) > 50)) SELECT da.cnt as daily_spikes, w.cnt as weekend_alerts FROM daily_anomalies da, weekend w"
       ]
+    },
+    {
+      "name": "ds_monthly_trend",
+      "displayName": "Monthly Cost Trend",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, ROUND(SUM(actual_cost), 0) as monthly_cost, ROUND(SUM(usage_quantity), 0) as monthly_dbu FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365) GROUP BY DATE_TRUNC('MONTH', usage_date) ORDER BY month"
+      ]
+    },
+    {
+      "name": "ds_mom_change",
+      "displayName": "Month-over-Month Change",
+      "queryLines": [
+        "WITH monthly AS (SELECT DATE_TRUNC('MONTH', usage_date) as month, SUM(actual_cost) as cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 60) GROUP BY DATE_TRUNC('MONTH', usage_date)), ranked AS (SELECT month, cost, LAG(cost) OVER (ORDER BY month) as prev_cost FROM monthly) SELECT ROUND((cost - prev_cost) / NULLIF(prev_cost, 0) * 100, 1) as pct_change, ROUND(cost - prev_cost, 0) as abs_change, ROUND(cost, 0) as current_month, ROUND(prev_cost, 0) as prev_month FROM ranked WHERE prev_cost IS NOT NULL ORDER BY month DESC LIMIT 1"
+      ]
+    },
+    {
+      "name": "ds_product_breakdown",
+      "displayName": "Cost by Product Category",
+      "queryLines": [
+        "SELECT COALESCE(product_category, 'Other') as category, ROUND(SUM(actual_cost), 0) as cost, ROUND(SUM(actual_cost) * 100.0 / SUM(SUM(actual_cost)) OVER (), 1) as pct FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_TRUNC('MONTH', DATE_SUB(CURRENT_DATE(), 30)) GROUP BY product_category ORDER BY cost DESC"
+      ]
+    },
+    {
+      "name": "ds_mom_comparison",
+      "displayName": "MoM Comparison by Cloud",
+      "queryLines": [
+        "WITH monthly AS (SELECT DATE_TRUNC('MONTH', usage_date) as month, cloud_provider, SUM(actual_cost) as cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 60) GROUP BY DATE_TRUNC('MONTH', usage_date), cloud_provider), with_lag AS (SELECT month, cloud_provider, cost, LAG(cost) OVER (PARTITION BY cloud_provider ORDER BY month) as prev_cost FROM monthly) SELECT cloud_provider, ROUND(cost, 0) as this_month, ROUND(prev_cost, 0) as last_month, ROUND(cost - prev_cost, 0) as change, ROUND((cost - prev_cost) / NULLIF(prev_cost, 0) * 100, 1) as pct_change FROM with_lag WHERE prev_cost IS NOT NULL ORDER BY cost DESC"
+      ]
+    },
+    {
+      "name": "ds_monthly_stats",
+      "displayName": "Monthly Statistics",
+      "queryLines": [
+        "SELECT DATE_TRUNC('MONTH', usage_date) as month, COUNT(DISTINCT workspace_id) as workspaces, COUNT(DISTINCT sku_name) as skus, ROUND(SUM(usage_quantity), 0) as total_dbu, ROUND(SUM(actual_cost), 0) as total_cost, ROUND(SUM(actual_cost) / COUNT(DISTINCT usage_date), 0) as avg_daily_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 180) GROUP BY DATE_TRUNC('MONTH', usage_date) ORDER BY month DESC"
+      ]
     }
   ],
   "pages": [
@@ -1450,6 +1485,423 @@
             "y": 9,
             "width": 3,
             "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "page_monthly",
+      "displayName": "Monthly Summary",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_mom_pct_change",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "pct_change",
+                  "displayName": "% Change vs Last Month"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month Change (%)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_mom_abs_change",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "abs_change",
+                      "expression": "`abs_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "abs_change",
+                  "displayName": "$ Change vs Last Month"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month Change ($)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_current_month",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_change",
+                  "fields": [
+                    {
+                      "name": "current_month",
+                      "expression": "`current_month`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_month",
+                  "displayName": "Current Month Total ($)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Current Month Cost"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_monthly_trend_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_monthly_trend",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "monthly_cost",
+                      "expression": "`monthly_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "monthly_cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Cost Trend (12 months)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_product_breakdown",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_product_breakdown",
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "cost",
+                      "expression": "`cost`"
+                    },
+                    {
+                      "name": "pct",
+                      "expression": "`pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "category",
+                  "displayName": "Product Category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "sort": {
+                    "by": "x",
+                    "direction": "descending"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cost by Product Category (Current Month)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_mom_comparison",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_mom_comparison",
+                  "fields": [
+                    {
+                      "name": "cloud_provider",
+                      "expression": "`cloud_provider`"
+                    },
+                    {
+                      "name": "this_month",
+                      "expression": "`this_month`"
+                    },
+                    {
+                      "name": "last_month",
+                      "expression": "`last_month`"
+                    },
+                    {
+                      "name": "change",
+                      "expression": "`change`"
+                    },
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "cloud_provider",
+                    "displayName": "Cloud",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "this_month",
+                    "displayName": "This Month ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "last_month",
+                    "displayName": "Last Month ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "change",
+                    "displayName": "Change ($)",
+                    "type": "number",
+                    "numberFormat": "+#,##0;-#,##0"
+                  },
+                  {
+                    "fieldName": "pct_change",
+                    "displayName": "Change %",
+                    "type": "number",
+                    "numberFormat": "+0.0;-0.0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-over-Month by Cloud Provider"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_monthly_stats",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_monthly_stats",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "workspaces",
+                      "expression": "`workspaces`"
+                    },
+                    {
+                      "name": "skus",
+                      "expression": "`skus`"
+                    },
+                    {
+                      "name": "total_dbu",
+                      "expression": "`total_dbu`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    },
+                    {
+                      "name": "avg_daily_cost",
+                      "expression": "`avg_daily_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "month",
+                    "displayName": "Month",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspaces",
+                    "displayName": "Workspaces",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "skus",
+                    "displayName": "SKUs",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "total_dbu",
+                    "displayName": "Total DBU",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "total_cost",
+                    "displayName": "Total Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "avg_daily_cost",
+                    "displayName": "Avg Daily ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Statistics (6 months)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 6,
+            "width": 3,
+            "height": 3
           }
         }
       ],
