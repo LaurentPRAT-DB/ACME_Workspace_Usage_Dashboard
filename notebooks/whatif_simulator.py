@@ -14,7 +14,7 @@
 # MAGIC - Break-even analysis and sweet spot detection
 # MAGIC - "What if longer duration" analysis showing incentive to extend
 # MAGIC
-# MAGIC **Version:** 1.1.0
+# MAGIC **Version:** 1.2.0
 
 # COMMAND ----------
 
@@ -300,7 +300,7 @@ save_debug_log()
 
 # COMMAND ----------
 
-def generate_scenarios_for_contract(contract_id, contract_value, start_date, end_date, tiers_df):
+def generate_scenarios_for_contract(contract_id, contract_value, start_date, end_date, tiers_df, burndown_data=None):
     """
     Generate discount scenarios for a contract, capped by duration-based tier max.
 
@@ -312,6 +312,7 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
         start_date: Contract start date
         end_date: Contract end date
         tiers_df: Discount tiers DataFrame
+        burndown_data: Optional burndown DataFrame for utilization estimation
 
     Returns:
         List of scenario dictionaries
@@ -413,12 +414,29 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
 
     # Add "Duration Extension" scenarios - extend timeline, same commitment
     # This is useful when contract is under-consumed and extending gives more time
-    # Generate ALL valid extension durations (3yr, 4yr, 5yr) - even with same discount,
-    # longer duration provides value by allowing full consumption of the commitment.
-    # The recommendation engine will pick the optimal duration based on consumption forecasts.
+    # Generate extension scenarios ONLY until one reaches 100% utilization.
+    # Once an extension achieves full consumption, longer extensions are unnecessary.
+
+    # Calculate avg daily consumption rate for utilization estimation
+    avg_daily_rate = 0.0
+    current_cumulative = 0.0
+    if burndown_data is not None:
+        contract_burndown = burndown_data[burndown_data['contract_id'] == contract_id]
+        if not contract_burndown.empty:
+            recent_days = min(90, len(contract_burndown))
+            recent_data = contract_burndown.tail(recent_days)
+            avg_daily_rate = float(recent_data['daily_cost'].mean()) if not recent_data.empty else 0.0
+            current_cumulative = float(contract_burndown['cumulative_cost'].iloc[-1]) if not contract_burndown.empty else 0.0
+
+    full_utilization_reached = False  # Track if a shorter extension already reaches 100%
 
     for target_duration in [3, 4, 5]:  # Extend to 3, 4, or 5 years
         if target_duration > duration_years:
+            # Skip if a shorter extension already reaches 100% utilization
+            if full_utilization_reached:
+                log_debug(f"  Skipping {target_duration}yr extension - shorter extension already reaches 100%")
+                continue
+
             extension_discount = discounts_by_duration.get(target_duration, 0)
 
             # Skip only if discount is WORSE than current contract's max
@@ -429,6 +447,21 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
             start_dt = pd.to_datetime(start_date)
             new_end_dt = start_dt + pd.DateOffset(years=target_duration)
             extra_years = target_duration - duration_years
+
+            # Estimate utilization for this extension
+            # Project remaining consumption from current date to new end date
+            today = pd.Timestamp.now()
+            days_remaining = max(0, (new_end_dt - today).days)
+            discount_factor = 1 - (extension_discount / 100)
+            projected_additional = avg_daily_rate * discount_factor * days_remaining
+            estimated_final = current_cumulative + projected_additional
+            estimated_utilization = (estimated_final / contract_value * 100) if contract_value > 0 else 0
+
+            log_debug(f"  Estimating {target_duration}yr extension: {estimated_utilization:.0f}% utilization")
+
+            # If this extension reaches 100%, mark flag to skip longer extensions
+            if estimated_utilization >= 100:
+                full_utilization_reached = True
 
             scenario_id = str(uuid.uuid4())
 
@@ -471,7 +504,8 @@ for _, contract in contracts_df.iterrows():
         contract['total_value'],
         contract['start_date'],
         contract['end_date'],
-        tiers_df
+        tiers_df,
+        burndown_data=burndown_df  # Pass burndown data for utilization estimation
     )
     all_scenarios.extend(contract_scenarios)
     log_debug(f"  Generated {len(contract_scenarios)} scenarios")
