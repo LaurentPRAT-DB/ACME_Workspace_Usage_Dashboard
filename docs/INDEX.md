@@ -66,7 +66,7 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 ## Quick Start Paths
 
 ### First Time Setup (15 minutes)
-1. [Getting Started](GETTING_STARTED.md) - Quick start guide
+1. [Start Here](START_HERE.md) - Quick start guide
 2. [Installation Guide](administrator/INSTALLATION.md) - Deploy the system
 3. [Dashboard Overview](executive/DASHBOARD_OVERVIEW.md) - Learn the dashboard
 
@@ -92,10 +92,7 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 ### Core Guides (Root)
 | File | Description | Audience |
 |------|-------------|----------|
-| [README.md](README.md) | Project README | All |
-| [GETTING_STARTED.md](GETTING_STARTED.md) | Quick start | All |
-| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | Project overview | All |
-| [START_HERE.md](START_HERE.md) | Entry point | New users |
+| [START_HERE.md](START_HERE.md) | Quick start guide | New users |
 
 ### Executive
 | File | Description |
