@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.16.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.17.0-green)](CHANGELOG.md)
 
 ---
 
@@ -1494,6 +1494,7 @@ Grant the service principal:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.17.0** | 2026-02-12 | Skip redundant extension scenarios when shorter extension reaches 100% utilization |
 | **1.16.0** | 2026-02-12 | Added lightweight discount tier update job with MERGE-based incremental updates |
 | **1.15.0** | 2026-02-11 | Reorganized documentation by persona (Executive, Administrator, Developer) |
 | **1.14.0** | 2026-02-11 | Created persona-based documentation structure with new guides |
