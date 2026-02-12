@@ -34,9 +34,11 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 | [Troubleshooting](administrator/TROUBLESHOOTING.md) | Common issues and solutions |
 
 **Additional Resources:**
-- [Scheduled Jobs (Detailed)](scheduled_jobs_guide.md) - In-depth job explanations with examples
-- [Deployment Guide](DEPLOYMENT_GUIDE.md) - DAB deployment details
-- [Configuration Guide](CONFIGURATION_GUIDE.md) - Configuration options
+- [Deployment Guide](administrator/DEPLOYMENT_GUIDE.md) - DAB deployment details
+- [Configuration Guide](administrator/CONFIGURATION_GUIDE.md) - Configuration options
+- [Post-Deployment Validation](administrator/POST_DEPLOYMENT_VALIDATION.md) - Validation steps
+- [Team Deployment Guide](administrator/TEAM_DEPLOYMENT_GUIDE.md) - Multi-team deployments
+- [Dashboard Quick Start](administrator/DASHBOARD_QUICK_START.md) - Dashboard setup
 
 ---
 
@@ -47,17 +49,17 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 | Document | Description |
 |----------|-------------|
 | [Technical Reference](developer/TECHNICAL_REFERENCE.md) | Architecture, schema, SQL patterns, debugging |
-| [Schema Reference](SCHEMA_REFERENCE.md) | Detailed table and column documentation |
-| [Quick Reference](QUICK_REFERENCE.md) | Common SQL queries |
+| [Schema Reference](developer/SCHEMA_REFERENCE.md) | Detailed table and column documentation |
+| [Quick Reference](developer/QUICK_REFERENCE.md) | Common SQL queries |
 
 **DAB (Databricks Asset Bundles):**
-- [DAB README](DAB_README.md) - Bundle structure overview
-- [DAB Quick Commands](DAB_QUICK_COMMANDS.md) - CLI command reference
-- [Databricks Asset Bundle](DATABRICKS_ASSET_BUNDLE.md) - Detailed DAB documentation
+- [DAB README](developer/DAB_README.md) - Bundle structure overview
+- [DAB Quick Commands](developer/DAB_QUICK_COMMANDS.md) - CLI command reference
+- [Databricks Asset Bundle](developer/DATABRICKS_ASSET_BUNDLE.md) - Detailed DAB documentation
 
 **Additional Technical Docs:**
-- [Contract Burndown Guide](CONTRACT_BURNDOWN_GUIDE.md) - Burndown calculation logic
-- [Lakeview Dashboard Guide](AIBI_LAKEVIEW_DASHBOARD_GUIDE.md) - Dashboard JSON structure
+- [Contract Burndown Guide](developer/CONTRACT_BURNDOWN_GUIDE.md) - Burndown calculation logic
+- [Lakeview Dashboard Guide](developer/AIBI_LAKEVIEW_DASHBOARD_GUIDE.md) - Dashboard JSON structure
 
 ---
 
@@ -87,7 +89,7 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 
 ## All Documentation
 
-### Core Guides
+### Core Guides (Root)
 | File | Description | Audience |
 |------|-------------|----------|
 | [README.md](README.md) | Project README | All |
@@ -95,49 +97,56 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 | [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | Project overview | All |
 | [START_HERE.md](START_HERE.md) | Entry point | New users |
 
-### Operations
-| File | Description | Audience |
-|------|-------------|----------|
-| [OPERATIONS_GUIDE.md](OPERATIONS_GUIDE.md) | Operations manual | Admin |
-| [scheduled_jobs_guide.md](scheduled_jobs_guide.md) | Job details | Admin |
-| [POST_DEPLOYMENT_VALIDATION.md](POST_DEPLOYMENT_VALIDATION.md) | Validation steps | Admin |
+### Executive
+| File | Description |
+|------|-------------|
+| [EXECUTIVE_SUMMARY.md](executive/EXECUTIVE_SUMMARY.md) | Business value overview |
+| [DASHBOARD_OVERVIEW.md](executive/DASHBOARD_OVERVIEW.md) | Visual dashboard guide |
+| [CONTRACT_OPTIMIZATION_STRATEGY.md](executive/CONTRACT_OPTIMIZATION_STRATEGY.md) | Negotiation strategy |
 
-### Configuration
-| File | Description | Audience |
-|------|-------------|----------|
-| [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | Configuration options | Admin/Dev |
-| [CONFIG_QUICK_REFERENCE.md](CONFIG_QUICK_REFERENCE.md) | Config quick ref | Admin/Dev |
-| [TEAM_DEPLOYMENT_GUIDE.md](TEAM_DEPLOYMENT_GUIDE.md) | Team deployments | Admin |
+### Administrator
+| File | Description |
+|------|-------------|
+| [ADMIN_GUIDE.md](administrator/ADMIN_GUIDE.md) | Admin quick reference |
+| [INSTALLATION.md](administrator/INSTALLATION.md) | Installation steps |
+| [SCHEDULED_JOBS.md](administrator/SCHEDULED_JOBS.md) | Job monitoring |
+| [OPERATIONS_CHECKLIST.md](administrator/OPERATIONS_CHECKLIST.md) | Printable checklists |
+| [TROUBLESHOOTING.md](administrator/TROUBLESHOOTING.md) | Issue resolution |
+| [DEPLOYMENT_GUIDE.md](administrator/DEPLOYMENT_GUIDE.md) | DAB deployment |
+| [CONFIGURATION_GUIDE.md](administrator/CONFIGURATION_GUIDE.md) | Config options |
+| [CONFIG_QUICK_REFERENCE.md](administrator/CONFIG_QUICK_REFERENCE.md) | Config quick ref |
+| [POST_DEPLOYMENT_VALIDATION.md](administrator/POST_DEPLOYMENT_VALIDATION.md) | Validation |
+| [TEAM_DEPLOYMENT_GUIDE.md](administrator/TEAM_DEPLOYMENT_GUIDE.md) | Team deployments |
+| [DASHBOARD_QUICK_START.md](administrator/DASHBOARD_QUICK_START.md) | Dashboard setup |
 
-### Dashboard
-| File | Description | Audience |
-|------|-------------|----------|
-| [DASHBOARD_QUICK_START.md](DASHBOARD_QUICK_START.md) | Dashboard setup | Admin |
-| [AIBI_LAKEVIEW_DASHBOARD_GUIDE.md](AIBI_LAKEVIEW_DASHBOARD_GUIDE.md) | Dashboard internals | Developer |
-
-### Reference
-| File | Description | Audience |
-|------|-------------|----------|
-| [SCHEMA_REFERENCE.md](SCHEMA_REFERENCE.md) | Table schemas | Developer |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | SQL queries | All |
-| [CONTRACT_BURNDOWN_GUIDE.md](CONTRACT_BURNDOWN_GUIDE.md) | Burndown logic | Developer |
+### Developer
+| File | Description |
+|------|-------------|
+| [TECHNICAL_REFERENCE.md](developer/TECHNICAL_REFERENCE.md) | Architecture & patterns |
+| [SCHEMA_REFERENCE.md](developer/SCHEMA_REFERENCE.md) | Table schemas |
+| [QUICK_REFERENCE.md](developer/QUICK_REFERENCE.md) | SQL queries |
+| [DAB_README.md](developer/DAB_README.md) | Bundle overview |
+| [DAB_QUICK_COMMANDS.md](developer/DAB_QUICK_COMMANDS.md) | CLI commands |
+| [DATABRICKS_ASSET_BUNDLE.md](developer/DATABRICKS_ASSET_BUNDLE.md) | DAB details |
+| [CONTRACT_BURNDOWN_GUIDE.md](developer/CONTRACT_BURNDOWN_GUIDE.md) | Burndown logic |
+| [AIBI_LAKEVIEW_DASHBOARD_GUIDE.md](developer/AIBI_LAKEVIEW_DASHBOARD_GUIDE.md) | Dashboard JSON |
 
 ### Exploration (Design Documents)
 | File | Description |
 |------|-------------|
-| [exploration/IMPLEMENTATION_PLAN.md](exploration/IMPLEMENTATION_PLAN.md) | Original implementation plan |
-| [exploration/data_model_approach.md](exploration/data_model_approach.md) | Data model design |
-| [exploration/simulation_engine_approach.md](exploration/simulation_engine_approach.md) | What-If engine design |
+| [IMPLEMENTATION_PLAN.md](exploration/IMPLEMENTATION_PLAN.md) | Original implementation plan |
+| [data_model_approach.md](exploration/data_model_approach.md) | Data model design |
+| [simulation_engine_approach.md](exploration/simulation_engine_approach.md) | What-If engine design |
 
 ### Archive (Historical)
-Development logs, bug fixes, and historical documentation are in `archive/`.
+Development logs, bug fixes, and superseded documentation.
 See [archive/archive_readme.md](archive/archive_readme.md) for index.
 
 ---
 
 ## Version Information
 
-- **Current Version:** 1.13.0
+- **Current Version:** 1.15.0
 - **Last Updated:** February 2026
 - **Databricks Runtime:** 13.0+
 
