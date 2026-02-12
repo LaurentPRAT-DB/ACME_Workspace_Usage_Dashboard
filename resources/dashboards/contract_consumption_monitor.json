@@ -130,7 +130,42 @@
       "name": "ds_whatif_explanation",
       "displayName": "Strategy Explanation",
       "queryLines": [
-        "WITH contract_info AS (SELECT c.contract_id, c.total_value, c.start_date, c.end_date, DATEDIFF(c.end_date, CURRENT_DATE()) as days_remaining, DATEDIFF(c.end_date, c.start_date) / 365 as contract_years, ROW_NUMBER() OVER (ORDER BY c.contract_id) as contract_num FROM main.account_monitoring_dev.contracts c WHERE c.status = 'ACTIVE' AND c.contract_id != 'CONTRACT-001'), baseline AS (SELECT ss.contract_id, ss.actual_cumulative, ss.simulated_cumulative, ss.exhaustion_status, ss.scenario_exhaustion_date, ss.utilization_pct FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE), extensions AS (SELECT ss.contract_id, ds.scenario_name, ss.discount_pct, ss.simulated_cumulative, ss.utilization_pct, ss.exhaustion_status, ss.contract_end as extended_end_date, ds.adjusted_end_date, ROW_NUMBER() OVER (PARTITION BY ss.contract_id ORDER BY CASE WHEN ss.exhaustion_status = 'ON_TRACK' THEN 1 WHEN ss.exhaustion_status = 'EARLY_EXHAUSTION' THEN 2 ELSE 3 END, ss.utilization_pct DESC) as rn FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), best_ext AS (SELECT * FROM extensions WHERE rn = 1), ext_3yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 3yr%'), ext_4yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 4yr%'), ext_5yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 5yr%'), contract_analysis AS (SELECT ci.contract_id, ci.contract_num, ci.total_value, ci.start_date, ci.end_date, ci.days_remaining, ci.contract_years, b.actual_cumulative, b.simulated_cumulative, b.exhaustion_status, b.utilization_pct, be.scenario_name as best_scenario, be.discount_pct as best_discount, be.extended_end_date, be.utilization_pct as best_utilization, be.exhaustion_status as best_exhaustion_status, e3.utilization_pct as ext3_util, e3.simulated_cumulative as ext3_cum, e3.exhaustion_status as ext3_status, e4.utilization_pct as ext4_util, e4.simulated_cumulative as ext4_cum, e4.exhaustion_status as ext4_status, e5.utilization_pct as ext5_util, e5.simulated_cumulative as ext5_cum, e5.exhaustion_status as ext5_status FROM contract_info ci LEFT JOIN baseline b ON ci.contract_id = b.contract_id LEFT JOIN best_ext be ON ci.contract_id = be.contract_id LEFT JOIN ext_3yr e3 ON ci.contract_id = e3.contract_id LEFT JOIN ext_4yr e4 ON ci.contract_id = e4.contract_id LEFT JOIN ext_5yr e5 ON ci.contract_id = e5.contract_id) SELECT (contract_num - 1) * 100 + 1 as sort_order, CONCAT('📋 ', contract_id, ': $', FORMAT_NUMBER(total_value, 0), ' over ', ROUND(contract_years), ' years') as explanation FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 2, CONCAT('   📅 ', DATE_FORMAT(start_date, 'MMM d, yyyy'), ' → ', DATE_FORMAT(end_date, 'MMM d, yyyy'), ' (', days_remaining, ' days left)') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 3, CONCAT('   📊 Consumed: $', FORMAT_NUMBER(actual_cumulative, 0), ' (', ROUND(actual_cumulative / total_value * 100, 1), '%) — $', FORMAT_NUMBER(total_value - actual_cumulative, 0), ' remaining') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 4, CASE WHEN exhaustion_status = 'EXTENDED' THEN CONCAT('   ⚠️  At current pace, only ', ROUND(utilization_pct, 0), '% will be consumed — $', FORMAT_NUMBER(total_value - simulated_cumulative, 0), ' LOST') ELSE '   ✅ On track to consume commitment' END FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 5, ' ' FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 6, CONCAT('   📊 Extensions: 3yr→', COALESCE(CONCAT(ROUND(ext3_util, 0), '%'), 'N/A'), ' | 4yr→', COALESCE(CONCAT(ROUND(ext4_util, 0), '%'), 'N/A'), ' | 5yr→', COALESCE(CONCAT(ROUND(ext5_util, 0), '%'), 'N/A')) FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 7, CONCAT('   ✅ BEST: ', best_scenario, ' (', CAST(best_discount AS INT), '% discount, ', ROUND(best_utilization, 0), '% utilization)') FROM contract_analysis WHERE best_scenario IS NOT NULL UNION ALL SELECT (contract_num - 1) * 100 + 8, CONCAT('   → New end: ', DATE_FORMAT(extended_end_date, 'MMM d, yyyy')) FROM contract_analysis WHERE extended_end_date IS NOT NULL UNION ALL SELECT 9999, ' ' UNION ALL SELECT 10000, '💡 Unused commitment at contract end = money lost. Extend duration to consume at discounted rate.' ORDER BY sort_order"
+        "WITH contract_info AS (SELECT c.contract_id, c.total_value, c.start_date, c.end_date, DATEDIFF(c.end_date, CURRENT_DATE()) as days_remaining, DATEDIFF(c.end_date, c.start_date) / 365 as contract_years, ROW_NUMBER() OVER (ORDER BY c.contract_id) as contract_num FROM main.account_monitoring_dev.contracts c WHERE c.status = 'ACTIVE' AND c.contract_id != 'CONTRACT-001'), baseline AS (SELECT ss.contract_id, ss.actual_cumulative, ss.simulated_cumulative, ss.exhaustion_status, ss.scenario_exhaustion_date, ss.utilization_pct FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.is_baseline = TRUE), extensions AS (SELECT ss.contract_id, ds.scenario_name, ss.discount_pct, ss.simulated_cumulative, ss.utilization_pct, ss.exhaustion_status, ss.contract_end as extended_end_date, ds.adjusted_end_date, ROW_NUMBER() OVER (PARTITION BY ss.contract_id ORDER BY CASE WHEN ss.exhaustion_status = 'ON_TRACK' THEN 1 WHEN ss.exhaustion_status = 'EARLY_EXHAUSTION' THEN 2 ELSE 3 END, ss.utilization_pct DESC) as rn FROM main.account_monitoring_dev.scenario_summary ss JOIN main.account_monitoring_dev.discount_scenarios ds ON ss.scenario_id = ds.scenario_id WHERE ds.scenario_name LIKE 'Extend to%'), best_ext AS (SELECT * FROM extensions WHERE rn = 1), ext_3yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 3yr%'), ext_4yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 4yr%'), ext_5yr AS (SELECT * FROM extensions WHERE scenario_name LIKE 'Extend to 5yr%'), contract_analysis AS (SELECT ci.contract_id, ci.contract_num, ci.total_value, ci.start_date, ci.end_date, ci.days_remaining, ci.contract_years, b.actual_cumulative, b.simulated_cumulative, b.exhaustion_status, b.utilization_pct, be.scenario_name as best_scenario, be.discount_pct as best_discount, be.extended_end_date, be.utilization_pct as best_utilization, be.exhaustion_status as best_exhaustion_status, e3.utilization_pct as ext3_util, e3.simulated_cumulative as ext3_cum, e3.exhaustion_status as ext3_status, e4.utilization_pct as ext4_util, e4.simulated_cumulative as ext4_cum, e4.exhaustion_status as ext4_status, e5.utilization_pct as ext5_util, e5.simulated_cumulative as ext5_cum, e5.exhaustion_status as ext5_status FROM contract_info ci LEFT JOIN baseline b ON ci.contract_id = b.contract_id LEFT JOIN best_ext be ON ci.contract_id = be.contract_id LEFT JOIN ext_3yr e3 ON ci.contract_id = e3.contract_id LEFT JOIN ext_4yr e4 ON ci.contract_id = e4.contract_id LEFT JOIN ext_5yr e5 ON ci.contract_id = e5.contract_id) SELECT (contract_num - 1) * 100 + 1 as sort_order, CONCAT('\ud83d\udccb ', contract_id, ': $', FORMAT_NUMBER(total_value, 0), ' over ', ROUND(contract_years), ' years') as explanation FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 2, CONCAT('   \ud83d\udcc5 ', DATE_FORMAT(start_date, 'MMM d, yyyy'), ' \u2192 ', DATE_FORMAT(end_date, 'MMM d, yyyy'), ' (', days_remaining, ' days left)') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 3, CONCAT('   \ud83d\udcca Consumed: $', FORMAT_NUMBER(actual_cumulative, 0), ' (', ROUND(actual_cumulative / total_value * 100, 1), '%) \u2014 $', FORMAT_NUMBER(total_value - actual_cumulative, 0), ' remaining') FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 4, CASE WHEN exhaustion_status = 'EXTENDED' THEN CONCAT('   \u26a0\ufe0f  At current pace, only ', ROUND(utilization_pct, 0), '% will be consumed \u2014 $', FORMAT_NUMBER(total_value - simulated_cumulative, 0), ' LOST') ELSE '   \u2705 On track to consume commitment' END FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 5, ' ' FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 6, CONCAT('   \ud83d\udcca Extensions: 3yr\u2192', COALESCE(CONCAT(ROUND(ext3_util, 0), '%'), 'N/A'), ' | 4yr\u2192', COALESCE(CONCAT(ROUND(ext4_util, 0), '%'), 'N/A'), ' | 5yr\u2192', COALESCE(CONCAT(ROUND(ext5_util, 0), '%'), 'N/A')) FROM contract_analysis UNION ALL SELECT (contract_num - 1) * 100 + 7, CONCAT('   \u2705 BEST: ', best_scenario, ' (', CAST(best_discount AS INT), '% discount, ', ROUND(best_utilization, 0), '% utilization)') FROM contract_analysis WHERE best_scenario IS NOT NULL UNION ALL SELECT (contract_num - 1) * 100 + 8, CONCAT('   \u2192 New end: ', DATE_FORMAT(extended_end_date, 'MMM d, yyyy')) FROM contract_analysis WHERE extended_end_date IS NOT NULL UNION ALL SELECT 9999, ' ' UNION ALL SELECT 10000, '\ud83d\udca1 Unused commitment at contract end = money lost. Extend duration to consume at discounted rate.' ORDER BY sort_order"
+      ]
+    },
+    {
+      "name": "ds_contract_pace",
+      "displayName": "Contract Pace Status",
+      "queryLines": [
+        "SELECT contract_id, cloud_provider, ROUND(commitment, 0) as contract_value, ROUND(total_consumed, 0) as consumed, ROUND(consumed_pct, 1) as consumed_pct, ROUND(time_elapsed_pct, 1) as time_pct, pace_status, days_remaining, projected_end_date FROM main.account_monitoring_dev.contract_burndown_summary ORDER BY CASE WHEN pace_status LIKE '%OVER%' THEN 1 WHEN pace_status LIKE '%ABOVE%' THEN 2 WHEN pace_status LIKE '%ON PACE%' THEN 3 ELSE 4 END"
+      ]
+    },
+    {
+      "name": "ds_daily_anomalies",
+      "displayName": "Daily Cost Anomalies",
+      "queryLines": [
+        "WITH daily_costs AS (SELECT usage_date, workspace_id, SUM(actual_cost) as daily_cost, LAG(SUM(actual_cost)) OVER (PARTITION BY workspace_id ORDER BY usage_date) as prev_day_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 14) GROUP BY usage_date, workspace_id) SELECT usage_date, workspace_id, ROUND(daily_cost, 0) as today_cost, ROUND(prev_day_cost, 0) as yesterday_cost, ROUND(daily_cost - prev_day_cost, 0) as change, ROUND((daily_cost - prev_day_cost) / NULLIF(prev_day_cost, 0) * 100, 0) as pct_change FROM daily_costs WHERE prev_day_cost > 0 AND ABS((daily_cost - prev_day_cost) / prev_day_cost) > 0.5 ORDER BY usage_date DESC, ABS(daily_cost - prev_day_cost) DESC LIMIT 20"
+      ]
+    },
+    {
+      "name": "ds_weekend_usage",
+      "displayName": "Weekend Usage",
+      "queryLines": [
+        "SELECT usage_date, workspace_id, ROUND(SUM(actual_cost), 0) as cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) AND DAYOFWEEK(usage_date) IN (1, 7) GROUP BY usage_date, workspace_id HAVING SUM(actual_cost) > 50 ORDER BY cost DESC LIMIT 15"
+      ]
+    },
+    {
+      "name": "ds_top_jobs",
+      "displayName": "Top Jobs by Cost",
+      "queryLines": [
+        "SELECT COALESCE(job_name, job_id, 'Interactive') as job, COUNT(DISTINCT usage_date) as run_days, ROUND(SUM(usage_quantity), 0) as total_dbu, ROUND(SUM(actual_cost), 0) as total_cost, ROUND(SUM(actual_cost) / NULLIF(COUNT(DISTINCT usage_date), 0), 0) as avg_daily_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) GROUP BY COALESCE(job_name, job_id, 'Interactive') ORDER BY total_cost DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_anomaly_summary",
+      "displayName": "Anomaly Summary",
+      "queryLines": [
+        "WITH daily_anomalies AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id, SUM(actual_cost) as daily_cost, LAG(SUM(actual_cost)) OVER (PARTITION BY workspace_id ORDER BY usage_date) as prev_day_cost FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 14) GROUP BY usage_date, workspace_id) WHERE prev_day_cost > 0 AND ABS((daily_cost - prev_day_cost) / prev_day_cost) > 0.5), weekend AS (SELECT COUNT(*) as cnt FROM (SELECT usage_date, workspace_id FROM main.account_monitoring_dev.dashboard_data WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 30) AND DAYOFWEEK(usage_date) IN (1, 7) GROUP BY usage_date, workspace_id HAVING SUM(actual_cost) > 50)) SELECT da.cnt as daily_spikes, w.cnt as weekend_alerts FROM daily_anomalies da, weekend w"
       ]
     }
   ],
@@ -939,6 +974,488 @@
       "pageType": "PAGE_TYPE_CANVAS"
     },
     {
+      "name": "page_weekly_ops",
+      "displayName": "Weekly Operations",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_daily_spikes_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_anomaly_summary",
+                  "fields": [
+                    {
+                      "name": "daily_spikes",
+                      "expression": "`daily_spikes`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "daily_spikes",
+                  "displayName": "Daily Spikes (>50% change)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cost Spikes (14 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_weekend_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_anomaly_summary",
+                  "fields": [
+                    {
+                      "name": "weekend_alerts",
+                      "expression": "`weekend_alerts`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "weekend_alerts",
+                  "displayName": "Weekend Usage Alerts"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Weekend Alerts (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_contract_pace",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_contract_pace",
+                  "fields": [
+                    {
+                      "name": "contract_id",
+                      "expression": "`contract_id`"
+                    },
+                    {
+                      "name": "contract_value",
+                      "expression": "`contract_value`"
+                    },
+                    {
+                      "name": "consumed",
+                      "expression": "`consumed`"
+                    },
+                    {
+                      "name": "consumed_pct",
+                      "expression": "`consumed_pct`"
+                    },
+                    {
+                      "name": "time_pct",
+                      "expression": "`time_pct`"
+                    },
+                    {
+                      "name": "pace_status",
+                      "expression": "`pace_status`"
+                    },
+                    {
+                      "name": "days_remaining",
+                      "expression": "`days_remaining`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "contract_id",
+                    "displayName": "Contract",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "contract_value",
+                    "displayName": "Value ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed",
+                    "displayName": "Consumed ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "consumed_pct",
+                    "displayName": "Consumed %",
+                    "type": "number",
+                    "numberFormat": "0.0"
+                  },
+                  {
+                    "fieldName": "time_pct",
+                    "displayName": "Time %",
+                    "type": "number",
+                    "numberFormat": "0.0"
+                  },
+                  {
+                    "fieldName": "pace_status",
+                    "displayName": "Pace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "days_remaining",
+                    "displayName": "Days Left",
+                    "type": "number"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Contract Pace Analysis"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_daily_anomalies",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_daily_anomalies",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "today_cost",
+                      "expression": "`today_cost`"
+                    },
+                    {
+                      "name": "yesterday_cost",
+                      "expression": "`yesterday_cost`"
+                    },
+                    {
+                      "name": "change",
+                      "expression": "`change`"
+                    },
+                    {
+                      "name": "pct_change",
+                      "expression": "`pct_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "usage_date",
+                    "displayName": "Date",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspace_id",
+                    "displayName": "Workspace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "today_cost",
+                    "displayName": "Today ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "yesterday_cost",
+                    "displayName": "Yesterday ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "change",
+                    "displayName": "Change ($)",
+                    "type": "number",
+                    "numberFormat": "+#,##0;-#,##0"
+                  },
+                  {
+                    "fieldName": "pct_change",
+                    "displayName": "Change %",
+                    "type": "number",
+                    "numberFormat": "+0;-0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Cost Spikes (>50% change)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_weekend_usage",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_weekend_usage",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "cost",
+                      "expression": "`cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "usage_date",
+                    "displayName": "Date",
+                    "type": "date"
+                  },
+                  {
+                    "fieldName": "workspace_id",
+                    "displayName": "Workspace",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "cost",
+                    "displayName": "Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Weekend Usage (Sat/Sun)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_top_workspaces_ops",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_top_workspaces",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "total_cost",
+                  "displayName": "Cost ($)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "workspace_id",
+                  "displayName": "Workspace",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "sort": {
+                    "by": "x",
+                    "direction": "descending"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Workspaces (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_top_jobs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_top_jobs",
+                  "fields": [
+                    {
+                      "name": "job",
+                      "expression": "`job`"
+                    },
+                    {
+                      "name": "run_days",
+                      "expression": "`run_days`"
+                    },
+                    {
+                      "name": "total_dbu",
+                      "expression": "`total_dbu`"
+                    },
+                    {
+                      "name": "total_cost",
+                      "expression": "`total_cost`"
+                    },
+                    {
+                      "name": "avg_daily_cost",
+                      "expression": "`avg_daily_cost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "job",
+                    "displayName": "Job",
+                    "type": "string"
+                  },
+                  {
+                    "fieldName": "run_days",
+                    "displayName": "Run Days",
+                    "type": "number"
+                  },
+                  {
+                    "fieldName": "total_dbu",
+                    "displayName": "Total DBU",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "total_cost",
+                    "displayName": "Total Cost ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  },
+                  {
+                    "fieldName": "avg_daily_cost",
+                    "displayName": "Avg/Day ($)",
+                    "type": "number",
+                    "numberFormat": "#,##0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Jobs (30 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 9,
+            "width": 3,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
       "name": "page_whatif",
       "displayName": "What-If Analysis",
       "layout": [
@@ -1142,4 +1659,3 @@
     "applyModeEnabled": false
   }
 }
-
