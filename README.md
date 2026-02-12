@@ -611,6 +611,31 @@ databricks bundle deploy --profile YOUR_PROFILE
 databricks bundle run account_monitor_setup --profile YOUR_PROFILE
 ```
 
+**Alternative Discount Tier Configurations:**
+
+Three pre-built alternatives are available in `config/files/` based on real-world Databricks pricing research:
+
+| File | Strategy | Discount Range | Best For |
+|------|----------|----------------|----------|
+| `discount_tiers_alternative1_market_aligned.yml` | Conservative | 10% - 50% | Default/Realistic scenarios |
+| `discount_tiers_alternative2_aggressive.yml` | Competitive | 12% - 55% | Competitive displacement |
+| `discount_tiers_alternative3_stackable.yml` | Complex | 8% - 68%+ | Multi-factor negotiations |
+
+To use an alternative configuration:
+
+```bash
+# At deploy time (set as default for target)
+# Edit databricks.yml:
+#   variables:
+#     discount_tiers_file: "config/files/discount_tiers_alternative2_aggressive.yml"
+
+# Or at runtime
+databricks bundle run account_monitor_first_install \
+  --param discount_tiers_file="config/files/discount_tiers_alternative1_market_aligned.yml"
+```
+
+See `config/files/DISCOUNT_TIERS_README.md` for detailed documentation on each alternative.
+
 ### Example What-If Results
 
 For a **$100,000 contract** with **1-year duration**, the simulator generates:
@@ -1250,7 +1275,12 @@ databricks_conso_reports/
 ├── README.md                   # This file
 ├── config/
 │   ├── contracts.yml           # 📝 YOUR CONTRACT CONFIGURATION
-│   └── discount_tiers.yml      # 💰 DISCOUNT TIER CONFIGURATION
+│   ├── discount_tiers.yml      # 💰 DISCOUNT TIER CONFIGURATION (default)
+│   └── files/                  # 📂 ALTERNATIVE CONFIGURATIONS
+│       ├── DISCOUNT_TIERS_README.md
+│       ├── discount_tiers_alternative1_market_aligned.yml
+│       ├── discount_tiers_alternative2_aggressive.yml
+│       └── discount_tiers_alternative3_stackable.yml
 ├── notebooks/
 │   ├── account_monitor_notebook.py    # Main dashboard
 │   ├── contract_management_crud.py    # CRUD operations
