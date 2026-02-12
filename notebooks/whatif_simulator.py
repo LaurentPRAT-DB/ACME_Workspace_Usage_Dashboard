@@ -425,8 +425,11 @@ def generate_scenarios_for_contract(contract_id, contract_value, start_date, end
         if not contract_burndown.empty:
             recent_days = min(90, len(contract_burndown))
             recent_data = contract_burndown.tail(recent_days)
-            avg_daily_rate = float(recent_data['daily_cost'].mean()) if not recent_data.empty else 0.0
-            current_cumulative = float(contract_burndown['cumulative_cost'].iloc[-1]) if not contract_burndown.empty else 0.0
+            # Handle potential NaN values
+            mean_val = recent_data['daily_cost'].mean()
+            avg_daily_rate = float(mean_val) if pd.notna(mean_val) else 0.0
+            cum_val = contract_burndown['cumulative_cost'].iloc[-1]
+            current_cumulative = float(cum_val) if pd.notna(cum_val) else 0.0
 
     full_utilization_reached = False  # Track if a shorter extension already reaches 100%
 
