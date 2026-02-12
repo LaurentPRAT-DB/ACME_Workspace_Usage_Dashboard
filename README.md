@@ -1491,6 +1491,7 @@ Grant the service principal:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.16.0** | 2026-02-12 | Added lightweight discount tier update job with MERGE-based incremental updates |
 | **1.15.0** | 2026-02-11 | Reorganized documentation by persona (Executive, Administrator, Developer) |
 | **1.14.0** | 2026-02-11 | Created persona-based documentation structure with new guides |
 | **1.13.0** | 2026-02-12 | Added Weekly Operations and Monthly Summary dashboard pages with 14 new widgets |
