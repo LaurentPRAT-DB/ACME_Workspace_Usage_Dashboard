@@ -1461,6 +1461,8 @@ Grant the service principal:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.15.0** | 2026-02-11 | Reorganized documentation by persona (Executive, Administrator, Developer) |
+| **1.14.0** | 2026-02-11 | Created persona-based documentation structure with new guides |
 | **1.13.0** | 2026-02-12 | Added Weekly Operations and Monthly Summary dashboard pages with 14 new widgets |
 | **1.12.0** | 2026-02-11 | Simplified What-If page with enhanced Strategy & Savings widget showing live contract data |
 | **1.11.0** | 2026-02-08 | Added comprehensive Administrator Operations Guide with health monitoring, data quality checks, and emergency procedures |
