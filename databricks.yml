@@ -69,9 +69,9 @@ targets:
       schema: account_monitoring
 
     # Production validation
-    run_as:
-      # Run jobs as service principal in production
-      service_principal_name: account_monitor_sp
+    # run_as:
+    #   # Run jobs as service principal in production
+    #   service_principal_name: account_monitor_sp
 
 # Permissions
 permissions:
