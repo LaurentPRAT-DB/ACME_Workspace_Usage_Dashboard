@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.12.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.13.0-green)](CHANGELOG.md)
 
 ---
 
@@ -153,11 +153,13 @@ Or use the CLI:
 databricks lakeview list --profile YOUR_PROFILE
 ```
 
-**Dashboard Pages:**
+**Dashboard Pages (5 total):**
 | Page | Description |
 |------|-------------|
 | **Executive Summary** | Contract overview, pace status, total consumption |
 | **Contract Burndown** | Cumulative spend vs commitment with ML forecast |
+| **Weekly Operations** | Anomalies, pace analysis, top consumers (last 30 days) |
+| **Monthly Summary** | MoM trends, product breakdown, cost history |
 | **What-If Analysis** | Discount scenario comparison and savings projections |
 
 ---
@@ -1459,6 +1461,7 @@ Grant the service principal:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.13.0** | 2026-02-12 | Added Weekly Operations and Monthly Summary dashboard pages with 14 new widgets |
 | **1.12.0** | 2026-02-11 | Simplified What-If page with enhanced Strategy & Savings widget showing live contract data |
 | **1.11.0** | 2026-02-08 | Added comprehensive Administrator Operations Guide with health monitoring, data quality checks, and emergency procedures |
 | **1.10.0** | 2026-02-07 | What-If discount simulation with tier-based scenarios and sweet spot detection |
