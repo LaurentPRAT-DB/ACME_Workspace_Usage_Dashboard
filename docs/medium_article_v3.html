@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<!--
+  Medium Article: ML-Powered Databricks Cost Monitor
+  Version: 3.0.0
+  Last Updated: 2026-02-14
+  Features: Gist markers, mobile fallback links (/raw), compact spacing (no blank lines)
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="version" content="2.0.0">
+    <meta name="last-updated" content="2026-02-14">
+    <title>Stop Leaving Money on the Table: How We Built an ML-Powered Databricks Cost Monitor</title>
+    <style>
+        body { font-family: Georgia, serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333; }
+        h1 { font-size: 2.2em; margin-bottom: 0.3em; }
+        h2 { font-size: 1.6em; margin-top: 1em; margin-bottom: 0.3em; border-bottom: 1px solid #eee; padding-bottom: 0.2em; }
+        h3 { font-size: 1.3em; margin-top: 0.6em; margin-bottom: 0.2em; }
+        p { margin: 0.3em 0; }
+        img { max-width: 100%; height: auto; margin: 0.3em 0; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        blockquote { border-left: 4px solid #ddd; margin: 0.3em 0; padding-left: 1em; color: #666; }
+        ul, ol { margin: 0.3em 0; padding-left: 2em; }
+        li { margin: 0.3em 0; }
+        hr { border: none; border-top: 1px solid #eee; margin: 1em 0; }
+        .subtitle { font-style: italic; color: #666; font-size: 1.1em; }
+        .caption { font-style: italic; color: #666; font-size: 0.9em; text-align: center; }
+        .gist-marker { background: #fff3cd; border: 2px dashed #ffc107; padding: 12px; border-radius: 5px; margin: 0.3em 0; font-family: monospace; font-size: 0.9em; }
+        .mobile-fallback { font-style: italic; color: #666; font-size: 0.9em; margin-top: 0.3em; }
+    </style>
+</head>
+<body>
+<h1>Stop Leaving Money on the Table: How We Built an ML-Powered Databricks Cost Monitor</h1>
+<p class="subtitle">A practical guide to tracking consumption, predicting contract exhaustion, and optimizing your Databricks spend</p>
+<hr>
+<h2>The $125K Problem Nobody Talks About</h2>
+<p>Last year, our finance team got an unpleasant surprise: we'd exhausted our $500K Databricks contract three months early. The result? $50K in overage charges at list price, plus a rushed contract renewal without leverage to negotiate.</p>
+<p>Sound familiar?</p>
+<p>On the flip side, I've seen teams leave 20-30% of their Databricks commitment unused — money that simply evaporates at contract end.</p>
+<p><strong>The root cause?</strong> Most organizations have zero visibility into their Databricks consumption patterns until it's too late.</p>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/main/docs/images/problem_solution.png" alt="The Problem and Solution">
+<p class="caption">From no visibility to data-driven contract management</p>
+<p>This article shows you how we solved this problem by building an <strong>ML-powered Account Monitor</strong> that:</p>
+<ul>
+    <li>Tracks consumption in real-time across all workspaces</li>
+    <li>Uses Prophet ML to predict contract exhaustion dates</li>
+    <li>Recommends optimal discount levels for renewals</li>
+    <li>Costs nothing to run (it uses Databricks system tables)</li>
+</ul>
+<p>The best part? <strong>You can deploy it in 15 minutes.</strong></p>
+<hr>
+<h2>What You'll Learn</h2>
+<p><strong>The Business Problem</strong> — For Executives, Finance — <em>5 min read</em></p>
+<p><strong>Architecture Overview</strong> — For Technical Leads — <em>5 min read</em></p>
+<p><strong>Quick Start Installation</strong> — For Administrators — <em>15 min read</em></p>
+<p><strong>Deep Dive: The SQL</strong> — For Developers — <em>20 min read</em></p>
+<p><strong>What-If Analysis</strong> — For FinOps, Procurement — <em>10 min read</em></p>
+<hr>
+<h2>The Business Problem: Flying Blind</h2>
+<p>When you sign a Databricks contract, you commit to spending a certain amount (say $500K over 12 months). Two scenarios spell trouble:</p>
+<p><strong>OVERSPENDING</strong></p>
+<ul>
+    <li>Contract: $500K → Used: $550K</li>
+    <li>Impact: $50K overage at LIST PRICE + lost negotiating power</li>
+</ul>
+<p><strong>UNDERSPENDING</strong></p>
+<ul>
+    <li>Contract: $500K → Used: $350K</li>
+    <li>Impact: $150K wasted commitment — money gone forever</li>
+</ul>
+<p><strong>The Goal: Hit the Sweet Spot</strong></p>
+<p><strong>Optimal Outcome = Consume 95-100% of commitment by contract end</strong></p>
+<p>This seems simple, but requires:</p>
+<ol>
+    <li><strong>Real-time tracking</strong> — Know where you stand today</li>
+    <li><strong>ML forecasting</strong> — Predict where you'll be in 6 months</li>
+    <li><strong>Scenario modeling</strong> — Understand discount trade-offs</li>
+</ol>
+<p>That's exactly what we built.</p>
+<hr>
+<h2>For Executives: The 2-Minute Summary</h2>
+<p>The Account Monitor is a <strong>Lakeview dashboard</strong> that tells you:</p>
+<ul>
+    <li><strong>How much have we spent?</strong> → Real-time consumption tracking</li>
+    <li><strong>When will we run out?</strong> → ML-predicted exhaustion date</li>
+    <li><strong>Are we on track?</strong> → Pace status (under/on/over)</li>
+    <li><strong>What discount should we negotiate?</strong> → Sweet spot analysis</li>
+</ul>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/main/docs/images/dashboard_pages.png" alt="Dashboard Pages Overview">
+<p class="caption">Five dashboard pages organized by persona: Executive, Operations, and Finance views</p>
+<p><strong>ROI Example</strong></p>
+<p><strong>Without Monitor:</strong></p>
+<ul>
+    <li>Discovered over-pace 60 days late</li>
+    <li>Paid $50K overage at list price</li>
+    <li>Renewed at same 10% discount</li>
+    <li><strong>Total Cost: $550K</strong></li>
+</ul>
+<p><strong>With Monitor:</strong></p>
+<ul>
+    <li>Alerted within 7 days</li>
+    <li>Adjusted usage, stayed in contract</li>
+    <li>Negotiated 15% with usage data</li>
+    <li><strong>Total Cost: $425K</strong></li>
+    <li><strong>Savings: $125K</strong></li>
+</ul>
+<blockquote><strong>Executive Action Item:</strong> Bookmark the dashboard. Check the Executive Summary page weekly. Use What-If Analysis before any contract renewal discussion.</blockquote>
+<hr>
+<h2>For Administrators: 15-Minute Installation</h2>
+<p><strong>Prerequisites Checklist</strong></p>
+<p>Run this in your Databricks SQL Editor to verify access:</p>
+<p class="gist-marker">GIST #1<br>https://gist.github.com/LaurentPRAT-DB/f768a98c53a4874417fb97d409f5daa5</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/f768a98c53a4874417fb97d409f5daa5.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/f768a98c53a4874417fb97d409f5daa5/raw">View raw code</a></p>
+<p>If both queries succeed, you're ready to install.</p>
+<p><strong>One-Command Installation</strong></p>
+<p class="gist-marker">GIST #2<br>https://gist.github.com/LaurentPRAT-DB/9b8056de10c620b9d0d97ae3e3a04795</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/9b8056de10c620b9d0d97ae3e3a04795.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/9b8056de10c620b9d0d97ae3e3a04795/raw">View raw code</a></p>
+<p>That's it. The job creates all tables, loads your contracts, populates historical data, and trains the ML model.</p>
+<p><strong>What Gets Created</strong></p>
+<p><strong>Unity Catalog Schema:</strong> <code>main.account_monitoring</code></p>
+<p><strong>7 Delta Tables:</strong> Contracts, burndown, forecasts, scenarios</p>
+<p><strong>4 Scheduled Jobs:</strong> Daily refresh, weekly training, monthly reports</p>
+<p><strong>5-Page Dashboard:</strong> Executive, Burndown, Operations, Monthly, What-If</p>
+<p><strong>Scheduled Jobs (Automated)</strong></p>
+<p><strong>Daily Refresh</strong> — Runs at 2 AM daily — Pulls new billing data</p>
+<p><strong>Weekly Training</strong> — Runs Sunday 3 AM — Retrains Prophet ML model</p>
+<p><strong>Weekly Review</strong> — Runs Monday 8 AM — Generates operational reports</p>
+<p><strong>Monthly Summary</strong> — Runs 1st of month — Archive and executive summary</p>
+<blockquote><strong>Admin Action Item:</strong> After installation, verify the daily refresh job completes successfully. Set up alerts for job failures.</blockquote>
+<hr>
+<h2>For Developers: The SQL Patterns That Power It</h2>
+<p>Here's where it gets interesting. The core insight is that <strong>Databricks provides everything you need in system tables</strong> — you just need to join them correctly.</p>
+<p><strong>Architecture: Data Flow</strong></p>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/main/docs/images/architecture.png" alt="Data Flow Architecture">
+<p class="caption">Complete data flow from system tables through ML forecasting to the dashboard</p>
+<p>The architecture shows:</p>
+<ul>
+    <li><strong>Data Sources</strong>: System billing tables + YAML configuration files</li>
+    <li><strong>Processing Layer</strong>: Aggregated billing data and cumulative burndown</li>
+    <li><strong>ML Layer</strong>: Prophet model training and forecasting</li>
+    <li><strong>Output</strong>: Lakeview Dashboard with What-If scenarios</li>
+</ul>
+<p><strong>The Critical Pattern: Cost Calculation</strong></p>
+<p>The <code>system.billing.usage</code> table has quantities, but <strong>not costs</strong>. You must join with <code>system.billing.list_prices</code>:</p>
+<p class="gist-marker">GIST #3<br>https://gist.github.com/LaurentPRAT-DB/47aa59a35ea80ab21b87580c58c16195</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/47aa59a35ea80ab21b87580c58c16195.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/47aa59a35ea80ab21b87580c58c16195/raw">View raw code</a></p>
+<p><strong>Common Mistake:</strong> There is no <code>usage_metadata.total_price</code> column. Every tutorial that uses it is wrong. You must use the join pattern above.</p>
+<p><strong>The Contract Burndown Visualization</strong></p>
+<p>The heart of the system is the burndown chart — showing historical consumption, ML forecast, and the predicted exhaustion date:</p>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/main/docs/images/contract_burndown_predict.png" alt="Contract Burndown with ML Forecast">
+<p class="caption">Actual dashboard output: Historical consumption (blue), Prophet ML forecast (cyan), and contract commitment line (dashed). The model predicts contract exhaustion on 2027-01-30.</p>
+<p><strong>The Contract Burndown Query</strong></p>
+<p>This is the SQL that powers the visualization — cumulative cost over time, compared to commitment:</p>
+<p class="gist-marker">GIST #4<br>https://gist.github.com/LaurentPRAT-DB/8f118de8331c6613a945a3a0266d5e24</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/8f118de8331c6613a945a3a0266d5e24.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/8f118de8331c6613a945a3a0266d5e24/raw">View raw code</a></p>
+<p><strong>ML Forecasting with Prophet</strong></p>
+<p>The system uses Facebook Prophet for time-series forecasting. Here's the simplified training logic:</p>
+<p class="gist-marker">GIST #5<br>https://gist.github.com/LaurentPRAT-DB/d1dadeca892190611644c979408c392a</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/d1dadeca892190611644c979408c392a.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/d1dadeca892190611644c979408c392a/raw">View raw code</a></p>
+<p>The forecast is then used to calculate predicted exhaustion dates with confidence intervals.</p>
+<blockquote><strong>Developer Action Item:</strong> Review <code>developer/TECHNICAL_REFERENCE.md</code> in the repo for schema details, SQL patterns, and debugging approaches.</blockquote>
+<hr>
+<h2>For FinOps: The What-If Analysis</h2>
+<p>This is where the real value lives: <strong>optimizing your next contract renewal</strong>.</p>
+<p><strong>Understanding Discount Tiers</strong></p>
+<p>Databricks offers volume discounts based on commitment size and duration:</p>
+<p><strong>$100K-250K commitment:</strong></p>
+<ul>
+    <li>1 Year: 10% discount</li>
+    <li>2 Year: 12% discount</li>
+    <li>3 Year: 15% discount</li>
+</ul>
+<p><strong>$250K-500K commitment:</strong></p>
+<ul>
+    <li>1 Year: 12% discount</li>
+    <li>2 Year: 15% discount</li>
+    <li>3 Year: 18% discount</li>
+</ul>
+<p><strong>$500K-1M commitment:</strong></p>
+<ul>
+    <li>1 Year: 15% discount</li>
+    <li>2 Year: 18% discount</li>
+    <li>3 Year: 20% discount</li>
+</ul>
+<p><strong>$1M+ commitment:</strong></p>
+<ul>
+    <li>1 Year: 18% discount</li>
+    <li>2 Year: 20% discount</li>
+    <li>3 Year: 22% discount</li>
+</ul>
+<p><em>Actual rates vary — negotiate!</em></p>
+<p><strong>Finding the Sweet Spot</strong></p>
+<p>The "sweet spot" is the discount level that:</p>
+<ul>
+    <li><strong>Maximizes savings</strong> (higher discount = better)</li>
+    <li><strong>Ensures full utilization</strong> (≥85% of commitment used)</li>
+</ul>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard/main/docs/images/sweet_spot.png" alt="Sweet Spot Analysis">
+<p class="caption">Visual comparison of discount scenarios: Scenario A (green) provides the best balance of savings and utilization risk</p>
+<p>Here's a real scenario analysis:</p>
+<p><strong>Historical Usage: $400K/year</strong></p>
+<p><strong>Scenario A: $450K commitment @ 15% discount</strong></p>
+<ul>
+    <li>Effective cost: $382,500</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 89% ✓</li>
+    <li>Net savings: $67,500</li>
+</ul>
+<p><strong>Scenario B: $500K commitment @ 18% discount</strong></p>
+<ul>
+    <li>Effective cost: $410,000</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 80% ⚠️ (risky)</li>
+    <li>Net savings: $90K if fully used, or $8K waste if not</li>
+</ul>
+<p><strong>Scenario C: $400K commitment @ 12% discount</strong></p>
+<ul>
+    <li>Effective cost: $352,000</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 100% ✓</li>
+    <li>Net savings: $48,000</li>
+</ul>
+<p><strong>RECOMMENDATION: Scenario A (Sweet Spot)</strong> — Good savings ($67.5K), reasonable utilization risk, room for 10-15% growth.</p>
+<p><strong>The What-If Dashboard Page</strong></p>
+<p>The dashboard lets you explore these scenarios interactively:</p>
+<ol>
+    <li><strong>See your current consumption trend</strong></li>
+    <li><strong>Compare 4-5 discount scenarios visually</strong></li>
+    <li><strong>Get a strategy recommendation</strong> based on your pattern</li>
+</ol>
+<blockquote><strong>FinOps Action Item:</strong> Before any renewal, run the What-If Analysis with your actual usage patterns. Bring the data to negotiations.</blockquote>
+<hr>
+<h2>Try It Yourself: 3 Paths</h2>
+<p><strong>Path 1: Quick Exploration (5 minutes)</strong></p>
+<p>Just want to understand your current spending?</p>
+<p class="gist-marker">GIST #6<br>https://gist.github.com/LaurentPRAT-DB/92bb2bc1e2e3ab8b416b2e6a87593204</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/92bb2bc1e2e3ab8b416b2e6a87593204.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/92bb2bc1e2e3ab8b416b2e6a87593204/raw">View raw code</a></p>
+<p><strong>Path 2: Full Installation (15 minutes)</strong></p>
+<p>Deploy the complete solution with ML forecasting:</p>
+<p class="gist-marker">GIST #7<br>https://gist.github.com/LaurentPRAT-DB/0b2a3bbc08ed4982f58956d3d40736aa</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/0b2a3bbc08ed4982f58956d3d40736aa.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/0b2a3bbc08ed4982f58956d3d40736aa/raw">View raw code</a></p>
+<p><strong>Path 3: Deep Dive into the Code</strong></p>
+<p>The repo includes comprehensive documentation for each persona:</p>
+<p><strong>Executive:</strong> Start with <code>docs/executive/EXECUTIVE_SUMMARY.md</code></p>
+<p><strong>Administrator:</strong> Start with <code>docs/administrator/ADMIN_GUIDE.md</code></p>
+<p><strong>Developer:</strong> Start with <code>docs/developer/TECHNICAL_REFERENCE.md</code></p>
+<p><strong>FinOps:</strong> Start with <code>docs/executive/CONTRACT_OPTIMIZATION_STRATEGY.md</code></p>
+<hr>
+<h2>Common Gotchas (Save Yourself Hours)</h2>
+<p><strong>Gotcha 1: "Column not found: usage_metadata.total_price"</strong></p>
+<p><strong>Cause:</strong> This column doesn't exist. Many tutorials reference it incorrectly.</p>
+<p><strong>Solution:</strong> Use the <code>list_prices</code> JOIN pattern shown throughout this article.</p>
+<p><strong>Gotcha 2: "Table not found: account_monitoring.contracts"</strong></p>
+<p><strong>Cause:</strong> Missing Unity Catalog prefix.</p>
+<p><strong>Solution:</strong> Always use full path: <code>main.account_monitoring.contracts</code></p>
+<p><strong>Gotcha 3: "Costs are NULL"</strong></p>
+<p><strong>Cause:</strong> Incorrect pricing join or missing type cast.</p>
+<p><strong>Solution:</strong> Use the complete JOIN pattern with <code>CAST(...AS DECIMAL(20,10))</code>.</p>
+<p><strong>Gotcha 4: "No data returned"</strong></p>
+<p><strong>Cause:</strong> System tables have 24-48 hour lag.</p>
+<p><strong>Solution:</strong> Check freshness: <code>SELECT MAX(usage_date) FROM system.billing.usage</code></p>
+<hr>
+<h2>What's Next?</h2>
+<p>Once you have the monitor running:</p>
+<ol>
+    <li><strong>Week 1:</strong> Review the dashboard daily, understand your patterns</li>
+    <li><strong>Week 2:</strong> Set up Slack/email alerts for cost spikes</li>
+    <li><strong>Month 1:</strong> Use What-If Analysis for any contract discussions</li>
+    <li><strong>Ongoing:</strong> Let the system run — it updates automatically</li>
+</ol>
+<hr>
+<h2>Resources</h2>
+<ul>
+    <li><strong>GitHub Repository:</strong> <a href="https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard">github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard</a></li>
+    <li><strong>Databricks System Tables Docs:</strong> <a href="https://docs.databricks.com/aws/en/admin/system-tables/billing">Billable usage system table</a></li>
+    <li><strong>Prophet ML Documentation:</strong> <a href="https://facebook.github.io/prophet/">facebook.github.io/prophet</a></li>
+</ul>
+<hr>
+<p><strong>Did this help?</strong> Give it a clap and follow for more practical Databricks content.</p>
+<p><em>Tags: #Databricks #DataEngineering #CloudCost #FinOps #MachineLearning #Prophet</em></p>
+</body>
+</html>
