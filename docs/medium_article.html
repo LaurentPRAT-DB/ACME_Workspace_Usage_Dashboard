@@ -12,14 +12,13 @@
         p { margin: 1em 0; }
         img { max-width: 100%; height: auto; margin: 1em 0; }
         code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
-        pre code { background: none; padding: 0; }
         blockquote { border-left: 4px solid #ddd; margin: 1em 0; padding-left: 1em; color: #666; }
         ul, ol { margin: 1em 0; padding-left: 2em; }
         li { margin: 0.5em 0; }
         hr { border: none; border-top: 1px solid #eee; margin: 2em 0; }
         .subtitle { font-style: italic; color: #666; font-size: 1.1em; }
         .caption { font-style: italic; color: #666; font-size: 0.9em; text-align: center; }
+        .gist-link { display: block; margin: 1em 0; padding: 10px; background: #f6f8fa; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -83,7 +82,7 @@
 
 <h3>The Goal: Hit the Sweet Spot</h3>
 
-<pre><code>Optimal Outcome = Consume 95-100% of commitment by contract end</code></pre>
+<p><strong>Optimal Outcome = Consume 95-100% of commitment by contract end</strong></p>
 
 <p>This seems simple, but requires:</p>
 <ol>
@@ -137,32 +136,15 @@
 
 <h3>Prerequisites Checklist</h3>
 
-<pre><code class="language-sql">-- Run this in your Databricks SQL Editor to verify access:
+<p>Run this in your Databricks SQL Editor to verify access:</p>
 
--- Test 1: System tables access
-SELECT COUNT(*) as record_count, MAX(usage_date) as latest_date
-FROM system.billing.usage
-WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 7);
-
--- Test 2: Pricing access (required for cost calculation)
-SELECT COUNT(*) FROM system.billing.list_prices;</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/f768a98c53a4874417fb97d409f5daa5.js"></script>
 
 <p>If both queries succeed, you're ready to install.</p>
 
 <h3>One-Command Installation</h3>
 
-<pre><code class="language-bash"># 1. Clone the repository
-git clone https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard.git
-cd ACME_Workspace_Usage_Dashboard
-
-# 2. Configure your contracts (edit this file!)
-vi config/contracts.yml
-
-# 3. Deploy with Databricks Asset Bundles
-databricks bundle deploy --profile YOUR_PROFILE
-
-# 4. Run the first install job (creates everything)
-databricks bundle run account_monitor_first_install --profile YOUR_PROFILE</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/9b8056de10c620b9d0d97ae3e3a04795.js"></script>
 
 <p>That's it. The job creates all tables, loads your contracts, populates historical data, and trains the ML model.</p>
 
@@ -205,27 +187,7 @@ databricks bundle run account_monitor_first_install --profile YOUR_PROFILE</code
 
 <p>The <code>system.billing.usage</code> table has quantities, but <strong>not costs</strong>. You must join with <code>system.billing.list_prices</code>:</p>
 
-<pre><code class="language-sql">-- THE CORRECT WAY TO CALCULATE COSTS
-SELECT
-  u.usage_date,
-  u.workspace_id,
-  u.sku_name,
-  u.usage_quantity,
-  -- The actual cost calculation:
-  ROUND(
-    SUM(u.usage_quantity *
-        CAST(lp.pricing.effective_list.default AS DECIMAL(20,10))
-    ), 2
-  ) as dollar_cost
-FROM system.billing.usage u
-LEFT JOIN system.billing.list_prices lp
-  ON u.sku_name = lp.sku_name
-  AND u.cloud = lp.cloud
-  AND u.usage_unit = lp.usage_unit
-  AND u.usage_end_time >= lp.price_start_time
-  AND (lp.price_end_time IS NULL OR u.usage_end_time < lp.price_end_time)
-WHERE u.record_type = 'ORIGINAL'  -- Important: exclude corrections
-GROUP BY u.usage_date, u.workspace_id, u.sku_name, u.usage_quantity;</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/47aa59a35ea80ab21b87580c58c16195.js"></script>
 
 <p><strong>Common Mistake:</strong> There is no <code>usage_metadata.total_price</code> column. Every tutorial that uses it is wrong. You must use the join pattern above.</p>
 
@@ -240,76 +202,13 @@ GROUP BY u.usage_date, u.workspace_id, u.sku_name, u.usage_quantity;</code></pre
 
 <p>This is the SQL that powers the visualization — cumulative cost over time, compared to commitment:</p>
 
-<pre><code class="language-sql">-- DAILY CUMULATIVE CONSUMPTION VS COMMITMENT
-WITH daily_costs AS (
-  SELECT
-    usage_date,
-    SUM(u.usage_quantity *
-        CAST(lp.pricing.effective_list.default AS DECIMAL(20,10))) as daily_cost
-  FROM system.billing.usage u
-  LEFT JOIN system.billing.list_prices lp
-    ON u.sku_name = lp.sku_name
-    AND u.cloud = lp.cloud
-    AND u.usage_unit = lp.usage_unit
-    AND u.usage_end_time >= lp.price_start_time
-    AND (lp.price_end_time IS NULL OR u.usage_end_time < lp.price_end_time)
-  WHERE u.record_type = 'ORIGINAL'
-  GROUP BY usage_date
-)
-SELECT
-  c.contract_id,
-  d.usage_date,
-  d.daily_cost,
-  SUM(d.daily_cost) OVER (
-    PARTITION BY c.contract_id
-    ORDER BY d.usage_date
-  ) as cumulative_cost,
-  c.total_value as commitment,
-  -- Calculate pace status
-  CASE
-    WHEN cumulative_cost / commitment * 100 >
-         DATEDIFF(d.usage_date, c.start_date) /
-         DATEDIFF(c.end_date, c.start_date) * 100 * 1.2
-    THEN 'OVER_PACE'
-    WHEN cumulative_cost / commitment * 100 <
-         DATEDIFF(d.usage_date, c.start_date) /
-         DATEDIFF(c.end_date, c.start_date) * 100 * 0.8
-    THEN 'UNDER_PACE'
-    ELSE 'ON_PACE'
-  END as pace_status
-FROM contracts c
-CROSS JOIN daily_costs d
-WHERE d.usage_date BETWEEN c.start_date AND c.end_date;</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/8f118de8331c6613a945a3a0266d5e24.js"></script>
 
 <h3>ML Forecasting with Prophet</h3>
 
 <p>The system uses Facebook Prophet for time-series forecasting. Here's the simplified training logic:</p>
 
-<pre><code class="language-python">from prophet import Prophet
-import pandas as pd
-
-def train_consumption_forecast(burndown_df: pd.DataFrame) -> pd.DataFrame:
-    """Train Prophet model on historical consumption."""
-
-    # Prophet requires columns named 'ds' (date) and 'y' (value)
-    prophet_df = burndown_df.rename(columns={
-        'usage_date': 'ds',
-        'daily_cost': 'y'
-    })
-
-    model = Prophet(
-        yearly_seasonality=True,
-        weekly_seasonality=True,
-        daily_seasonality=False,
-        changepoint_prior_scale=0.05  # Conservative trend changes
-    )
-    model.fit(prophet_df)
-
-    # Forecast until contract end
-    future = model.make_future_dataframe(periods=180)
-    forecast = model.predict(future)
-
-    return forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/d1dadeca892190611644c979408c392a.js"></script>
 
 <p>The forecast is then used to calculate predicted exhaustion dates with confidence intervals.</p>
 
@@ -368,30 +267,33 @@ def train_consumption_forecast(burndown_df: pd.DataFrame) -> pd.DataFrame:
 
 <p>Here's a real scenario analysis:</p>
 
-<pre><code>Historical Usage: $400K/year
+<p><strong>Historical Usage: $400K/year</strong></p>
 
-Scenario A: $450K commitment @ 15% discount
-├─ Effective cost: $382,500
-├─ Predicted usage: $400K
-├─ Utilization: 89% ✓
-└─ Net savings: $67,500
+<p><strong>Scenario A: $450K commitment @ 15% discount</strong></p>
+<ul>
+    <li>Effective cost: $382,500</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 89% ✓</li>
+    <li>Net savings: $67,500</li>
+</ul>
 
-Scenario B: $500K commitment @ 18% discount
-├─ Effective cost: $410,000
-├─ Predicted usage: $400K
-├─ Utilization: 80% ⚠️ (risky)
-└─ Net savings: $90K if fully used, or $8K waste if not
+<p><strong>Scenario B: $500K commitment @ 18% discount</strong></p>
+<ul>
+    <li>Effective cost: $410,000</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 80% ⚠️ (risky)</li>
+    <li>Net savings: $90K if fully used, or $8K waste if not</li>
+</ul>
 
-Scenario C: $400K commitment @ 12% discount
-├─ Effective cost: $352,000
-├─ Predicted usage: $400K
-├─ Utilization: 100% ✓
-└─ Net savings: $48,000
+<p><strong>Scenario C: $400K commitment @ 12% discount</strong></p>
+<ul>
+    <li>Effective cost: $352,000</li>
+    <li>Predicted usage: $400K</li>
+    <li>Utilization: 100% ✓</li>
+    <li>Net savings: $48,000</li>
+</ul>
 
-RECOMMENDATION: Scenario A (Sweet Spot)
-- Good savings ($67.5K)
-- Reasonable utilization risk
-- Room for 10-15% growth</code></pre>
+<p><strong>RECOMMENDATION: Scenario A (Sweet Spot)</strong> — Good savings ($67.5K), reasonable utilization risk, room for 10-15% growth.</p>
 
 <h3>The What-If Dashboard Page</h3>
 
@@ -413,45 +315,13 @@ RECOMMENDATION: Scenario A (Sweet Spot)
 
 <p>Just want to understand your current spending?</p>
 
-<pre><code class="language-sql">-- YESTERDAY'S SPEND
-SELECT ROUND(
-  SUM(u.usage_quantity *
-      CAST(lp.pricing.effective_list.default AS DECIMAL(20,10))
-  ), 2) as yesterday_cost
-FROM system.billing.usage u
-LEFT JOIN system.billing.list_prices lp
-  ON u.sku_name = lp.sku_name
-  AND u.cloud = lp.cloud
-  AND u.usage_unit = lp.usage_unit
-  AND u.usage_end_time >= lp.price_start_time
-  AND (lp.price_end_time IS NULL OR u.usage_end_time < lp.price_end_time)
-WHERE u.usage_date = CURRENT_DATE() - 1
-  AND u.record_type = 'ORIGINAL';
-
--- MONTH-TO-DATE SPEND
-SELECT ROUND(
-  SUM(u.usage_quantity *
-      CAST(lp.pricing.effective_list.default AS DECIMAL(20,10))
-  ), 2) as mtd_cost
-FROM system.billing.usage u
-LEFT JOIN system.billing.list_prices lp
-  ON u.sku_name = lp.sku_name
-  AND u.cloud = lp.cloud
-  AND u.usage_unit = lp.usage_unit
-  AND u.usage_end_time >= lp.price_start_time
-  AND (lp.price_end_time IS NULL OR u.usage_end_time < lp.price_end_time)
-WHERE u.usage_date >= DATE_TRUNC('MONTH', CURRENT_DATE())
-  AND u.record_type = 'ORIGINAL';</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/92bb2bc1e2e3ab8b416b2e6a87593204.js"></script>
 
 <h3>Path 2: Full Installation (15 minutes)</h3>
 
 <p>Deploy the complete solution with ML forecasting:</p>
 
-<pre><code class="language-bash">git clone https://github.com/LaurentPRAT-DB/ACME_Workspace_Usage_Dashboard.git
-cd ACME_Workspace_Usage_Dashboard
-vi config/contracts.yml  # Add your contracts!
-databricks bundle deploy --profile YOUR_PROFILE
-databricks bundle run account_monitor_first_install --profile YOUR_PROFILE</code></pre>
+<script src="https://gist.github.com/LaurentPRAT-DB/0b2a3bbc08ed4982f58956d3d40736aa.js"></script>
 
 <h3>Path 3: Deep Dive into the Code</h3>
 
