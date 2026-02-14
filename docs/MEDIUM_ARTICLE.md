@@ -464,14 +464,6 @@ Once you have the monitor running:
 
 ---
 
-## About the Author
-
-*I'm a Solutions Architect at Databricks who got tired of seeing customers surprised by their cloud bills. This project started as a hackathon idea and evolved into a production-grade solution that's saved our customers significant money.*
-
-*Questions? Feedback? Open an issue on GitHub or connect on [LinkedIn].*
-
----
-
 **Did this help?** Give it a clap and follow for more practical Databricks content.
 
 *Tags: #Databricks #DataEngineering #CloudCost #FinOps #MachineLearning #Prophet*
