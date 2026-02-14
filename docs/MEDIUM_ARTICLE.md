@@ -14,7 +14,7 @@ On the flip side, I've seen teams leave 20-30% of their Databricks commitment un
 
 **The root cause?** Most organizations have zero visibility into their Databricks consumption patterns until it's too late.
 
-![The Problem and Solution](medium_article_images/problem_solution.png)
+![The Problem and Solution](images/problem_solution.png)
 *From no visibility to data-driven contract management*
 
 This article shows you how we solved this problem by building an **ML-powered Account Monitor** that:
@@ -74,7 +74,7 @@ The Account Monitor is a **Lakeview dashboard** that tells you:
 | Are we on track? | Pace status (under/on/over) |
 | What discount should we negotiate? | Sweet spot analysis |
 
-![Dashboard Pages Overview](medium_article_images/dashboard_pages.png)
+![Dashboard Pages Overview](images/dashboard_pages.png)
 *Five dashboard pages organized by persona: Executive, Operations, and Finance views*
 
 ### ROI Example
@@ -156,7 +156,7 @@ Here's where it gets interesting. The core insight is that **Databricks provides
 
 ### Architecture: Data Flow
 
-![Data Flow Architecture](medium_article_images/architecture.png)
+![Data Flow Architecture](images/architecture.png)
 *Complete data flow from system tables through ML forecasting to the dashboard*
 
 The architecture shows:
@@ -199,7 +199,7 @@ GROUP BY u.usage_date, u.workspace_id, u.sku_name, u.usage_quantity;
 
 The heart of the system is the burndown chart — showing historical consumption, ML forecast, and the predicted exhaustion date:
 
-![Contract Burndown with ML Forecast](medium_article_images/contract_burndown_predict.png)
+![Contract Burndown with ML Forecast](images/contract_burndown_predict.png)
 *Actual dashboard output: Historical consumption (blue), Prophet ML forecast (cyan), and contract commitment line (dashed). The model predicts contract exhaustion on 2027-01-30.*
 
 ### The Contract Burndown Query
@@ -310,7 +310,7 @@ The "sweet spot" is the discount level that:
 - **Maximizes savings** (higher discount = better)
 - **Ensures full utilization** (≥85% of commitment used)
 
-![Sweet Spot Analysis](medium_article_images/sweet_spot.png)
+![Sweet Spot Analysis](images/sweet_spot.png)
 *Visual comparison of discount scenarios: Scenario A (green) provides the best balance of savings and utilization risk*
 
 Here's a real scenario analysis:
