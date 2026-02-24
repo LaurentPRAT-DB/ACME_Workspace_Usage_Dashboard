@@ -16,6 +16,10 @@ Documentation is organized by role. Pick your persona to find relevant guides:
 | [Dashboard Overview](executive/DASHBOARD_OVERVIEW.md) | Visual guide to using the dashboard |
 | [Contract Optimization Strategy](executive/CONTRACT_OPTIMIZATION_STRATEGY.md) | How to optimize contract negotiations |
 
+**Key Features:**
+- **Auto-Commit Optimizer** - ML-based optimal contract commitment recommendations (see [README](../README.md#auto-commit-optimizer))
+- **What-If Analysis** - Discount scenario simulation with savings projections
+
 **Quick Links:**
 - [User Guide](user-guide/USER_GUIDE.md) - End-user documentation
 
@@ -144,9 +148,10 @@ See [archive/archive_readme.md](archive/archive_readme.md) for index.
 
 ## Version Information
 
-- **Current Version:** 1.16.0
+- **Current Version:** 1.18.0
 - **Last Updated:** February 2026
 - **Databricks Runtime:** 13.0+
+- **Changelog:** [CHANGELOG.md](../CHANGELOG.md)
 
 ---
 

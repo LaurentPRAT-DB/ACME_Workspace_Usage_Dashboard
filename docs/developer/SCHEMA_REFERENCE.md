@@ -124,6 +124,128 @@ Aggregated billing data for dashboard queries.
 
 ---
 
+## Auto-Commit Optimizer Tables
+
+### auto_commit_recommendations
+
+Optimal commitment recommendations computed from historical consumption and ML forecasting.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `recommendation_id` | STRING | Primary key - unique recommendation UUID |
+| `account_id` | STRING | Account this recommendation is for |
+| `analysis_date` | DATE | When this analysis was performed |
+| `historical_start` | DATE | Start of historical data used |
+| `historical_end` | DATE | End of historical data (typically today) |
+| `proposed_start` | DATE | Proposed contract start date |
+| `proposed_end` | DATE | Proposed contract end date |
+| `duration_years` | INT | Contract duration in years |
+| `historical_daily_avg` | DECIMAL(18,2) | Average daily consumption from historical data |
+| `historical_total` | DECIMAL(18,2) | Total historical consumption in analysis period |
+| `forecasted_daily_avg` | DECIMAL(18,2) | Prophet-predicted average daily consumption |
+| `forecasted_total` | DECIMAL(18,2) | Total forecasted consumption over contract |
+| `projected_total` | DECIMAL(18,2) | Combined historical + forecasted total |
+| `optimal_commitment` | DECIMAL(18,2) | Recommended contract commitment amount |
+| `optimal_discount_rate` | DECIMAL(5,4) | Discount rate for optimal commitment |
+| `optimal_tier_name` | STRING | Name of the discount tier |
+| `optimal_utilization_pct` | DECIMAL(5,2) | Expected utilization percentage |
+| `list_price_total` | DECIMAL(18,2) | What you would pay at list price |
+| `committed_price_total` | DECIMAL(18,2) | What you pay with optimal commitment |
+| `total_savings` | DECIMAL(18,2) | Total savings vs list price |
+| `savings_pct` | DECIMAL(5,2) | Savings as percentage |
+| `conservative_commitment` | DECIMAL(18,2) | Lower commitment option (safer) |
+| `conservative_discount_rate` | DECIMAL(5,4) | Discount for conservative option |
+| `aggressive_commitment` | DECIMAL(18,2) | Higher commitment option (more savings) |
+| `aggressive_discount_rate` | DECIMAL(5,4) | Discount for aggressive option |
+| `model_used` | STRING | prophet or linear_fallback |
+| `confidence_level` | DECIMAL(3,2) | Confidence in forecast (0-1) |
+| `status` | STRING | DRAFT, ACTIVE, ACCEPTED, REJECTED |
+| `notes` | STRING | Additional notes or caveats |
+| `created_at` | TIMESTAMP | When this recommendation was created |
+| `updated_at` | TIMESTAMP | When this recommendation was last updated |
+
+### auto_commit_scenarios
+
+All commitment scenarios evaluated during optimization.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `scenario_id` | STRING | Primary key - unique scenario UUID |
+| `recommendation_id` | STRING | Foreign key to auto_commit_recommendations |
+| `account_id` | STRING | Account reference |
+| `commitment_amount` | DECIMAL(18,2) | Commitment amount for this scenario |
+| `duration_years` | INT | Contract duration |
+| `discount_tier_id` | STRING | Discount tier applied |
+| `discount_tier_name` | STRING | Discount tier name |
+| `discount_rate` | DECIMAL(5,4) | Discount rate as decimal |
+| `projected_consumption` | DECIMAL(18,2) | Total projected consumption |
+| `effective_cost` | DECIMAL(18,2) | Cost after discount |
+| `utilization_pct` | DECIMAL(5,2) | Expected utilization (consumption/commitment) |
+| `savings_vs_list` | DECIMAL(18,2) | Savings compared to list price |
+| `savings_vs_baseline` | DECIMAL(18,2) | Savings vs no commitment |
+| `waste_amount` | DECIMAL(18,2) | Unused commitment (if utilization < 100%) |
+| `net_benefit` | DECIMAL(18,2) | savings_vs_list - waste_amount |
+| `roi_score` | DECIMAL(10,4) | Return on investment score |
+| `is_optimal` | BOOLEAN | True if this is the recommended scenario |
+| `is_conservative` | BOOLEAN | True if this is the conservative option |
+| `is_aggressive` | BOOLEAN | True if this is the aggressive option |
+| `risk_level` | STRING | LOW, MEDIUM, HIGH based on utilization |
+| `created_at` | TIMESTAMP | When this scenario was computed |
+
+### auto_commit_forecast_detail
+
+Daily forecast breakdown for recommendations.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `recommendation_id` | STRING | Foreign key to auto_commit_recommendations |
+| `forecast_date` | DATE | Date in the forecast |
+| `source` | STRING | historical or forecast |
+| `daily_cost` | DECIMAL(18,2) | Daily consumption cost |
+| `cumulative_cost` | DECIMAL(18,2) | Running total |
+| `predicted_lower` | DECIMAL(18,2) | Lower bound prediction (forecast only) |
+| `predicted_upper` | DECIMAL(18,2) | Upper bound prediction (forecast only) |
+| `created_at` | TIMESTAMP | When this record was created |
+
+### auto_commit_latest (View)
+
+Most recent recommendation per account.
+
+```sql
+SELECT r.*
+FROM auto_commit_recommendations r
+INNER JOIN (
+  SELECT account_id, MAX(analysis_date) as max_date
+  FROM auto_commit_recommendations
+  GROUP BY account_id
+) latest ON r.account_id = latest.account_id
+        AND r.analysis_date = latest.max_date;
+```
+
+### auto_commit_summary (View)
+
+Dashboard-ready summary with customer name.
+
+```sql
+SELECT
+  r.recommendation_id,
+  r.account_id,
+  am.customer_name,
+  r.analysis_date,
+  r.duration_years,
+  r.projected_total,
+  r.optimal_commitment,
+  r.optimal_discount_rate,
+  r.optimal_utilization_pct,
+  r.total_savings,
+  r.model_used,
+  r.status
+FROM auto_commit_latest r
+LEFT JOIN account_metadata am ON r.account_id = am.account_id;
+```
+
+---
+
 ## Databricks System Tables (Read-Only)
 
 This section documents the actual schema from Databricks system tables as of 2026.
