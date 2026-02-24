@@ -40,3 +40,4 @@ dist/
 # Lakeview dashboard generated files
 api_payload.json
 dashboard_payload.json
+docs/find_databricks_logo.png
