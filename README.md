@@ -3,7 +3,7 @@
 **Track consumption, forecast contract exhaustion, and manage Databricks spending**
 
 [![Databricks](https://img.shields.io/badge/Databricks-Asset_Bundle-FF3621?logo=databricks)](https://databricks.com)
-[![Version](https://img.shields.io/badge/Version-1.17.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.18.0-green)](CHANGELOG.md)
 
 ---
 
@@ -25,6 +25,7 @@ The Account Monitor is a complete solution for tracking Databricks consumption a
 | **Burndown Analysis** | Visualize cumulative spend vs contract limit |
 | **ML Forecasting** | Prophet-based predictions with exhaustion dates |
 | **What-If Analysis** | Discount scenario simulation with savings projections |
+| **Auto-Commit Optimizer** | ML-based optimal contract commitment recommendations |
 | **Automated Jobs** | Daily refresh, weekly training, monthly summaries |
 
 ---
@@ -93,12 +94,14 @@ contracts:
     cloud_provider: "auto"              # Auto-detect (AWS/Azure/GCP)
     start_date: "auto"                  # Or specific date: "2025-01-01"
     end_date: "auto"                    # Or specific date: "2025-12-31"
-    total_value: 50000.00               # Your contract commitment
+    total_value: 50000.00               # Your contract commitment, or "auto"
     currency: "USD"
     commitment_type: "SPEND"
     status: "ACTIVE"
     notes: "Annual contract"
 ```
+
+**Pro Tip:** Set `total_value: "auto"` to have the system calculate the optimal commitment based on historical consumption (targets 95% utilization). See [Auto-Commit Optimizer](#auto-commit-optimizer) for details.
 
 ### Step 2: Deploy the Bundle
 
@@ -225,6 +228,8 @@ erDiagram
     DISCOUNT_SCENARIOS ||--o{ SCENARIO_BURNDOWN : "projects"
     DISCOUNT_SCENARIOS ||--o{ SCENARIO_FORECAST : "predicts"
     DISCOUNT_SCENARIOS ||--|| SCENARIO_SUMMARY : "summarizes"
+    DISCOUNT_TIERS ||--o{ AUTO_COMMIT_RECOMMENDATIONS : "optimizes"
+    AUTO_COMMIT_RECOMMENDATIONS ||--o{ AUTO_COMMIT_SCENARIOS : "evaluates"
 
     CONTRACTS {
         string contract_id PK
@@ -294,6 +299,31 @@ erDiagram
         decimal utilization_pct
         boolean is_sweet_spot
     }
+
+    AUTO_COMMIT_RECOMMENDATIONS {
+        string recommendation_id PK
+        string account_id
+        date analysis_date
+        int duration_years
+        decimal projected_total
+        decimal optimal_commitment
+        decimal optimal_discount_rate
+        decimal optimal_utilization_pct
+        decimal total_savings
+        string model_used
+    }
+
+    AUTO_COMMIT_SCENARIOS {
+        string scenario_id PK
+        string recommendation_id FK
+        decimal commitment_amount
+        decimal discount_rate
+        decimal utilization_pct
+        decimal net_benefit
+        decimal roi_score
+        boolean is_optimal
+        string risk_level
+    }
 ```
 
 ### System Tables (Read-Only)
@@ -302,6 +332,16 @@ erDiagram
 |-------|-------------|
 | `system.billing.usage` | Raw usage records (DBUs, dates, workspaces, SKUs) |
 | `system.billing.list_prices` | Pricing information per SKU and cloud |
+
+### Auto-Commit Optimizer Tables
+
+| Table | Description |
+|-------|-------------|
+| `auto_commit_recommendations` | Optimal commitment recommendations per account |
+| `auto_commit_scenarios` | All evaluated scenarios with ROI scores |
+| `auto_commit_forecast_detail` | Daily forecast breakdown (historical + predicted) |
+| `auto_commit_latest` (view) | Most recent recommendation per account |
+| `auto_commit_summary` (view) | Dashboard-ready summary with metadata |
 
 ---
 
@@ -716,6 +756,168 @@ databricks sql execute --file /tmp/refresh.sql --profile YOUR_PROFILE
 
 ---
 
+## Auto-Commit Optimizer
+
+The Auto-Commit Optimizer analyzes historical consumption and uses ML forecasting to recommend the optimal contract commitment amount that maximizes discount while ensuring high utilization.
+
+### Objectives
+
+1. **Optimal Commitment**: Calculate the commitment amount that achieves target utilization (default 95%)
+2. **Discount Maximization**: Find the best discount tier for your projected consumption
+3. **Risk Assessment**: Provide conservative and aggressive alternatives with different risk profiles
+4. **ROI Analysis**: Score each scenario by net benefit (savings minus wasted commitment)
+
+### How It Works
+
+```mermaid
+flowchart LR
+    subgraph input["📊 Inputs"]
+        history["Historical Consumption"]
+        tiers["Discount Tiers"]
+        config["Contract Duration"]
+    end
+
+    subgraph analyze["🧮 Analysis"]
+        stats["Daily Average & Trend"]
+        prophet["Prophet Forecast"]
+        project["Project Total"]
+    end
+
+    subgraph optimize["🎯 Optimization"]
+        candidates["Evaluate Candidates"]
+        score["ROI Scoring"]
+        select["Select Optimal"]
+    end
+
+    subgraph output["📈 Output"]
+        optimal["Optimal Recommendation"]
+        alternatives["Conservative/Aggressive"]
+        report["Savings Report"]
+    end
+
+    input --> analyze --> optimize --> output
+```
+
+The optimizer:
+1. Loads historical daily consumption from `system.billing.usage`
+2. Analyzes consumption patterns (average, trend, seasonality)
+3. Uses Prophet ML model to forecast future consumption
+4. Evaluates commitment candidates at tier boundaries
+5. Calculates ROI score for each scenario (net benefit / commitment)
+6. Recommends optimal commitment with conservative and aggressive alternatives
+
+### Using `total_value: "auto"`
+
+The simplest way to use the optimizer is setting `total_value: "auto"` in your contract config:
+
+```yaml
+# config/contracts.yml
+contracts:
+  - contract_id: "CONTRACT-001"
+    cloud_provider: "auto"
+    start_date: "2025-01-01"
+    end_date: "2026-12-31"          # 2-year contract
+    total_value: "auto"              # Calculate optimal commitment
+    currency: "USD"
+    commitment_type: "SPEND"
+    status: "ACTIVE"
+    notes: "Auto-calculated optimal commitment"
+```
+
+When `total_value: "auto"` is set:
+- The system analyzes your historical consumption (last 365 days)
+- Calculates projected consumption over the contract period
+- Sets commitment to achieve 95% expected utilization
+- Rounds to nearest $1,000 for cleaner numbers
+
+### Running the Full Optimizer
+
+For detailed analysis with alternatives, run the dedicated optimizer notebook:
+
+```bash
+# Run the auto-commit optimizer
+databricks bundle run account_monitor_weekly_training --profile YOUR_PROFILE
+```
+
+Or run the notebook directly with custom parameters:
+
+```python
+# In Databricks notebook
+%run ./auto_commit_optimizer
+
+# Parameters (via widgets):
+# - catalog: Unity Catalog name
+# - schema: Schema name
+# - duration_years: Contract duration (default: 2)
+# - start_date: Contract start (default: today)
+# - target_utilization: Target % (default: 95)
+# - historical_days: Lookback period (default: 365)
+# - account_id: Account ID (default: auto-detect)
+```
+
+### Output Tables
+
+| Table | Description |
+|-------|-------------|
+| `auto_commit_recommendations` | Optimal commitment with metadata and confidence |
+| `auto_commit_scenarios` | All evaluated scenarios with ROI scores |
+| `auto_commit_forecast_detail` | Daily breakdown of historical + forecast |
+| `auto_commit_latest` (view) | Most recent recommendation per account |
+| `auto_commit_summary` (view) | Dashboard-ready summary with customer name |
+
+### Example Output
+
+```
+======================================================================
+AUTO-COMMIT OPTIMIZATION RECOMMENDATION
+======================================================================
+
+Account: abc123-def456-ghi789
+Contract Period: 2025-01-01 to 2026-12-31 (2 years)
+
+                      Analysis Summary
+----------------------------------------------------------------------
+Historical Daily Average:     $          1,234.56
+Forecasted Daily Average:     $          1,456.78
+Total Projected Consumption:  $      1,063,419.00
+Model Used:                            prophet
+
+                   Optimal Recommendation
+----------------------------------------------------------------------
+Commitment Amount:            $      1,120,000.00
+Discount Tier:                     TIER_1M_2Y
+Discount Rate:                              30%
+Expected Utilization:                     94.9%
+Total Savings vs List:        $        318,825.70
+Net Benefit:                  $        301,547.00
+
+              Conservative Alternative (Lower Risk)
+----------------------------------------------------------------------
+Commitment Amount:            $      1,000,000.00
+Discount Rate:                              25%
+Expected Utilization:                    106.3%
+Savings:                      $        265,854.75
+
+               Aggressive Alternative (Higher Savings)
+----------------------------------------------------------------------
+Commitment Amount:            $      1,250,000.00
+Discount Rate:                              30%
+Expected Utilization:                     85.1%
+Savings:                      $        375,000.00
+
+======================================================================
+```
+
+### Recommendation Strategies
+
+| Strategy | Description | Best For |
+|----------|-------------|----------|
+| **Optimal** | Best ROI score with utilization ≥ 90% of target | Most organizations |
+| **Conservative** | Lower commitment, higher utilization | Risk-averse, volatile usage |
+| **Aggressive** | Higher commitment, higher savings potential | Predictable, growing usage |
+
+---
+
 ## Verifying Data Freshness
 
 ```sql
@@ -749,6 +951,7 @@ FROM main.account_monitoring_dev.contract_forecast;
 | **contract_management_crud.py** | Add, update, delete contracts and metadata |
 | **consumption_forecaster.py** | Prophet model training and inference |
 | **whatif_simulator.py** | What-If discount scenario generation |
+| **auto_commit_optimizer.py** | ML-based optimal commitment recommendations |
 | **setup_contracts.py** | Load contracts from YAML config files |
 | **update_discount_tiers.py** | MERGE-based discount tier updates |
 | **post_deployment_validation.py** | Verify setup and data integrity |
@@ -1494,6 +1697,7 @@ Grant the service principal:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **1.18.0** | 2026-02-24 | Auto-Commit Optimizer: ML-based optimal contract commitment recommendations with `total_value: "auto"` support |
 | **1.17.0** | 2026-02-12 | Skip redundant extension scenarios when shorter extension reaches 100% utilization |
 | **1.16.0** | 2026-02-12 | Added lightweight discount tier update job with MERGE-based incremental updates |
 | **1.15.0** | 2026-02-11 | Reorganized documentation by persona (Executive, Administrator, Developer) |

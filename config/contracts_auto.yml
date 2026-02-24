@@ -15,7 +15,7 @@
 
 account_metadata:
   account_id: "auto"  # "auto" = detect from system.billing.usage, or specify explicitly
-  customer_name: "Databricks Field Eng"
+  customer_name: "Databricks auto Field Eng"
 
   # Business unit hierarchy (for organizational reporting)
   business_unit_l0: "REGION"        # Top level (e.g., AMER, EMEA, APAC)
@@ -42,19 +42,18 @@ account_metadata:
 #   cloud_provider: "auto" (detect), "AWS", "AZURE", or "GCP"
 #   start_date: Contract start date (YYYY-MM-DD) or "auto" for 1 year ago
 #   end_date: Contract end date (YYYY-MM-DD) or "auto" for 1 year from now
-#   total_value: Contract commitment amount in dollars, or "auto" to calculate
-#                optimal commitment based on historical consumption (targets 95% utilization)
+#   total_value: Contract commitment amount in dollars
 #   currency: Currency code (default: USD)
 #   commitment_type: "SPEND" (dollar amount) or "DBU" (compute units)
 #   status: "ACTIVE", "EXPIRED", or "PENDING"
 #   notes: Optional description
 
 contracts:
-  - contract_id: "CONTRACT-FE-001"
+  - contract_id: "CONTRACT-LPT-001-AUTO"
     cloud_provider: "auto"          # Auto-detect from usage data
     start_date: "auto"              # 1 year ago
     end_date: "auto"                # 1 year from now
-    total_value: 35000000.00
+    total_value: "auto"             # to be defined automatically
     currency: "USD"
     commitment_type: "SPEND"
     status: "ACTIVE"
