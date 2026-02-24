@@ -215,16 +215,25 @@ def calculate_optimal_commitment(start_date: str, end_date: str, target_utilizat
     contract_days = (end - start).days
     duration_years = max(1, round(contract_days / 365))
 
-    # Get historical consumption (last 365 days)
+    # Get historical consumption (last 365 days) with list_prices
     historical_df = spark.sql("""
         SELECT
-            usage_date,
-            SUM(usage_quantity * pricing.default) as daily_cost
-        FROM system.billing.usage
-        WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
-          AND usage_date < CURRENT_DATE()
-        GROUP BY usage_date
-        ORDER BY usage_date
+            u.usage_date,
+            SUM(u.usage_quantity * COALESCE(
+                CAST(p.pricing.effective_list.default AS DOUBLE),
+                CAST(p.pricing.default AS DOUBLE),
+                0.5
+            )) as daily_cost
+        FROM system.billing.usage u
+        LEFT JOIN system.billing.list_prices p
+            ON u.sku_name = p.sku_name
+            AND u.cloud = p.cloud
+            AND u.usage_date >= DATE(p.price_start_time)
+            AND (p.price_end_time IS NULL OR u.usage_date < DATE(p.price_end_time))
+        WHERE u.usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+          AND u.usage_date < CURRENT_DATE()
+        GROUP BY u.usage_date
+        ORDER BY u.usage_date
     """).toPandas()
 
     if historical_df.empty:

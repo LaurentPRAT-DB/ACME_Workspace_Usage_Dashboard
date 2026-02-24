@@ -179,17 +179,27 @@ def get_account_id():
     raise ValueError("Could not determine account_id")
 
 def load_historical_consumption(account_id, lookback_days):
-    """Load historical daily consumption from system.billing.usage."""
+    """Load historical daily consumption from system.billing.usage with list_prices."""
     query = f"""
     SELECT
-      usage_date,
-      SUM(usage_quantity * pricing.default) as daily_cost
-    FROM system.billing.usage
-    WHERE account_id = '{account_id}'
-      AND usage_date >= DATE_SUB(CURRENT_DATE(), {lookback_days})
-      AND usage_date < CURRENT_DATE()
-    GROUP BY usage_date
-    ORDER BY usage_date
+      u.usage_date,
+      SUM(u.usage_quantity * COALESCE(
+        CAST(p.pricing.effective_list.default AS DOUBLE),
+        CAST(p.pricing.default AS DOUBLE),
+        0.5
+      )) as daily_cost
+    FROM system.billing.usage u
+    LEFT JOIN system.billing.list_prices p
+      ON u.account_id = p.account_id
+      AND u.sku_name = p.sku_name
+      AND u.cloud = p.cloud
+      AND u.usage_date >= DATE(p.price_start_time)
+      AND (p.price_end_time IS NULL OR u.usage_date < DATE(p.price_end_time))
+    WHERE u.account_id = '{account_id}'
+      AND u.usage_date >= DATE_SUB(CURRENT_DATE(), {lookback_days})
+      AND u.usage_date < CURRENT_DATE()
+    GROUP BY u.usage_date
+    ORDER BY u.usage_date
     """
     return spark.sql(query).toPandas()
 
