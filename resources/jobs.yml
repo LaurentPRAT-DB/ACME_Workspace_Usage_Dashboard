@@ -141,11 +141,42 @@ resources:
             source: WORKSPACE
           timeout_seconds: 3600
 
+        # Phase 5b: Auto-Commit Optimization Schema
+        - task_key: create_autocommit_schema
+          description: "Create auto-commit optimization tables"
+          depends_on:
+            - task_key: create_whatif_schema
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/create_autocommit_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        # Phase 5c: Auto-Commit Optimization
+        - task_key: run_auto_commit_optimizer
+          description: "Generate optimal commitment recommendations"
+          depends_on:
+            - task_key: train_and_forecast
+            - task_key: create_autocommit_schema
+          notebook_task:
+            notebook_path: ../notebooks/auto_commit_optimizer.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              duration_years: ""
+              target_utilization: "95"
+              historical_days: "365"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
         # Phase 6: Validation
         - task_key: validate_installation
           description: "Verify all data is ready"
           depends_on:
             - task_key: run_whatif_simulation
+            - task_key: run_auto_commit_optimizer
           sql_task:
             warehouse_id: ${var.warehouse_id}
             file:
@@ -446,6 +477,21 @@ resources:
             source: WORKSPACE
           timeout_seconds: 3600
 
+        - task_key: run_auto_commit_optimizer
+          description: "Update optimal commitment recommendations"
+          depends_on:
+            - task_key: train_prophet_models
+          notebook_task:
+            notebook_path: ../notebooks/auto_commit_optimizer.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              duration_years: ""
+              target_utilization: "95"
+              historical_days: "365"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
       schedule:
         quartz_cron_expression: "0 0 3 ? * SUN"  # Every Sunday at 3 AM
         timezone_id: "UTC"
@@ -497,6 +543,47 @@ resources:
         bundle: account_monitor
         environment: ${bundle.target}
         type: config_update
+
+    # ==========================================================================
+    # AUTO-COMMIT OPTIMIZER - On-demand commitment recommendation
+    # ==========================================================================
+    account_monitor_auto_commit:
+      name: "[${bundle.target}] Account Monitor - Auto-Commit Optimizer"
+      description: "Generate optimal contract commitment recommendations based on historical consumption and Prophet forecasting"
+
+      tasks:
+        - task_key: create_autocommit_schema
+          description: "Ensure auto-commit tables exist"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/create_autocommit_schema.sql
+            parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: run_auto_commit_optimizer
+          description: "Generate optimal commitment recommendations"
+          depends_on:
+            - task_key: create_autocommit_schema
+          notebook_task:
+            notebook_path: ../notebooks/auto_commit_optimizer.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              duration_years: ""
+              target_utilization: "95"
+              historical_days: "365"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
+      # No schedule - manual run only
+      max_concurrent_runs: 1
+
+      tags:
+        bundle: account_monitor
+        environment: ${bundle.target}
+        type: optimization
 
     # ==========================================================================
     # CLEANUP JOB - Run this to wipe all data and start fresh

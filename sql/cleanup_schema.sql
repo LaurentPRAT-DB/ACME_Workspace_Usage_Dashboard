@@ -36,6 +36,10 @@ DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_co
 DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_burndown_chart');
 DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.sweet_spot_recommendation');
 
+-- Auto-Commit Optimization views
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_latest');
+DROP VIEW IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_summary');
+
 SELECT 'Views dropped' AS status;
 
 -- ============================================================================
@@ -49,6 +53,12 @@ DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.scenario_b
 DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_scenarios');
 DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.discount_tiers');
 DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.whatif_debug_log');
+
+-- Auto-Commit Optimization tables
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_forecast_detail');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_scenarios');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_recommendations');
+DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.autocommit_debug_log');
 
 -- Forecast tables
 DROP TABLE IF EXISTS IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast');

@@ -47,3 +47,17 @@ contracts:
     commitment_type: "SPEND"
     status: "PENDING"
     notes: "Example 2-year enterprise contract"
+
+  # Example contract 3 (auto-calculated commitment)
+  # Use "auto" for total_value to automatically calculate the optimal
+  # commitment based on historical consumption (targets 95% utilization)
+  #
+  # - contract_id: "EXAMPLE-CONTRACT-AUTO"
+  #   cloud_provider: "auto"
+  #   start_date: "auto"              # 1 year ago
+  #   end_date: "auto"                # 1 year from now
+  #   total_value: "auto"             # Calculate optimal commitment from consumption
+  #   currency: "USD"
+  #   commitment_type: "SPEND"
+  #   status: "ACTIVE"
+  #   notes: "Auto-calculated optimal commitment contract"
