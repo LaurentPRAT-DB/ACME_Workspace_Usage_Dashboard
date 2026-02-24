@@ -187,6 +187,107 @@ def resolve_date(date_value: str, is_start: bool = True) -> str:
             return (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
     return date_value
 
+def calculate_optimal_commitment(start_date: str, end_date: str, target_utilization: float = 0.95) -> float:
+    """
+    Calculate optimal contract commitment based on historical consumption and forecasting.
+
+    Uses the same logic as auto_commit_optimizer:
+    - Analyzes historical consumption
+    - Projects future consumption using linear trend
+    - Finds commitment that achieves target utilization with best discount
+
+    Args:
+        start_date: Contract start date (YYYY-MM-DD)
+        end_date: Contract end date (YYYY-MM-DD)
+        target_utilization: Target utilization percentage (default 95%)
+
+    Returns:
+        Optimal commitment amount in dollars
+    """
+    from datetime import datetime as dt_class
+
+    # Parse dates
+    start = dt_class.strptime(start_date, '%Y-%m-%d').date()
+    end = dt_class.strptime(end_date, '%Y-%m-%d').date()
+    today = dt_class.now().date()
+
+    # Calculate contract duration in days
+    contract_days = (end - start).days
+    duration_years = max(1, round(contract_days / 365))
+
+    # Get historical consumption (last 365 days)
+    historical_df = spark.sql("""
+        SELECT
+            usage_date,
+            SUM(usage_quantity * pricing.default) as daily_cost
+        FROM system.billing.usage
+        WHERE usage_date >= DATE_SUB(CURRENT_DATE(), 365)
+          AND usage_date < CURRENT_DATE()
+        GROUP BY usage_date
+        ORDER BY usage_date
+    """).toPandas()
+
+    if historical_df.empty:
+        print("  WARNING: No historical consumption data found. Using default commitment.")
+        return 10000.00
+
+    # Calculate consumption metrics
+    historical_df['daily_cost'] = historical_df['daily_cost'].astype(float)
+    daily_avg = historical_df['daily_cost'].mean()
+    daily_std = historical_df['daily_cost'].std()
+
+    # Calculate trend (simple linear regression)
+    if len(historical_df) > 7:
+        import numpy as np
+        x = np.arange(len(historical_df))
+        y = historical_df['daily_cost'].values
+        mask = np.isfinite(y)
+        if mask.sum() > 2:
+            slope, _ = np.polyfit(x[mask], y[mask], 1)
+        else:
+            slope = 0
+    else:
+        slope = 0
+
+    # Project consumption over contract period
+    # Historical portion (from start to today or contract start, whichever is later)
+    if start < today:
+        # Some historical data within contract period
+        contract_historical_days = min((today - start).days, contract_days)
+        forecast_days = contract_days - contract_historical_days
+    else:
+        # Future contract - all forecast
+        contract_historical_days = 0
+        forecast_days = contract_days
+
+    # Calculate projected total
+    # Historical portion uses actual average
+    historical_portion = contract_historical_days * daily_avg
+
+    # Forecast portion uses average + trend
+    forecast_portion = 0
+    for i in range(forecast_days):
+        day_value = daily_avg + (slope * (contract_historical_days + i))
+        forecast_portion += max(0, day_value)
+
+    projected_total = historical_portion + forecast_portion
+
+    # Calculate optimal commitment for target utilization
+    optimal_commitment = projected_total / target_utilization
+
+    # Round to nearest $1000 for cleaner numbers
+    optimal_commitment = round(optimal_commitment / 1000) * 1000
+
+    # Ensure minimum commitment
+    optimal_commitment = max(optimal_commitment, 1000.00)
+
+    print(f"  Auto-calculated commitment:")
+    print(f"    Historical daily avg: ${daily_avg:,.2f}")
+    print(f"    Projected total: ${projected_total:,.2f}")
+    print(f"    Optimal commitment (at {target_utilization*100:.0f}% util): ${optimal_commitment:,.2f}")
+
+    return optimal_commitment
+
 # Resolve auto values
 actual_account_id = get_actual_account_id()
 actual_cloud_provider = get_actual_cloud_provider()
@@ -266,7 +367,15 @@ for contract in contracts:
     cloud_provider = actual_cloud_provider if contract.get('cloud_provider') == 'auto' else contract.get('cloud_provider')
     start_date = resolve_date(contract.get('start_date', 'auto'), is_start=True)
     end_date = resolve_date(contract.get('end_date', 'auto'), is_start=False)
-    total_value = contract.get('total_value', 10000.00)
+
+    # Handle auto total_value - calculate optimal commitment from consumption data
+    total_value_config = contract.get('total_value', 10000.00)
+    if total_value_config == 'auto' or total_value_config == 'AUTO':
+        print(f"\nCalculating optimal commitment for {contract_id}...")
+        total_value = calculate_optimal_commitment(start_date, end_date)
+    else:
+        total_value = float(total_value_config)
+
     currency = contract.get('currency', 'USD')
     commitment_type = contract.get('commitment_type', 'SPEND')
     status = contract.get('status', 'ACTIVE')
