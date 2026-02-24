@@ -65,6 +65,25 @@ FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast')
 WHERE forecast_date = (SELECT MAX(forecast_date) FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.contract_forecast'))
 LIMIT 1;
 
+-- Auto-Commit Optimization validation
+SELECT
+  'auto_commit_recommendations' as table_name,
+  COUNT(*) as total_rows,
+  COUNT(DISTINCT account_id) as accounts_analyzed
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_recommendations');
+
+SELECT
+  'AUTO-COMMIT OPTIMIZATION CHECK' as check_name,
+  CASE
+    WHEN COUNT(*) > 0 THEN 'OK - Recommendations generated'
+    ELSE 'WARNING - No recommendations available'
+  END as status,
+  MAX(optimal_commitment) as recommended_commitment,
+  MAX(optimal_discount_rate * 100) as discount_pct,
+  MAX(optimal_utilization_pct) as utilization_pct
+FROM IDENTIFIER({{catalog}} || '.' || {{schema}} || '.auto_commit_recommendations')
+WHERE status = 'ACTIVE';
+
 -- Final status
 SELECT
   'SUCCESS: First install validation complete!' as status,
